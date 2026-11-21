@@ -18,6 +18,10 @@ msgstr "{0, plural, one {# modifié} other {# modifiés}}"
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# fenêtre} other {# fenêtres}}"
 
+#: src/index.tsx:309
+msgid "{commits30d} commits / 30d"
+msgstr "{commits30d} commits / 30j"
+
 #: src/index.tsx:89
 msgid "{days}d ago"
 msgstr "il y a {days}j"
@@ -73,7 +77,7 @@ msgid "Configure Extension ID"
 msgstr "Configurer un ID d'extension"
 
 #: src/index.tsx:179
-#: src/index.tsx:396
+#: src/index.tsx:402
 msgid "Connect Browser Extension ID"
 msgstr "Connecter un ID d'extension navigateur"
 
@@ -85,11 +89,11 @@ msgstr "Moteur ContextBraid actif"
 msgid "ContextBraid local engine is not running"
 msgstr "Moteur local ContextBraid non démarré"
 
-#: src/index.tsx:390
+#: src/index.tsx:396
 msgid "Copy Repository Path"
 msgstr "Copier le chemin du dépôt"
 
-#: src/index.tsx:366
+#: src/index.tsx:372
 msgid "Cycle Project Windows"
 msgstr "Rotation fenêtres du projet"
 
@@ -117,7 +121,7 @@ msgstr "En cours de génération"
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:384
+#: src/index.tsx:390
 msgid "Hide Detail Pane"
 msgstr "Masquer le panneau détail"
 
@@ -141,7 +145,7 @@ msgstr "Erreur d'installation"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "ID invalide (32 lettres minuscules attendues)"
 
-#: src/index.tsx:375
+#: src/index.tsx:381
 msgid "Jump to Next Agent Alert"
 msgstr "Sauter vers la prochaine alerte"
 
@@ -163,20 +167,20 @@ msgid "Open editors"
 msgstr "Éditeurs ouverts"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:345
+#: src/index.tsx:351
 msgid "Open in {0}"
 msgstr "Ouvrir dans {0}"
 
-#: src/index.tsx:357
+#: src/index.tsx:363
 msgid "Open in Terminal"
 msgstr "Ouvrir dans le Terminal"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:352
+#: src/index.tsx:358
 msgid "Opened in {0}"
 msgstr "Ouvert dans {0}"
 
-#: src/index.tsx:332
+#: src/index.tsx:338
 msgid "Path"
 msgstr "Chemin"
 
@@ -184,7 +188,7 @@ msgstr "Chemin"
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Appuyez sur Entrée pour installer et démarrer automatiquement le service local."
 
-#: src/index.tsx:329
+#: src/index.tsx:335
 msgid "Private"
 msgstr "Privé"
 
@@ -216,7 +220,7 @@ msgstr "Enregistrer et reconnecter"
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Rechercher un dépôt, une branche, un agent ou un éditeur..."
 
-#: src/index.tsx:384
+#: src/index.tsx:390
 msgid "Show Detail Pane"
 msgstr "Afficher le panneau détail"
 
@@ -224,17 +228,17 @@ msgstr "Afficher le panneau détail"
 msgid "Starting ContextBraid engine..."
 msgstr "Démarrage moteur ContextBraid..."
 
-#: src/index.tsx:325
+#: src/index.tsx:331
 msgid "Status"
 msgstr "État"
 
-#: src/index.tsx:324
+#: src/index.tsx:330
 msgid "Surface"
 msgstr "Surface"
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:340
+#: src/index.tsx:346
 msgid "Switch to {0} ({1})"
 msgstr "Basculer vers {0} ({1})"
 
@@ -242,7 +246,7 @@ msgstr "Basculer vers {0} ({1})"
 msgid "Working"
 msgstr "En cours"
 
-#: src/index.tsx:309
+#: src/index.tsx:315
 msgid "Workspace Windows"
 msgstr "Fenêtres du projet"
 

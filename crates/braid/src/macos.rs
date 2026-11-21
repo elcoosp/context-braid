@@ -377,11 +377,35 @@ pub fn focus_editor_app(favorite: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn open_in_favorite_editor(favorite: &str, repo_path: &str) -> Result<()> {
+pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> Result<()> {
+    let repo_path = repo_path.as_ref();
     let spec = resolve_editor_spec(favorite);
-    let _ = Command::new("open").args(["-a", spec.cli_app, repo_path]).output();
-    unsafe {
-        activate_bundle_id(spec.bundle_id);
+    let cli_bin = match spec.id {
+        "zed" => Some("/Applications/Zed.app/Contents/MacOS/cli"),
+        "cursor" => Some("/Applications/Cursor.app/Contents/Resources/app/bin/cursor"),
+        "vscode" => Some("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"),
+        "windsurf" => Some("/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf"),
+        _ => None,
+    };
+
+    if let Some(bin) = cli_bin {
+        if Path::new(bin).exists() {
+            let status = std::process::Command::new(bin)
+                .arg("-n")
+                .arg(repo_path)
+                .status()?;
+            if status.success() {
+                return Ok(());
+            }
+        }
+    }
+
+    let status = std::process::Command::new("open")
+        .args(["-na", spec.cli_app, "--args", "-n"])
+        .arg(repo_path)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("Failed to open {} in new window", spec.label);
     }
     Ok(())
 }

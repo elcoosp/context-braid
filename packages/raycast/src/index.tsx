@@ -304,6 +304,12 @@ export default function Command() {
                                   }
                                   color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
                                 />
+                                {commits30d > 0 && (
+                                  <List.Item.Detail.Metadata.TagList.Item
+                                    text={t`${commits30d} commits / 30d`}
+                                    color={Color.SecondaryText}
+                                  />
+                                )}
                               </List.Item.Detail.Metadata.TagList>
                             )}
                             <List.Item.Detail.Metadata.TagList title={t`Workspace Windows`}>

@@ -68,6 +68,10 @@ export function extractPageState(
 }
 
 function hasCompletedZip(doc: Document, rules: ExtractionRules): boolean {
+  const loc = doc.location || (typeof window !== 'undefined' ? window.location : null);
+  if (loc && loc.hostname.endsWith('google.com') && loc.pathname.startsWith('/search')) {
+    return false;
+  }
   for (const sel of rules.completedSelectors) {
     if (doc.querySelector(sel)) return true;
   }
@@ -111,7 +115,6 @@ function collectFastSnippet(doc: Document, title: string, rules: ExtractionRules
     }
   }
 
-  // Capture également les chemins/repos cités dans les balises <code> inline de la conversation
   const codes = doc.querySelectorAll('[data-scope-id="turn"] code, main code');
   for (let i = 0; i < codes.length && totalLen < 4000; i++) {
     const el = codes.item(i);
