@@ -258,8 +258,15 @@ fn list_zed_active_session_paths(repos_root: &Path) -> Vec<PathBuf> {
     let Ok(conn) = rusqlite::Connection::open_with_flags(&db_path, flags) else {
         return out;
     };
+
+    // Only select workspaces belonging to the live Zed process's current session_id
     let Ok(mut stmt) = conn.prepare(
-        "SELECT paths FROM workspaces WHERE session_id IS NOT NULL AND session_id != ''"
+        "SELECT paths FROM workspaces
+         WHERE session_id = (
+             SELECT session_id FROM workspaces
+             WHERE session_id IS NOT NULL AND session_id != ''
+             ORDER BY timestamp DESC LIMIT 1
+         )"
     ) else {
         return out;
     };
