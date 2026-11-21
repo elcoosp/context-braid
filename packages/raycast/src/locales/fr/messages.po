@@ -55,7 +55,7 @@ msgstr "Alertes & ZIP Prêts"
 #. placeholder {0}: proj.repo_name
 #: src/index.tsx:221
 msgid "Alerts unmuted for {0}"
-msgstr ""
+msgstr "Alertes réactivées pour {0}"
 
 #: src/index.tsx:269
 msgid "All contexts"
@@ -97,7 +97,7 @@ msgstr "Copier le chemin du dépôt"
 
 #: src/index.tsx:471
 msgid "Current Step"
-msgstr ""
+msgstr "Étape en cours"
 
 #: src/index.tsx:536
 msgid "Cycle Project Windows"
@@ -178,16 +178,16 @@ msgstr "Dernière activité"
 
 #: src/index.tsx:610
 msgid "Mute Repo Alerts (30m)"
-msgstr ""
+msgstr "Mettre en sourdine (30m)"
 
 #. placeholder {0}: proj.repo_name
 #: src/index.tsx:221
 msgid "Muted {0} for 30m"
-msgstr ""
+msgstr "{0} en sourdine (30m)"
 
 #: src/index.tsx:345
 msgid "Muted {mutedRemainingMin}m"
-msgstr ""
+msgstr "Sourdine {mutedRemainingMin}m"
 
 #: src/index.tsx:527
 msgid "Navigation"
@@ -285,7 +285,7 @@ msgstr "Basculer vers {0} ({1})"
 
 #: src/index.tsx:609
 msgid "Unmute Repo Alerts"
-msgstr ""
+msgstr "Réactiver les alertes"
 
 #: src/index.tsx:173
 msgid "Working"
