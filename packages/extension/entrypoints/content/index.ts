@@ -50,6 +50,7 @@ export default defineContentScript({
         browser.runtime.sendMessage({
           type: 'TAB_CONTEXT_UPDATE',
           browserName,
+          hidden: document.hidden,
           url: window.location.href,
           title: document.title,
           ...state,

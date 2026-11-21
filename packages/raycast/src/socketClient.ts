@@ -43,7 +43,7 @@ function sendOnce<T>(payload: Record<string, unknown>): Promise<T> {
     const client = net.createConnection({ path: SOCKET_PATH });
     let buffer = '';
 
-    client.setTimeout(1500);
+    client.setTimeout(5000);
     client.on('connect', () => {
       client.write(`${JSON.stringify(payload)}\n`);
     });

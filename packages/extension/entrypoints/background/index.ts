@@ -74,6 +74,17 @@ export default defineBackground(() => {
     return port;
   };
 
+  const sendDiag = (source: string, tabId: number, detail: string) => {
+    try {
+      ensurePort().postMessage({
+        type: 'diag_log',
+        source,
+        tab_id: tabId,
+        detail,
+      });
+    } catch {}
+  };
+
   const flushTabs = () => {
     if (tabCache.size === 0) return;
     try {
@@ -154,6 +165,11 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
+      sendDiag(
+        'CONTENT_RX',
+        sender.tab.id,
+        `hidden=${Boolean(msg.hidden)} status=${msg.status} zipUrl=${msg.zipDownloadUrl ?? 'none'} title=${JSON.stringify(msg.title)} snippet=${JSON.stringify(String(msg.contextSnippet ?? '').slice(0, 140))}`,
+      );
       if (autoDownloadZip && msg.status === 'completed') {
         const dlKey = `${sender.tab.id}|${msg.zipDownloadUrl || msg.title || msg.contextSnippet}`;
         if (!downloadedZips.has(dlKey)) {
@@ -195,12 +211,58 @@ export default defineBackground(() => {
     }
   });
 
+
+  if (browser.webRequest?.onBeforeRequest) {
+    browser.webRequest.onBeforeRequest.addListener(
+      (details) => {
+        if (details.tabId <= 0) return;
+        if (!['image', 'stylesheet', 'font', 'script'].includes(details.type)) {
+          sendDiag('NET_DONE', details.tabId, `${details.method} ${details.statusCode} [${details.type}] ${details.url}`);
+        }
+        if (!['image', 'stylesheet', 'font', 'script'].includes(details.type)) {
+          sendDiag('NET_REQ', details.tabId, `${details.method} [${details.type}] ${details.url}`);
+        }
+      },
+      { urls: AI_MATCH_PATTERNS },
+    );
+  }
+
+  if (browser.webRequest?.onErrorOccurred) {
+    browser.webRequest.onErrorOccurred.addListener(
+      (details) => {
+        if (details.tabId <= 0) return;
+        sendDiag('NET_ERR', details.tabId, `${details.method} [${details.type}] err=${details.error} ${details.url}`);
+      },
+      { urls: AI_MATCH_PATTERNS },
+    );
+  }
+
+  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (!isSupportedAiUrl(tab.url)) return;
+    if (changeInfo.title || changeInfo.status || changeInfo.url) {
+      sendDiag(
+        'TAB_UPD',
+        tabId,
+        `status=${changeInfo.status ?? '-'} title=${JSON.stringify(changeInfo.title ?? tab.title ?? '')} url=${changeInfo.url ?? ''}`,
+      );
+    }
+  });
+
+  if (browser.downloads?.onCreated) {
+    browser.downloads.onCreated.addListener((item) => {
+      sendDiag('DOWNLOAD_CREATED', -1, `id=${item.id} filename=${item.filename} url=${item.url}`);
+    });
+  }
+
   // Événement réseau natif : réveille immédiatement la sonde dès qu'une requête API/SSE se termine
   // sur un onglet IA en arrière-plan ou dans une fenêtre minimisée !
   if (browser.webRequest?.onCompleted) {
     browser.webRequest.onCompleted.addListener(
       (details) => {
         if (details.tabId <= 0) return;
+        
+        
+        
 
         const isStorageDownloadList = details.url.includes('/files/by-message') && details.url.includes('prefix=download');
         const isChatCompletionOrBatch =
