@@ -8,31 +8,27 @@ msgstr ""
 "Language: en\n"
 
 #. placeholder {0}: proj.dirty_files
-#: src/index.tsx:209
-#: src/index.tsx:257
+#: src/index.tsx:219
+#: src/index.tsx:267
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {# modified} other {# modified}}"
 
 #. placeholder {0}: proj.tabs.length
-#: src/index.tsx:211
+#: src/index.tsx:221
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# window} other {# windows}}"
 
-#: src/index.tsx:89
+#: src/index.tsx:99
 msgid "{days}d ago"
 msgstr "{days}d ago"
 
-#: src/index.tsx:285
-msgid "{formattedCommits} commits"
-msgstr "{formattedCommits} commits"
-
-#: src/index.tsx:77
 #: src/index.tsx:87
+#: src/index.tsx:97
 msgid "{hrs}h ago"
 msgstr "{hrs}h ago"
 
-#: src/index.tsx:75
 #: src/index.tsx:85
+#: src/index.tsx:95
 msgid "{mins}m ago"
 msgstr "{mins}m ago"
 
@@ -44,62 +40,57 @@ msgstr "1. Open chrome://extensions or brave://extensions\n"
 "2. Enable Developer Mode\n"
 "3. Copy the ID displayed under ContextBraid"
 
-#: src/index.tsx:285
-#: src/index.tsx:286
-msgid "30-Day Activity"
-msgstr "30-Day Activity"
-
 #: src/PairBrowserForm.tsx:42
 msgid "32-character Extension ID"
 msgstr "32-character Extension ID"
 
-#: src/index.tsx:98
+#: src/index.tsx:108
 msgid "Active"
 msgstr "Active"
 
-#: src/index.tsx:170
+#: src/index.tsx:180
 msgid "Alerts & Ready ZIPs"
 msgstr "Alerts & Ready ZIPs"
 
-#: src/index.tsx:169
+#: src/index.tsx:179
 msgid "All contexts"
 msgstr "All contexts"
 
-#: src/index.tsx:210
+#: src/index.tsx:220
 msgid "clean"
 msgstr "clean"
 
-#: src/index.tsx:258
+#: src/index.tsx:268
 msgid "Clean"
 msgstr "Clean"
 
-#: src/index.tsx:195
+#: src/index.tsx:205
 msgid "Configure Extension ID"
 msgstr "Configure Extension ID"
 
-#: src/index.tsx:179
-#: src/index.tsx:410
+#: src/index.tsx:189
+#: src/index.tsx:444
 msgid "Connect Browser Extension ID"
 msgstr "Connect Browser Extension ID"
 
-#: src/index.tsx:131
+#: src/index.tsx:141
 msgid "ContextBraid engine active"
 msgstr "ContextBraid engine active"
 
-#: src/index.tsx:189
+#: src/index.tsx:199
 msgid "ContextBraid local engine is not running"
 msgstr "ContextBraid local engine is not running"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:368
+#: src/index.tsx:402
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "Copy HEAD Commit SHA ({0})"
 
-#: src/index.tsx:404
+#: src/index.tsx:438
 msgid "Copy Repository Path"
 msgstr "Copy Repository Path"
 
-#: src/index.tsx:330
+#: src/index.tsx:364
 msgid "Cycle Project Windows"
 msgstr "Cycle Project Windows"
 
@@ -115,19 +106,23 @@ msgstr "Error"
 msgid "Extension registered! Click Reload (↻) in your browser."
 msgstr "Extension registered! Click Reload (↻) in your browser."
 
-#: src/index.tsx:168
+#: src/index.tsx:178
 msgid "Filter by status"
 msgstr "Filter by status"
 
-#: src/index.tsx:171
+#: src/index.tsx:181
 msgid "Generating"
 msgstr "Generating"
 
-#: src/index.tsx:349
+#: src/index.tsx:322
+msgid "Git"
+msgstr "Git"
+
+#: src/index.tsx:383
 msgid "Git & GitHub"
 msgstr "Git & GitHub"
 
-#: src/index.tsx:398
+#: src/index.tsx:432
 msgid "Hide Detail Pane"
 msgstr "Hide Detail Pane"
 
@@ -135,15 +130,15 @@ msgstr "Hide Detail Pane"
 msgid "How to find it"
 msgstr "How to find it"
 
-#: src/index.tsx:177
+#: src/index.tsx:187
 msgid "Install / Start Engine"
 msgstr "Install / Start Engine"
 
-#: src/index.tsx:193
+#: src/index.tsx:203
 msgid "Install and Start Now"
 msgstr "Install and Start Now"
 
-#: src/index.tsx:135
+#: src/index.tsx:145
 msgid "Installation error"
 msgstr "Installation error"
 
@@ -151,7 +146,7 @@ msgstr "Installation error"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "Invalid ID (32 lowercase letters expected)"
 
-#: src/index.tsx:339
+#: src/index.tsx:373
 msgid "Jump to Next Agent Alert"
 msgstr "Jump to Next Agent Alert"
 
@@ -159,67 +154,63 @@ msgstr "Jump to Next Agent Alert"
 msgid "Jumped to next agent alert"
 msgstr "Jumped to next agent alert"
 
-#: src/index.tsx:73
 #: src/index.tsx:83
+#: src/index.tsx:93
 msgid "just now"
 msgstr "just now"
 
-#: src/index.tsx:227
+#: src/index.tsx:237
 msgid "Last activity"
 msgstr "Last activity"
 
-#: src/index.tsx:323
+#: src/index.tsx:357
 msgid "Navigation"
 msgstr "Navigation"
 
-#: src/index.tsx:102
+#: src/index.tsx:112
 msgid "Needs Help"
 msgstr "Needs Help"
 
-#: src/index.tsx:172
+#: src/index.tsx:182
 msgid "Open editors"
 msgstr "Open editors"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:377
+#: src/index.tsx:411
 msgid "Open in {0}"
 msgstr "Open in {0}"
 
-#: src/index.tsx:389
+#: src/index.tsx:423
 msgid "Open in Terminal"
 msgstr "Open in Terminal"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:352
+#: src/index.tsx:386
 msgid "Open Latest PR (#{0})"
 msgstr "Open Latest PR (#{0})"
 
-#: src/index.tsx:360
+#: src/index.tsx:394
 msgid "Open Repository on GitHub"
 msgstr "Open Repository on GitHub"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:384
+#: src/index.tsx:418
 msgid "Opened in {0}"
 msgstr "Opened in {0}"
 
-#: src/index.tsx:190
+#: src/index.tsx:200
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Press Enter to automatically install and start the local background service."
 
-#: src/index.tsx:265
-msgid "Private"
-msgstr "Private"
-
-#: src/index.tsx:232
+#: src/index.tsx:242
 msgid "Private window"
 msgstr "Private window"
 
-#: src/index.tsx:108
+#: src/index.tsx:118
 msgid "Ready"
 msgstr "Ready"
 
-#: src/index.tsx:273
+#: src/index.tsx:282
 msgid "Recently Merged PRs"
 msgstr "Recently Merged PRs"
 
@@ -235,32 +226,36 @@ msgstr "Registering extension..."
 msgid "Save and Reconnect"
 msgstr "Save and Reconnect"
 
-#: src/index.tsx:166
+#: src/index.tsx:176
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Search a repo, branch, AI agent, or editor..."
 
-#: src/index.tsx:398
+#: src/index.tsx:340
+msgid "Session"
+msgstr "Session"
+
+#: src/index.tsx:432
 msgid "Show Detail Pane"
 msgstr "Show Detail Pane"
 
-#: src/index.tsx:127
+#: src/index.tsx:137
 msgid "Starting ContextBraid engine..."
 msgstr "Starting ContextBraid engine..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:325
+#: src/index.tsx:359
 msgid "Switch to {0} ({1})"
 msgstr "Switch to {0} ({1})"
 
-#: src/index.tsx:106
+#: src/index.tsx:116
 msgid "Working"
 msgstr "Working"
 
-#: src/index.tsx:375
+#: src/index.tsx:409
 msgid "Workspace"
 msgstr "Workspace"
 
-#: src/index.tsx:104
+#: src/index.tsx:114
 msgid "ZIP Ready"
 msgstr "ZIP Ready"

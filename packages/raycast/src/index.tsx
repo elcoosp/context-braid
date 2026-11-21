@@ -40,6 +40,16 @@ function detectRole(tab: TabContext, favoriteEditor: string): { name: string; ic
   return { name: 'Web', icon: BRAND_ICONS.browser };
 }
 
+function sanitizeMarkdownText(raw: string, maxLen = 64): string {
+  if (!raw) return '';
+  const cleaned = raw
+    .replace(/\r?\n+/g, ' ')
+    .replace(/[`*_~<>|]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned.length <= maxLen ? cleaned : `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
 function extractCleanIntent(rawTitle: string, repoName: string, isGoogleAi: boolean): string {
   if (!rawTitle) return '';
   let s = rawTitle
@@ -257,45 +267,32 @@ export default function Command() {
                     ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
                     : t`Clean`;
 
-                const summaryPillLine = [
-                  proj.git_branch ? `\`⎇ ${proj.git_branch}\`` : '',
-                  `\`${gitStatusLabel}\``,
-                  `\`${bBadge.label}\``,
-                  `**${meta.label}**${age ? ` · ${age}` : ''}`,
-                  tab.incognito ? `\`${t`Private`}\`` : '',
-                ]
-                  .filter(Boolean)
-                  .join('  ');
+                const subtitleLine = taskDetail
+                  ? `> **${role.name}** — ${taskDetail}`
+                  : `\`${shortenHomePath(proj.repo_path)}\``;
+
+                const cleanCommitMsg = sanitizeMarkdownText(proj.last_commit_msg, 54);
+                const commitLine = proj.last_commit_sha
+                  ? `**HEAD** \`${proj.last_commit_sha}\` · ${cleanCommitMsg}${commitAge ? ` *(${commitAge})*` : ''}`
+                  : '';
 
                 const prsBlock =
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
                         `**${t`Recently Merged PRs`}**`,
                         ...proj.recent_prs.slice(0, 2).map((pr) => {
-                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 56);
-                          const display = pr.title.length > 56 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
-                          return `\`#${pr.number}\`  ${display}`;
+                          const rawPr = sanitizeMarkdownText(pr.title, 44);
+                          return `\`#${pr.number}\` ${rawPr}`;
                         }),
                       ].join('  \n')
                     : '';
 
-                const velocitySection = chartImage
-                  ? [
-                      commits30d > 0
-                        ? `**${t`30-Day Activity`}** *(${t`${formattedCommits} commits`})*`
-                        : `**${t`30-Day Activity`}**`,
-                      chartImage,
-                    ].join('\n\n')
-                  : '';
-
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
-                  summaryPillLine,
-                  '---',
-                  activeContextLine,
-                  gitHeadline,
+                  subtitleLine,
+                  chartImage,
+                  commitLine,
                   prsBlock,
-                  velocitySection,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
@@ -317,7 +314,44 @@ export default function Command() {
                       meta.label,
                     ]}
                     accessories={accessories}
-                    detail={<List.Item.Detail markdown={detailMarkdown} />}
+                    detail={
+                      <List.Item.Detail
+                        markdown={detailMarkdown}
+                        metadata={
+                          <List.Item.Detail.Metadata>
+                            <List.Item.Detail.Metadata.TagList title={t`Git`}>
+                              {proj.git_branch && (
+                                <List.Item.Detail.Metadata.TagList.Item
+                                  text={`⎇ ${proj.git_branch}`}
+                                  color={Color.SecondaryText}
+                                />
+                              )}
+                              <List.Item.Detail.Metadata.TagList.Item
+                                text={gitStatusLabel}
+                                color={proj.dirty_files > 0 ? Color.Orange : Color.SecondaryText}
+                              />
+                              {commits30d > 0 && (
+                                <List.Item.Detail.Metadata.TagList.Item
+                                  text={`${formattedCommits} / 30d`}
+                                  color={Color.SecondaryText}
+                                />
+                              )}
+                            </List.Item.Detail.Metadata.TagList>
+                            <List.Item.Detail.Metadata.TagList title={t`Session`}>
+                              <List.Item.Detail.Metadata.TagList.Item
+                                text={bBadge.label}
+                                icon={bBadge.icon}
+                                color={Color.SecondaryText}
+                              />
+                              <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
+                              {age && (
+                                <List.Item.Detail.Metadata.TagList.Item text={age} color={Color.SecondaryText} />
+                              )}
+                            </List.Item.Detail.Metadata.TagList>
+                          </List.Item.Detail.Metadata>
+                        }
+                      />
+                    }
                     actions={
                       <ActionPanel>
                         <ActionPanel.Section title={t`Navigation`}>
