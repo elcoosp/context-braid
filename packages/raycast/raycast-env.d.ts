@@ -19,6 +19,8 @@ declare namespace Preferences {
   export type CycleProject = ExtensionPreferences & {}
   /** Preferences accessible in the `jump-alert` command */
   export type JumpAlert = ExtensionPreferences & {}
+  /** Preferences accessible in the `menu-bar` command */
+  export type MenuBar = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -28,5 +30,7 @@ declare namespace Arguments {
   export type CycleProject = {}
   /** Arguments passed to the `jump-alert` command */
   export type JumpAlert = {}
+  /** Arguments passed to the `menu-bar` command */
+  export type MenuBar = {}
 }
 

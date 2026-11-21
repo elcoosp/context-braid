@@ -38,6 +38,14 @@
       "description": "Focus the next AI tab waiting on a captcha or finished archive",
       "icon": "alert.png",
       "mode": "no-view"
+    },
+    {
+      "name": "menu-bar",
+      "title": "Workspace Status Menu",
+      "subtitle": "ContextBraid",
+      "description": "Live macOS menu bar indicator for active repositories and AI coding agents",
+      "mode": "menu-bar",
+      "interval": "15s"
     }
   ],
   "dependencies": {
@@ -57,3 +65,4 @@
     "typescript": "^5.8.0"
   }
 }
+
