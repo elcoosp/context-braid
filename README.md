@@ -1,31 +1,29 @@
 <div align="center">
-  <img src="https://jsdelivr.net" alt="ContextBraid Logo" width="300"/>
+  <img src="https://cdn.jsdelivr.net/gh/elcoosp/context-braid@main/docs/logo.png" alt="ContextBraid Logo" width="300"/>
   <p>
-    <strong>A macOS workspace orchestrator that pairs local Git repositories, Zed editor windows, and AI browser tabs into unified project contexts.</strong><br/>
-    ContextBraid runs a local Rust daemon over a Unix domain socket and bridges Chrome, Brave, Edge, Firefox, and Raycast via Native Messaging. Built for developers running parallel coding agents across z.ai, Qwen, Gemini, and Google AI Mode who want instant keyboard switching and immediate captcha or archive alerts without cloud telemetry.
+    <strong>A local macOS workspace cockpit linking Git repositories, code editors, and browser AI agents in one Raycast Split Pane.</strong><br/>
+    ContextBraid indexes your repositories in sub-millisecond time with <code>gitoxide</code>, tracks live editor windows, pairs browser tabs via Native Messaging, and surfaces merged pull requests and 30-day commit velocity without spawning Git subprocesses.
   </p>
   <p>
-    <a href="https://github.com"><img src="https://shields.io" alt="Release build status"/></a>
-    <a href="https://github.com"><img src="https://shields.io" alt="Latest release"/></a>
-    <a href="LICENSE"><img src="https://shields.io" alt="MIT License"/></a>
-    <a href="#status"><img src="https://shields.io" alt="macOS Universal"/></a>
+    <a href="https://github.com/elcoosp/context-braid/actions"><img src="https://img.shields.io/github/actions/workflow/status/elcoosp/context-braid/release.yml?style=flat-square&label=release%20build" alt="Release workflow"/></a>
+    <a href="https://github.com/elcoosp/context-braid/releases"><img src="https://img.shields.io/github/v/release/elcoosp/context-braid?style=flat-square&label=release" alt="Latest release"/></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/elcoosp/context-braid?style=flat-square" alt="MIT License"/></a>
+    <img src="https://img.shields.io/badge/platform-macOS-111111?style=flat-square&logo=apple" alt="Platform macOS"/>
+    <img src="https://img.shields.io/badge/rust-2024_edition-DEA584?style=flat-square&logo=rust" alt="Rust 2024 edition"/>
   </p>
   <p>
     <a href="#quickstart">Quickstart</a> •
     <a href="#features">Features</a> •
-    <a href="#how-it-works">How it works</a> •
-    <a href="#usage">Usage</a> •
-    <a href="#status">Status</a>
+    <a href="#architecture">Architecture</a> •
+    <a href="#usage">Usage</a>
   </p>
 </div>
 
 ## Quickstart
 
-Requires macOS 13+, [Raycast](https://raycast.com), and a supported browser (Chrome, Brave, Edge, or Firefox).
+Requires **macOS 13+** (Apple Silicon or Intel), **Rust** (2024 edition), **Node.js 22+**, **pnpm**, and [Raycast](https://www.raycast.com).
 
-1. **Install the Raycast extension** from `packages/raycast` (`Import Extension` in Raycast).
-2. **Load the browser extension** from `packages/extension/.output/chrome-mv3` (enable **Allow in Incognito** for private agent sessions) or `packages/extension/.output/firefox-mv2`.
-3. **Bootstrap the local Rust engine** directly inside Raycast by opening **Open Project Cockpit** and pressing `Return` on **Install and Start Now** (or run from source below):
+### 1. Build and install the background daemon
 
 ```bash
 cargo build --release --workspace
@@ -33,87 +31,87 @@ cargo build --release --workspace
 ```
 
 ```text
-ContextBraid installé et démarré depuis /Users/<you>/Library/Application Support/ContextBraid/bin/braid
+ContextBraid installé et démarré depuis /Users/adm/Library/Application Support/ContextBraid/bin/braid
 ```
+
+### 2. Build and load the browser extension
+
+```bash
+pnpm install
+pnpm --filter @context-braid/extension build
+```
+
+1. Open `brave://extensions`, `chrome://extensions`, or `arc://extensions` and enable **Developer Mode**.
+2. Click **Load unpacked** and select `packages/extension/.output/chrome-mv3`.
+3. Copy the 32-character **Extension ID** and register it:
+
+```bash
+./target/release/braid install --extension-id <32-char-id>
+```
+
+### 3. Build the Raycast extension
+
+```bash
+pnpm --filter context-braid-raycast build
+```
+
+Open **Open Project Cockpit** in Raycast to inspect active workspaces, switch tabs or editor windows, and jump directly to agent alerts.
 
 ## Features
 
-- **Deterministic repository pairing**: Matches browser tabs to local repositories in `~/Documents/Repos` using `owner/repo` path extraction, whole-word specificity scoring, and `openerTabId` parent-tab inheritance (`crates/braid-core`).
-- **Low-overhead DOM observation**: Extracts page titles, user prompt bubbles, and inline code blocks via targeted selectors debounced at 800 ms inside `requestIdleCallback` without reading `document.body.textContent` (`packages/extension/src/core/extractor.ts`).
-- **Immediate agent state detection**: Surfaces Aliyun and Cloudflare captchas (`needs_attention`), active generation spinners (`working`), and completed `.zip` deliverables (`completed`) ahead of idle contexts.
-- **Multi-browser and incognito isolation**: Indexes tabs by `(browser, window_id, tab_id)` with a 20-second TTL and 10-second keepalive so normal and private windows across Chrome, Brave, Edge, and Firefox never overwrite each other.
-- **Zero-latency Raycast hotkeys**: Exposes two `no-view` Raycast commands (`cycle-project` and `jump-alert`) that talk directly to `/tmp/braid.sock` and unminimize or focus matching macOS windows via Accessibility APIs (`crates/braid/src/macos.rs`).
-- **Single-binary self-installation**: Bundles the Unix socket daemon, Native Messaging stdio bridge, and `launchd` service installer into one `braid` executable (`crates/braid`).
+- **Sub-millisecond Git intelligence (`gitoxide`):** Reads `HEAD` branch, dirty working-tree file counts, latest commit summaries, and a 30-day commit velocity curve rendered as a transparent `2x` Retina PNG without spawning `git` subprocesses.
+- **Recently merged pull requests:** Asynchronously queries merged PRs (Merge, Squash, and Rebase workflows) via `gh` cached per `HEAD` SHA and renders clickable GitHub links above the velocity chart.
+- **Cross-surface project correlation:** Automatically links browser AI sessions (**Claude**, **ChatGPT**, **Gemini**, **Google AI**, **Qwen**, **z.ai**, **DeepSeek**, **Perplexity**, **Mistral**, **v0**, **Copilot**), live editor windows (**Zed**, **Cursor**, **VS Code**, **Windsurf**, **Neovim**), and local Git repositories.
+- **Real-time agent status detection:** Surfaces live states (`Active`, `Working`, `Captcha`, `ZIP Ready`, `Ready`) across normal and incognito browser windows while preventing false archive alerts on search pages.
+- **Native macOS window focusing and new-window launch:** Focuses exact browser tabs or editor windows via AppKit FFI (`NSRunningApplication`) and opens repositories in isolated new editor windows (`-n`) with `Cmd + E`.
+- **Localized Raycast interface (Lingui v6):** Ships compiled English and French `.po` catalogs transformed at build time with `@lingui/core/macro` and `@lingui/swc-plugin`.
 
-## How it works
-
-The browser extension observes supported AI domains (`*.z.ai`, `*.qwen.ai`, `://google.com`, `://google.com*`, `://deepseek.com`) and streams tab metadata over Chrome/Firefox Native Messaging to `braid host`, which forwards frames to `braid daemon` over `/tmp/braid.sock`. Raycast queries the same Unix socket to render grouped project workspaces and dispatch window-focus commands.
+## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Browsers ["Chrome / Brave / Edge / Firefox"]
-    CS["Content Script\n(O(1) DOM Extractor)"] --> BG["Background Worker\n(Native Messaging)"]
-  end
-
-  subgraph LocalMac ["macOS Local Runtime"]
-    HOST["braid host\n(u32 stdio bridge)"] <--> DAEMON["braid daemon\n(/tmp/braid.sock)"]
-    ZED["Zed Editor\n(AppleScript / AXUIElement)"] <--> DAEMON
-    RC["Raycast Extension\n(Cockpit & Hotkeys)"] <--> DAEMON
-  end
-
-  BG <--> HOST
+  EXT["Browser Extension<br/>(WXT / MV3 & Firefox)"] -- "Native Messaging<br/>(stdio u32 JSON)" --> DAEMON["braid daemon<br/>(Rust / Tokio / gitoxide)"]
+  DAEMON <-- "Unix Socket<br/>/tmp/braid.sock" --> RAY["Raycast Extension<br/>(React / Lingui v6)"]
+  DAEMON --- GIT["Local Git Repos & Editors<br/>(Zed / Cursor / VS Code / Windsurf)"]
 ```
 
 ## Usage
 
-### Raycast commands and recommended shortcuts
-
-Assign global shortcuts in **Raycast Settings -> Extensions -> ContextBraid**:
-
-| Command | Mode | Recommended Shortcut | Action |
-| :--- | :--- | :--- | :--- |
-| **Open Project Cockpit** | `view` | `Option + Space` | Lists braided repositories sorted by active alerts, with live status tags. |
-| **Cycle Active Project Windows** | `no-view` | `Option + Tab` | Rotates focus across Zed and all AI tabs bound to the active repository. |
-| **Jump to Next Agent Alert** | `no-view` | `Option + A` | Focuses the next tab blocked on a captcha or holding a completed `.zip` archive. |
-
-### Configuration
-
-`braid` reads `~/.config/contextbraid/config.toml` (created automatically with defaults if absent):
+### Configuration (`~/.config/context-braid/config.toml`)
 
 ```toml
-[repos]
-root = "~/Documents/Repos"
-ignore = ["node_modules", "target", ".git", ".output", ".wxt"]
+repos_root = "~/Documents/Repos"
 
-[daemon]
-socket_path = "/tmp/braid.sock"
+[editor]
+favorite = "zed" # "zed" | "cursor" | "vscode" | "windsurf" | "neovim"
 ```
 
-### CLI subcommands
+### CLI commands
 
-```bash
-braid daemon                 # Run the Unix domain socket server (managed by launchd)
-braid host                   # Run the Native Messaging u32-framed stdio bridge
-braid install [EXT_ID]       # Install binary, Native Messaging manifests, and launchd agent
-```
+| Command | Description |
+| :--- | :--- |
+| `braid daemon` | Run the background Unix socket broker and state indexer |
+| `braid install [--extension-id <ID>]` | Install binary, register `launchd` agent, and write Native Messaging manifests |
+| `braid native-host` | Native Messaging stdio bridge invoked by Chromium/Firefox browsers |
+| `braid status` | Query live dashboard JSON from `/tmp/braid.sock` |
 
-> [!TIP]
-> If you load the browser extension unpacked during local development, copy its generated ID from `chrome://extensions` or `brave://extensions` and pass it via **Connecter un ID d'extension navigateur** inside Raycast or `braid install <EXT_ID>`.
+### Raycast shortcuts
 
-## Monorepo layout
-
-| Package | Path | Stack |
-| :--- | :--- | :--- |
-| `braid-core` | `crates/braid-core` | Rust 2024 — config parser, repository scanner, specificity matcher |
-| `braid` | `crates/braid` | Rust 2024 + Tokio — Unix socket daemon, Native Messaging host, macOS window driver |
-| `@context-braid/extension` | `packages/extension` | WXT 0.21 + Vite 8 + Vitest 5 Browser Mode (Chromium & Firefox) |
-| `context-braid-raycast` | `packages/raycast` | Raycast API v2 + TypeScript |
+| Shortcut | Action |
+| :--- | :--- |
+| `Enter` | Focus selected browser tab or editor window |
+| `Cmd + E` | Open repository in a new favorite editor window (`-n`) |
+| `Cmd + T` | Open repository in Terminal |
+| `Option + Tab` | Cycle windows of the active project |
+| `Option + A` | Jump to next agent alert (`Captcha` or `ZIP Ready`) |
+| `Cmd + I` | Toggle Split Pane detail view |
 
 ## Status
 
 > [!NOTE]
-> **Beta (v0.1.0).** Tested on macOS Apple Silicon (`arm64`) with `cargo nextest` and Vitest Browser Mode against real Chromium and Firefox instances. Release builds package a universal `arm64` + `x86_64` binary via `.github/workflows/release.yml`.
+> Active development (`v0.1.0`). Tested on macOS (Apple Silicon and Intel) with Rust 2024 edition (`cargo nextest`) and Vitest Browser Mode across Chromium and Firefox.
 
-- **Supported OS**: macOS (uses `osascript` and `AXUIElement` Accessibility permissions to raise and unminimize windows).
-- **Supported browsers**: Google Chrome, Brave, Microsoft Edge, and Mozilla Firefox (`>= 140.0`).
-- **Issues and feedback**: [GitHub Issues](https://github.com).
+## Learn more
+
+- **Workspace packages:** [`crates/braid`](crates/braid), [`crates/braid-core`](crates/braid-core), [`packages/extension`](packages/extension), [`packages/raycast`](packages/raycast)
+- **CI & Releases:** [`.github/workflows/release.yml`](.github/workflows/release.yml) — builds universal macOS binaries (`aarch64-apple-darwin` + `x86_64-apple-darwin`) on version tags (`v*`).
