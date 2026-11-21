@@ -13,3 +13,4 @@ anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 gix = { version = "0.70", default-features = false, features = ["status", "dirwalk"] }
+rusqlite = { version = "0.34", features = ["bundled"] }

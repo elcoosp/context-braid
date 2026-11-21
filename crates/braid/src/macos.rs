@@ -88,7 +88,6 @@ pub struct EditorSpec {
     pub label: &'static str,
     pub bundle_id: &'static str,
     pub cli_app: &'static str,
-    pub proc_names: &'static [&'static str],
 }
 
 pub fn resolve_editor_spec(favorite: &str) -> EditorSpec {
@@ -98,35 +97,30 @@ pub fn resolve_editor_spec(favorite: &str) -> EditorSpec {
             label: "Cursor",
             bundle_id: "com.todesktop.230313mzl4w4u92",
             cli_app: "Cursor",
-            proc_names: &["Cursor Helper", "Cursor"],
         },
         "vscode" | "code" | "visual studio code" => EditorSpec {
             id: "vscode",
             label: "VS Code",
             bundle_id: "com.microsoft.VSCode",
             cli_app: "Visual Studio Code",
-            proc_names: &["Code Helper", "Electron"],
         },
         "windsurf" => EditorSpec {
             id: "windsurf",
             label: "Windsurf",
             bundle_id: "com.exafunction.windsurf",
             cli_app: "Windsurf",
-            proc_names: &["Windsurf Helper", "Windsurf"],
         },
         "neovim" | "nvim" => EditorSpec {
             id: "neovim",
             label: "Neovim",
             bundle_id: "com.mitchellh.ghostty",
             cli_app: "Ghostty",
-            proc_names: &["nvim"],
         },
         _ => EditorSpec {
             id: "zed",
             label: "Zed",
             bundle_id: "dev.zed.Zed",
             cli_app: "Zed",
-            proc_names: &["zed", "Zed"],
         },
     }
 }
@@ -250,16 +244,59 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
     titles
 }
 
+fn list_zed_active_session_paths(repos_root: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let Some(home) = dirs::home_dir() else {
+        return out;
+    };
+    let db_path = home
+        .join("Library/Application Support/Zed/db/0-stable/db.sqlite");
+    if !db_path.exists() {
+        return out;
+    }
+    let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let Ok(conn) = rusqlite::Connection::open_with_flags(&db_path, flags) else {
+        return out;
+    };
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT paths FROM workspaces WHERE session_id IS NOT NULL AND session_id != ''"
+    ) else {
+        return out;
+    };
+    let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(0)) else {
+        return out;
+    };
+    for paths_str in rows.flatten() {
+        for raw_line in paths_str.lines() {
+            let p = Path::new(raw_line.trim());
+            if p.starts_with(repos_root) && p != repos_root {
+                let pb = p.to_path_buf();
+                if !out.contains(&pb) {
+                    out.push(pb);
+                }
+            }
+        }
+    }
+    out
+}
+
 pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     let spec = resolve_editor_spec(favorite);
     let pids = running_pids_for_bundle(spec.bundle_id);
-    let win_titles = list_window_titles_for_pids(&pids);
+    if pids.is_empty() {
+        return Vec::new();
+    }
 
+    if spec.id == "zed" {
+        return list_zed_active_session_paths(repos_root);
+    }
+
+    // Fallback via CoreGraphics window titles for other editors
+    let win_titles = list_window_titles_for_pids(&pids);
     let mut open_paths = Vec::new();
     let Ok(entries) = std::fs::read_dir(repos_root) else {
         return open_paths;
     };
-
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_dir() {
@@ -279,7 +316,6 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
             open_paths.push(path);
         }
     }
-
     open_paths
 }
 
