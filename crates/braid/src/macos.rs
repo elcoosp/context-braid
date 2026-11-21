@@ -816,11 +816,100 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
         .spawn();
 }
 
+
+pub fn frontmost_app_and_window() -> (String, String) {
+    use objc2_core_foundation::{
+        CFArray, CFDictionary, CFNumber, CFNumberType, CFRetained, CFString,
+    };
+    use std::ffi::c_void;
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGWindowListCopyWindowInfo(option: u32, relativeToWindow: u32) -> *const CFArray;
+    }
+
+    // kCGWindowListOptionOnScreenOnly (1) | kCGWindowListExcludeDesktopElements (16) = 17
+    let raw_list = unsafe { CGWindowListCopyWindowInfo(17, 0) };
+    if raw_list.is_null() {
+        return (String::new(), String::new());
+    }
+    let list: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(raw_list as *mut CFArray))
+    };
+
+    let k_layer = CFString::from_static_str("kCGWindowLayer");
+    let k_owner = CFString::from_static_str("kCGWindowOwnerName");
+    let k_name = CFString::from_static_str("kCGWindowName");
+
+    let count = list.len();
+    for i in 0..count {
+        let ptr = unsafe { list.value_at_index(i as isize) };
+        if ptr.is_null() {
+            continue;
+        }
+        let dict = unsafe { &*(ptr as *const CFDictionary) };
+
+        let layer_ptr = unsafe { dict.value(k_layer.as_ref() as *const CFString as *const c_void) };
+        let mut layer: i64 = -1;
+        if !layer_ptr.is_null() {
+            let num = unsafe { &*(layer_ptr as *const CFNumber) };
+            unsafe { num.value(CFNumberType::SInt64Type, &mut layer as *mut i64 as *mut c_void) };
+        }
+        if layer != 0 {
+            continue;
+        }
+
+        let owner_ptr = unsafe { dict.value(k_owner.as_ref() as *const CFString as *const c_void) };
+        let owner = if !owner_ptr.is_null() {
+            unsafe { &*(owner_ptr as *const CFString) }.to_string()
+        } else {
+            String::new()
+        };
+        let owner_low = owner.to_lowercase();
+        if owner_low.is_empty()
+            || owner_low.contains("raycast")
+            || owner_low == "window server"
+            || owner_low == "dock"
+        {
+            continue;
+        }
+
+        let name_ptr = unsafe { dict.value(k_name.as_ref() as *const CFString as *const c_void) };
+        let win_name = if !name_ptr.is_null() {
+            unsafe { &*(name_ptr as *const CFString) }.to_string()
+        } else {
+            String::new()
+        };
+        return (owner, win_name);
+    }
+
+    (String::new(), String::new())
+}
+
 pub fn frontmost_window_title() -> Option<String> {
-    let out = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", "tell application \"System Events\" to tell (first application process whose frontmost is true) to get name of front window"])
-        .output()
-        .ok()?;
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() { None } else { Some(s) }
+    let (_, w) = frontmost_app_and_window();
+    if w.is_empty() { None } else { Some(w) }
+}
+
+pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::Result<()> {
+    focus_editor_app(favorite)?;
+    let spec = resolve_editor_spec(favorite);
+    let script = format!(
+        r#"tell application "System Events"
+            tell process {:?}
+                set frontmost to true
+                repeat with w in windows
+                    if name of w contains {:?} then
+                        perform action "AXRaise" of w
+                        exit repeat
+                    end if
+                end repeat
+            end tell
+        end tell"#,
+        spec.cli_app, repo_name
+    );
+    let _ = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .spawn();
+    Ok(())
 }

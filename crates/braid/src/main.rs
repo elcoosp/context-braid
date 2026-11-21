@@ -139,7 +139,7 @@ impl DaemonState {
 
     fn focus_tab(&mut self, tab: &TabContextPayload) -> Result<()> {
         if matches!(tab.browser.as_str(), "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor") {
-            macos::focus_editor_app(&self.config.editor.favorite)?;
+            macos::focus_specific_editor_window(&self.config.editor.favorite, &tab.title)?;
         } else {
             macos::activate_browser_app(&tab.browser);
             let cmd = serde_json::json!({
@@ -299,14 +299,13 @@ IpcMessage::Ack
 IpcMessage::CycleProject { repo_name } => {
                 let mut st = state.write().await;
                 let projects = st.build_dashboard()?;
-                let front_bundle = macos::frontmost_bundle_id().unwrap_or_default();
-                let front_win_title = macos::frontmost_window_title().unwrap_or_default();
+                let (front_owner, front_win_title) = macos::frontmost_app_and_window();
                 let editor_spec = macos::resolve_editor_spec(&st.config.editor.favorite);
-                let is_editor_front = front_bundle == editor_spec.bundle_id;
+                let is_editor_front = front_owner.to_lowercase().contains(&editor_spec.label.to_lowercase()) || front_owner.to_lowercase().contains(&editor_spec.cli_app.to_lowercase());
 
                 tracing::info!(
                     arg_repo_name = ?repo_name,
-                    front_bundle = %front_bundle,
+                    front_owner = %front_owner,
                     front_win_title = %front_win_title,
                     is_editor_front = is_editor_front,
                     stored_active_repo = ?st.active_repo,
@@ -315,7 +314,7 @@ IpcMessage::CycleProject { repo_name } => {
 
                 // 1. Résout le dépôt depuis le titre exact de la fenêtre au premier plan (Zed ou Navigateur)
                 let win_lower = front_win_title.to_lowercase();
-                let by_window_title = if !win_lower.is_empty() && !front_bundle.contains("raycast") {
+                let by_window_title = if !win_lower.is_empty() {
                     projects
                         .iter()
                         .filter(|p| {
