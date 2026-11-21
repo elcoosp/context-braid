@@ -1,0 +1,49 @@
+name: Release ContextBraid
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Build Universal Binary macOS (arm64 + x86_64)
+        run: |
+          cargo build --release --target aarch64-apple-darwin -p braid
+          cargo build --release --target x86_64-apple-darwin -p braid
+          mkdir -p dist
+          lipo -create \
+            target/aarch64-apple-darwin/release/braid \
+            target/x86_64-apple-darwin/release/braid \
+            -output dist/braid-macos-universal
+          chmod +x dist/braid-macos-universal
+          shasum -a 256 dist/braid-macos-universal > dist/braid-macos-universal.sha256
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Package Browser Extensions (Chromium & Firefox)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @context-braid/extension zip
+          pnpm --filter @context-braid/extension zip:firefox
+          cp packages/extension/.output/*.zip dist/
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
