@@ -47,4 +47,20 @@ describe('ContextBraid Fast Extractor (Chromium & Firefox)', () => {
 
     expect(extractPageState(document).status).toBe('working');
   });
+
+  test('détecte la bannière d’erreur runtime z.ai ("Oops, something went wrong") comme needs_attention', () => {
+    document.title = 'Glyim';
+    document.body.innerHTML = `
+      <main>
+        <div data-user-bubble="true">Fix clippy errors on glyim</div>
+        <div>
+          <span>Oops, something went wrong. Please refresh the page or try again later.</span>
+        </div>
+      </main>
+    `;
+
+    const res = extractPageState(document);
+    expect(res.status).toBe('needs_attention');
+    expect(res.contextSnippet).toContain('Glyim');
+  });
 });

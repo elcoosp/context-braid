@@ -610,3 +610,20 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         recent_prs,
     }
 }
+
+pub fn notify_agent_alert(repo_name: &str, browser: &str, title: &str) {
+    let clean_title = if title.trim().is_empty() {
+        "Agent needs attention"
+    } else {
+        title.trim()
+    };
+    let script = format!(
+        "display notification {:?} with title {:?} subtitle {:?} sound name \"Glass\"",
+        clean_title,
+        format!("ContextBraid • {}", repo_name),
+        format!("Alerte sur {}", browser),
+    );
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .spawn();
+}

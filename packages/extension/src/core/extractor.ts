@@ -44,6 +44,24 @@ function isVisible(el: Element | null): boolean {
   return true;
 }
 
+function hasInlineRuntimeError(doc: Document): boolean {
+  const candidates = doc.querySelectorAll('main [role="alert"], main .text-red-500, main div, main p');
+  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 40; i--) {
+    const el = candidates[i];
+    // Ignore user prompt bubbles or code blocks
+    if (el.closest('[data-user-bubble="true"], pre, code')) continue;
+    const text = (el.textContent || '').trim();
+    if (
+      text.length > 0 &&
+      text.length < 220 &&
+      /oops,\s*something went wrong\.?\s*please refresh/i.test(text)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function extractPageState(
   doc: Document,
   rules: ExtractionRules = DEFAULT_RULES,
@@ -55,6 +73,9 @@ export function extractPageState(
     if (doc.querySelector(sel)) {
       return { status: 'needs_attention', contextSnippet: snippet };
     }
+  }
+  if (hasInlineRuntimeError(doc)) {
+    return { status: 'needs_attention', contextSnippet: snippet };
   }
   if (hasCompletedZip(doc, rules)) {
     return { status: 'completed', contextSnippet: snippet };

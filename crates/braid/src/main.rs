@@ -8,7 +8,7 @@ use braid_core::{
     match_tab_to_repo, scan_repos, AgentStatus, BraidConfig, IpcMessage,
     ProjectWorkspace, TabContextPayload,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -25,6 +25,7 @@ struct DaemonState {
     active_repo: Option<String>,
     last_focused_tab: Option<(String, i64, i64)>,
     cycle_cursor: usize,
+    notified_alerts: HashSet<(String, i64, i64)>,
     push_tx: broadcast::Sender<String>,
 }
 
@@ -44,6 +45,7 @@ impl DaemonState {
             active_repo: None,
             last_focused_tab: None,
             cycle_cursor: 0,
+            notified_alerts: HashSet::new(),
             push_tx,
         }
     }
@@ -202,15 +204,28 @@ IpcMessage::NotifyTabFocused {
                 IpcMessage::Ack
             }
 IpcMessage::SyncTabs { tabs, .. } => {
-let mut st = state.write().await;
-let now = now_ms();
-for t in tabs {
-let key = (t.browser.clone(), t.window_id, t.tab_id);
-st.tabs.insert(key, (t, now));
-}
-IpcMessage::Ack
-}
-IpcMessage::GetDashboard => {
+                let mut st = state.write().await;
+                let now = now_ms();
+                let root = st.config.resolved_repos_root();
+                let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
+                for t in tabs {
+                    let key = (t.browser.clone(), t.window_id, t.tab_id);
+                    let is_alert = matches!(t.status, AgentStatus::NeedsAttention);
+                    if is_alert {
+                        if st.notified_alerts.insert(key.clone()) {
+                            let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
+                                .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
+                                .unwrap_or_else(|| "Workspace".into());
+                            macos::notify_agent_alert(&repo_label, &t.browser, &t.title);
+                        }
+                    } else {
+                        st.notified_alerts.remove(&key);
+                    }
+                    st.tabs.insert(key, (t, now));
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::GetDashboard => {
 let mut st = state.write().await;
 let projects = st.build_dashboard()?;
 IpcMessage::DashboardResponse { projects }
