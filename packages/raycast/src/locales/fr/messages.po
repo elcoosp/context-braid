@@ -73,7 +73,7 @@ msgid "Configure Extension ID"
 msgstr "Configurer un ID d'extension"
 
 #: src/index.tsx:179
-#: src/index.tsx:402
+#: src/index.tsx:432
 msgid "Connect Browser Extension ID"
 msgstr "Connecter un ID d'extension navigateur"
 
@@ -85,11 +85,16 @@ msgstr "Moteur ContextBraid actif"
 msgid "ContextBraid local engine is not running"
 msgstr "Moteur local ContextBraid non démarré"
 
-#: src/index.tsx:396
+#. placeholder {0}: proj.last_commit_sha
+#: src/index.tsx:390
+msgid "Copy HEAD Commit SHA ({0})"
+msgstr "Copier le SHA HEAD ({0})"
+
+#: src/index.tsx:426
 msgid "Copy Repository Path"
 msgstr "Copier le chemin du dépôt"
 
-#: src/index.tsx:372
+#: src/index.tsx:352
 msgid "Cycle Project Windows"
 msgstr "Rotation fenêtres du projet"
 
@@ -117,7 +122,11 @@ msgstr "En cours de génération"
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:390
+#: src/index.tsx:371
+msgid "Git & GitHub"
+msgstr "Git & GitHub"
+
+#: src/index.tsx:420
 msgid "Hide Detail Pane"
 msgstr "Masquer le panneau détail"
 
@@ -141,7 +150,7 @@ msgstr "Erreur d'installation"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "ID invalide (32 lettres minuscules attendues)"
 
-#: src/index.tsx:381
+#: src/index.tsx:361
 msgid "Jump to Next Agent Alert"
 msgstr "Sauter vers la prochaine alerte"
 
@@ -158,6 +167,10 @@ msgstr "à l’instant"
 msgid "Last activity"
 msgstr "Dernière activité"
 
+#: src/index.tsx:345
+msgid "Navigation"
+msgstr "Navigation"
+
 #: src/index.tsx:102
 msgid "Needs Help"
 msgstr "Alerte"
@@ -167,16 +180,25 @@ msgid "Open editors"
 msgstr "Éditeurs ouverts"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:351
+#: src/index.tsx:399
 msgid "Open in {0}"
 msgstr "Ouvrir dans {0}"
 
-#: src/index.tsx:363
+#: src/index.tsx:411
 msgid "Open in Terminal"
 msgstr "Ouvrir dans le Terminal"
 
+#. placeholder {0}: latestPr.number
+#: src/index.tsx:374
+msgid "Open Latest PR (#{0})"
+msgstr "Ouvrir la dernière PR (#{0})"
+
+#: src/index.tsx:382
+msgid "Open Repository on GitHub"
+msgstr "Ouvrir le dépôt sur GitHub"
+
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:358
+#: src/index.tsx:406
 msgid "Opened in {0}"
 msgstr "Ouvert dans {0}"
 
@@ -200,7 +222,7 @@ msgstr "Fenêtre privée"
 msgid "Ready"
 msgstr "Prêt"
 
-#: src/index.tsx:254
+#: src/index.tsx:255
 msgid "Recently Merged PRs"
 msgstr "PRs récemment fusionnées"
 
@@ -220,7 +242,7 @@ msgstr "Enregistrer et reconnecter"
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Rechercher un dépôt, une branche, un agent ou un éditeur..."
 
-#: src/index.tsx:390
+#: src/index.tsx:420
 msgid "Show Detail Pane"
 msgstr "Afficher le panneau détail"
 
@@ -238,13 +260,17 @@ msgstr "Surface"
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:346
+#: src/index.tsx:347
 msgid "Switch to {0} ({1})"
 msgstr "Basculer vers {0} ({1})"
 
 #: src/index.tsx:106
 msgid "Working"
 msgstr "En cours"
+
+#: src/index.tsx:397
+msgid "Workspace"
+msgstr "Espace de travail"
 
 #: src/index.tsx:315
 msgid "Workspace Windows"

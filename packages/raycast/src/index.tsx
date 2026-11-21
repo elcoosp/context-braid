@@ -247,20 +247,21 @@ export default function Command() {
                   ? `**HEAD** \`${proj.last_commit_sha}\` · ${proj.last_commit_msg}${commitAge ? ` *(${commitAge})*` : ''}`
                   : '';
 
+                const commits30d = (proj.commit_sparkline ?? []).reduce((a, b) => a + b, 0);
                 const chartImage = proj.sparkline_png_path ? `![](file://${proj.sparkline_png_path})` : '';
+                const latestPr = proj.recent_prs && proj.recent_prs.length > 0 ? proj.recent_prs[0] : null;
                 const prsBlock =
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
                         `**${t`Recently Merged PRs`}**`,
-                        ...proj.recent_prs.map((pr) =>
-                          pr.url
-                            ? `- [#${pr.number}](${pr.url}) ${pr.title}`
-                            : `- \`#${pr.number}\` ${pr.title}`
-                        ),
+                        ...proj.recent_prs.slice(0, 3).map((pr) => {
+                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 52);
+                          const display = pr.title.length > 52 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
+                          return pr.url ? `- [#${pr.number}](${pr.url}) ${display}` : `- \`#${pr.number}\` ${display}`;
+                        }),
                       ].join('\n')
                     : '';
 
-                const commits30d = (proj.commit_sparkline ?? []).reduce((a, b) => a + b, 0);
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   activeContextLine,
@@ -342,67 +343,98 @@ export default function Command() {
                     }
                     actions={
                       <ActionPanel>
-                        <Action
-                          title={t`Switch to ${proj.repo_name} (${role.name})`}
-                          icon={Icon.ArrowRight}
-                          onAction={() => focusTab(proj.repo_name, role.name, tab)}
-                        />
-                        <Action
-                          title={t`Open in ${favEditor.label}`}
-                          icon={favEditor.icon}
-                          shortcut={{ modifiers: ['cmd'], key: 'e' }}
-                          onAction={async () => {
-                            await queryDaemon({ type: 'open_editor', repo_path: proj.repo_path });
-                            await showToast({
-                              style: Toast.Style.Success,
-                              title: t`Opened in ${favEditor.label}`,
-                            });
-                          }}
-                        />
-                        <Action
-                          title={t`Open in Terminal`}
-                          icon={Icon.Terminal}
-                          shortcut={{ modifiers: ['cmd'], key: 't' }}
-                          onAction={async () => {
-                            await queryDaemon({ type: 'open_terminal', repo_path: proj.repo_path });
-                            await showToast({ style: Toast.Style.Success, title: `Terminal • ${proj.repo_name}` });
-                          }}
-                        />
-                        <Action
-                          title={t`Cycle Project Windows`}
-                          icon={Icon.Switch}
-                          shortcut={{ modifiers: ['opt'], key: 'tab' }}
-                          onAction={async () => {
-                            await queryDaemon({ type: 'cycle_project', repo_name: proj.repo_name });
-                            revalidate();
-                          }}
-                        />
-                        <Action
-                          title={t`Jump to Next Agent Alert`}
-                          icon={Icon.Bolt}
-                          shortcut={{ modifiers: ['opt'], key: 'a' }}
-                          onAction={async () => {
-                            await queryDaemon({ type: 'jump_next_alert' });
-                            revalidate();
-                          }}
-                        />
-                        <Action
-                          title={showDetail ? t`Hide Detail Pane` : t`Show Detail Pane`}
-                          icon={Icon.Sidebar}
-                          shortcut={{ modifiers: ['cmd'], key: 'i' }}
-                          onAction={() => setShowDetail((prev) => !prev)}
-                        />
-                        <Action.CopyToClipboard
-                          title={t`Copy Repository Path`}
-                          content={proj.repo_path}
-                          shortcut={{ modifiers: ['cmd', 'shift'], key: 'c' }}
-                        />
-                        <Action.ShowInFinder path={proj.repo_path} />
-                        <Action.Push
-                          title={t`Connect Browser Extension ID`}
-                          icon={Icon.Plug}
-                          target={<PairBrowserForm onDone={revalidate} />}
-                        />
+                        <ActionPanel.Section title={t`Navigation`}>
+                          <Action
+                            title={t`Switch to ${proj.repo_name} (${role.name})`}
+                            icon={Icon.ArrowRight}
+                            onAction={() => focusTab(proj.repo_name, role.name, tab)}
+                          />
+                          <Action
+                            title={t`Cycle Project Windows`}
+                            icon={Icon.Switch}
+                            shortcut={{ modifiers: ['opt'], key: 'tab' }}
+                            onAction={async () => {
+                              await queryDaemon({ type: 'cycle_project', repo_name: proj.repo_name });
+                              revalidate();
+                            }}
+                          />
+                          <Action
+                            title={t`Jump to Next Agent Alert`}
+                            icon={Icon.Bolt}
+                            shortcut={{ modifiers: ['opt'], key: 'a' }}
+                            onAction={async () => {
+                              await queryDaemon({ type: 'jump_next_alert' });
+                              revalidate();
+                            }}
+                          />
+                        </ActionPanel.Section>
+
+                        <ActionPanel.Section title={t`Git & GitHub`}>
+                          {latestPr && latestPr.url && (
+                            <Action.OpenInBrowser
+                              title={t`Open Latest PR (#${latestPr.number})`}
+                              url={latestPr.url}
+                              icon={Icon.Globe}
+                              shortcut={{ modifiers: ['cmd'], key: 'g' }}
+                            />
+                          )}
+                          {proj.repo_url && (
+                            <Action.OpenInBrowser
+                              title={t`Open Repository on GitHub`}
+                              url={proj.repo_url}
+                              icon={Icon.Link}
+                              shortcut={{ modifiers: ['cmd', 'shift'], key: 'g' }}
+                            />
+                          )}
+                          {proj.last_commit_sha && (
+                            <Action.CopyToClipboard
+                              title={t`Copy HEAD Commit SHA (${proj.last_commit_sha})`}
+                              content={proj.last_commit_sha}
+                              shortcut={{ modifiers: ['cmd', 'shift'], key: 'h' }}
+                            />
+                          )}
+                        </ActionPanel.Section>
+
+                        <ActionPanel.Section title={t`Workspace`}>
+                          <Action
+                            title={t`Open in ${favEditor.label}`}
+                            icon={favEditor.icon}
+                            shortcut={{ modifiers: ['cmd'], key: 'e' }}
+                            onAction={async () => {
+                              await queryDaemon({ type: 'open_editor', repo_path: proj.repo_path });
+                              await showToast({
+                                style: Toast.Style.Success,
+                                title: t`Opened in ${favEditor.label}`,
+                              });
+                            }}
+                          />
+                          <Action
+                            title={t`Open in Terminal`}
+                            icon={Icon.Terminal}
+                            shortcut={{ modifiers: ['cmd'], key: 't' }}
+                            onAction={async () => {
+                              await queryDaemon({ type: 'open_terminal', repo_path: proj.repo_path });
+                              await showToast({ style: Toast.Style.Success, title: `Terminal • ${proj.repo_name}` });
+                            }}
+                          />
+                          <Action
+                            title={showDetail ? t`Hide Detail Pane` : t`Show Detail Pane`}
+                            icon={Icon.Sidebar}
+                            shortcut={{ modifiers: ['cmd'], key: 'i' }}
+                            onAction={() => setShowDetail((prev) => !prev)}
+                          />
+                          <Action.CopyToClipboard
+                            title={t`Copy Repository Path`}
+                            content={proj.repo_path}
+                            shortcut={{ modifiers: ['cmd', 'shift'], key: 'c' }}
+                          />
+                          <Action.ShowInFinder path={proj.repo_path} />
+                          <Action.Push
+                            title={t`Connect Browser Extension ID`}
+                            icon={Icon.Plug}
+                            target={<PairBrowserForm onDone={revalidate} />}
+                          />
+                        </ActionPanel.Section>
                       </ActionPanel>
                     }
                   />

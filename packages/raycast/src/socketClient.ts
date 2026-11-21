@@ -32,6 +32,7 @@ export interface ProjectWorkspace {
   last_commit_ts: number;
   commit_sparkline: number[];
   sparkline_png_path: string;
+  repo_url: string;
   recent_prs: MergedPr[];
   tabs: TabContext[];
   has_alert: boolean;
