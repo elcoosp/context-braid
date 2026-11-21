@@ -36,13 +36,25 @@ export default defineBackground(() => {
   const tabCache = new Map<number, Record<string, unknown>>();
   const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
   const downloadedZips = new Set<string>();
+  const lastTabZipDownloadAt = new Map<number, number>();
   const knownChatZips = new Map<string, Set<string>>();
   const lastServerProbeAt = new Map<number, number>();
   let autoDownloadZip = false;
+
+  const persistDownloadedZips = () => {
+    const recent = Array.from(downloadedZips).slice(-200);
+    browser.storage?.local?.set({ downloadedZips: recent }).catch(() => {});
+  };
+
   if (browser.storage?.local) {
-    browser.storage.local.get('autoDownloadZip').then((res) => {
+    browser.storage.local.get(['autoDownloadZip', 'downloadedZips']).then((res) => {
       if (typeof res?.autoDownloadZip === 'boolean') {
         autoDownloadZip = res.autoDownloadZip;
+      }
+      if (Array.isArray(res?.downloadedZips)) {
+        for (const item of res.downloadedZips) {
+          if (typeof item === 'string') downloadedZips.add(item);
+        }
       }
     }).catch(() => {});
   }
@@ -117,8 +129,13 @@ export default defineBackground(() => {
   };
 
   const triggerZipDownload = (tabId: number, zipUrl: string, dedupKey: string) => {
-    if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
-    downloadedZips.add(dedupKey);
+    const now = Date.now();
+    const normalizedKey = dedupKey.toLowerCase().trim();
+    if (!autoDownloadZip || downloadedZips.has(normalizedKey)) return;
+    if (now - (lastTabZipDownloadAt.get(tabId) ?? 0) < 30_000) return;
+    lastTabZipDownloadAt.set(tabId, now);
+    downloadedZips.add(normalizedKey);
+    persistDownloadedZips();
 
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
       browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
@@ -299,8 +316,7 @@ export default defineBackground(() => {
           if (urlMatch) {
             zipDownloadUrl = urlMatch.at(0) ?? '';
           }
-          const latestZipKey = newlyCreatedZips.at(-1) ?? chatId;
-          const dedupKey = `${tabId}|${zipDownloadUrl || latestZipKey}`;
+          const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
           triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
           const latestCached = tabCache.get(tabId) ?? existing;
           tabCache.set(tabId, {
@@ -372,7 +388,9 @@ export default defineBackground(() => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
       if (msg.status === 'completed') {
         const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
-        const dlKey = `${sender.tab.id}|${zipUrl || msg.title || msg.contextSnippet}`;
+        const tabUrl = typeof msg.url === 'string' ? msg.url : '';
+        const chatId = tabUrl.match(/\/c\/([^/?#]+)/)?.at(1) || '';
+        const dlKey = `${sender.tab.id}|${zipUrl || chatId || msg.title || msg.contextSnippet}`;
         triggerZipDownload(sender.tab.id, zipUrl, dlKey);
       }
       tabCache.set(sender.tab.id, {
