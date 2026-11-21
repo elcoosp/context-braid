@@ -175,18 +175,40 @@ export default defineBackground(() => {
               .then((r) => (r.ok ? r.text() : ''))
               .catch(() => ''),
           ]);
-          return { subRes, storageRes };
+          let signedZipUrl = '';
+          try {
+            const parsed = JSON.parse(storageRes);
+            const files = (parsed?.data?.messages || []).flatMap((m: { files?: Array<{ key?: string; url?: string; download_url?: string }> }) => m.files || []);
+            const zipEntries = files.filter((f) => String(f.key || '').toLowerCase().endsWith('.zip'));
+            const lastZip = zipEntries.at(-1);
+            if (lastZip) {
+              if (lastZip.download_url || lastZip.url) {
+                signedZipUrl = String(lastZip.download_url || lastZip.url);
+              } else if (lastZip.key) {
+                const dlRes = await fetch(
+                  `/api/v1/storage/chats/${cid}/files/download?key=${encodeURIComponent(lastZip.key)}`,
+                  { credentials: 'include', headers },
+                );
+                if (dlRes.ok) {
+                  const dlText = await dlRes.text();
+                  const m = dlText.match(/https?:\/\/[^"'\s]+/i);
+                  if (m) signedZipUrl = m.at(0) ?? '';
+                }
+              }
+            }
+          } catch {}
+          return { subRes, storageRes, signedZipUrl };
         },
         args: [chatId],
       });
 
       const payload = execResults?.at(0)?.result as
 
-        | { subRes: { data?: Array<{ description?: string; subagent_type?: string }> } | null; storageRes: string }
+        | { subRes: { data?: Array<{ description?: string; subagent_type?: string }> } | null; storageRes: string; signedZipUrl?: string }
         | undefined;
       if (!payload) return;
 
-      const { subRes, storageRes } = payload;
+      const { subRes, storageRes, signedZipUrl } = payload;
       const existing = tabCache.get(tabId);
       if (!existing) return;
 
@@ -229,7 +251,7 @@ export default defineBackground(() => {
         }
 
         if (newlyCreatedZips.length > 0) {
-          let zipDownloadUrl = '';
+          let zipDownloadUrl = signedZipUrl || '';
           const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
           if (urlMatch) {
             zipDownloadUrl = urlMatch.at(0) ?? '';
