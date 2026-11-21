@@ -34,6 +34,7 @@ export interface ProjectWorkspace {
   sparkline_png_path: string;
   repo_url: string;
   recent_prs: MergedPr[];
+  main_ci_status: string;
   tabs: TabContext[];
   has_alert: boolean;
 }

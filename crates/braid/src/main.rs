@@ -125,6 +125,7 @@ impl DaemonState {
                     sparkline_png_path: git_meta.sparkline_png_path,
                     repo_url: git_meta.repo_url,
                     recent_prs: git_meta.recent_prs,
+                    main_ci_status: git_meta.main_ci_status,
                     tabs,
                     has_alert,
                 })

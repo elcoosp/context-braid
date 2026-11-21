@@ -373,11 +373,12 @@ pub struct GitRepoMeta {
     pub sparkline_png_path: String,
     pub repo_url: String,
     pub recent_prs: Vec<braid_core::ipc::MergedPr>,
+    pub main_ci_status: String,
 }
 
 type SparklineEntry = (String, i64, Vec<u32>);
 type SparklineCacheMap = HashMap<String, SparklineEntry>;
-type MergedPrEntry = (String, Vec<braid_core::ipc::MergedPr>);
+type MergedPrEntry = (String, Vec<braid_core::ipc::MergedPr>, String);
 type MergedPrCacheMap = HashMap<String, MergedPrEntry>;
 
 fn sparkline_cache() -> &'static Mutex<SparklineCacheMap> {
@@ -412,18 +413,45 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
             "gh"
         };
 
+        let mut ci_status = String::new();
+        let query = r#"query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(states:MERGED,first:3,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title url}}object(expression:"main"){... on Commit{statusCheckRollup{state}}}}}"#;
         if let Ok(out) = std::process::Command::new(gh_bin)
             .current_dir(&repo_path)
-            .args(["pr", "list", "--state", "merged", "--limit", "3", "--json", "number,title,url"])
+            .args([
+                "api",
+                "graphql",
+                "-F",
+                "owner={owner}",
+                "-F",
+                "name={repo}",
+                "-f",
+                &format!("query={query}"),
+            ])
             .output()
             && out.status.success()
-                && let Ok(prs) = serde_json::from_slice::<Vec<braid_core::ipc::MergedPr>>(&out.stdout) {
-                    fetched = prs;
-                }
+            && let Ok(val) = serde_json::from_slice::<serde_json::Value>(&out.stdout)
+        {
+            if let Some(nodes) = val.pointer("/data/repository/pullRequests/nodes")
+                && let Ok(prs) = serde_json::from_value::<Vec<braid_core::ipc::MergedPr>>(nodes.clone())
+            {
+                fetched = prs;
+            }
+            if let Some(state) = val
+                .pointer("/data/repository/object/statusCheckRollup/state")
+                .and_then(|v| v.as_str())
+            {
+                ci_status = match state {
+                    "SUCCESS" => "success".to_string(),
+                    "FAILURE" | "ERROR" => "failure".to_string(),
+                    "PENDING" | "EXPECTED" => "pending".to_string(),
+                    _ => String::new(),
+                };
+            }
+        }
 
         let repo_key = repo_path.to_string_lossy().into_owned();
         if let Ok(mut cache) = pr_cache().lock() {
-            cache.insert(repo_key, (head_sha, fetched));
+            cache.insert(repo_key, (head_sha, fetched, ci_status));
         }
         if let Ok(mut set) = pr_inflight().lock() {
             set.remove(&key);
@@ -457,6 +485,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             sparkline_png_path: String::new(),
             repo_url: String::new(),
             recent_prs: Vec::new(),
+            main_ci_status: String::new(),
         };
     };
 
@@ -477,6 +506,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     let mut commit_ts: i64 = 0;
     let mut sparkline = vec![0u32; 30];
     let mut recent_prs = Vec::new();
+    let mut main_ci_status = String::new();
 
     if let Ok(head_commit) = repo.head_commit() {
         commit_sha = head_commit.id().to_hex_with_len(7).to_string();
@@ -528,8 +558,9 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         }
 
         // 2. Merged PRs (Merge, Squash, AND Rebase/reapply) via non-blocking gh CLI worker cached by HEAD SHA
-        if let Some((cached_sha, cached_prs)) = pr_cache().lock().ok().and_then(|g| g.get(&cache_key).cloned()) {
+        if let Some((cached_sha, cached_prs, cached_ci)) = pr_cache().lock().ok().and_then(|g| g.get(&cache_key).cloned()) {
             recent_prs = cached_prs;
+            main_ci_status = cached_ci;
             if cached_sha != commit_sha {
                 trigger_async_pr_fetch(repo_path.to_path_buf(), commit_sha.clone());
             }
@@ -568,6 +599,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         sparkline_png_path,
         repo_url,
         recent_prs,
+        main_ci_status,
     }
 }
 

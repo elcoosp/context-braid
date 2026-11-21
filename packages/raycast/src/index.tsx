@@ -113,6 +113,19 @@ function extractWorkingAction(tab: TabContext): string {
   return '';
 }
 
+function mainCiIcon(status: string): Image.ImageLike | undefined {
+  switch (status) {
+    case 'success':
+      return { source: Icon.CheckCircle, tintColor: Color.Green };
+    case 'failure':
+      return { source: Icon.XMarkCircle, tintColor: Color.Red };
+    case 'pending':
+      return { source: Icon.Clock, tintColor: Color.Yellow };
+    default:
+      return undefined;
+  }
+}
+
 function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
     return { label: t`Active`, color: Color.Blue };
@@ -339,6 +352,7 @@ export default function Command() {
                               {proj.git_branch && (
                                 <List.Item.Detail.Metadata.TagList.Item
                                   text={`⎇ ${proj.git_branch}`}
+                                  icon={mainCiIcon(proj.main_ci_status)}
                                   color={Color.SecondaryText}
                                 />
                               )}

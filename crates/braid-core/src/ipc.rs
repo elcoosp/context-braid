@@ -55,6 +55,8 @@ pub struct ProjectWorkspace {
     pub repo_url: String,
     #[serde(default)]
     pub recent_prs: Vec<MergedPr>,
+    #[serde(default)]
+    pub main_ci_status: String,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,
 }
