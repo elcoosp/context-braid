@@ -1,0 +1,16 @@
+{
+  "name": "context-braid",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test:browser": "pnpm --filter @context-braid/extension test:browser",
+    "test:unit": "pnpm --filter @context-braid/extension test:unit",
+    "test:e2e": "pnpm --filter @context-braid/extension test:e2e"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "^7.0.0-dev",
+    "oxlint": "^1.94.0",
+    "oxfmt": "^0.79.0"
+  }
+}
