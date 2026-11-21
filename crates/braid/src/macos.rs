@@ -131,41 +131,155 @@ pub fn resolve_editor_spec(favorite: &str) -> EditorSpec {
     }
 }
 
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGWindowListCopyWindowInfo(option: u32, relative_to_window: u32) -> *const c_void;
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFRelease(cf: *const c_void);
+    fn CFArrayGetCount(the_array: *const c_void) -> isize;
+    fn CFArrayGetValueAtIndex(the_array: *const c_void, idx: isize) -> *const c_void;
+    fn CFDictionaryGetValue(the_dict: *const c_void, key: *const c_void) -> *const c_void;
+    fn CFStringCreateWithCString(alloc: *const c_void, c_str: *const i8, encoding: u32) -> *const c_void;
+    fn CFStringGetCString(the_string: *const c_void, buffer: *mut i8, buffer_size: isize, encoding: u32) -> bool;
+    fn CFNumberGetValue(number: *const c_void, the_type: isize, value_ptr: *mut c_void) -> bool;
+}
+
+fn running_pids_for_bundle(bundle_id: &str) -> Vec<i32> {
+    let mut pids = Vec::new();
+    unsafe {
+        let cls_ns_running = objc_getClass(c"NSRunningApplication".as_ptr());
+        let cls_ns_str = objc_getClass(c"NSString".as_ptr());
+        if cls_ns_running.is_null() || cls_ns_str.is_null() {
+            return pids;
+        }
+        let sel_str_utf8 = sel_registerName(c"stringWithUTF8String:".as_ptr());
+        let sel_running_by_id = sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr());
+        let sel_count = sel_registerName(c"count".as_ptr());
+        let sel_obj_at = sel_registerName(c"objectAtIndex:".as_ptr());
+        let sel_pid = sel_registerName(c"processIdentifier".as_ptr());
+
+        type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
+        type MsgArr = unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
+        type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
+        type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
+        type MsgPid = unsafe extern "C" fn(*const c_void, *const c_void) -> i32;
+
+        let fn_str: MsgStr = std::mem::transmute(objc_msgSend as *const ());
+        let fn_arr: MsgArr = std::mem::transmute(objc_msgSend as *const ());
+        let fn_count: MsgCount = std::mem::transmute(objc_msgSend as *const ());
+        let fn_at: MsgAt = std::mem::transmute(objc_msgSend as *const ());
+        let fn_pid: MsgPid = std::mem::transmute(objc_msgSend as *const ());
+
+        let c_bundle = CString::new(bundle_id).unwrap();
+        let ns_bundle = fn_str(cls_ns_str, sel_str_utf8, c_bundle.as_ptr());
+        let apps = fn_arr(cls_ns_running, sel_running_by_id, ns_bundle);
+        if apps.is_null() {
+            return pids;
+        }
+        let count = fn_count(apps, sel_count);
+        for i in 0..count {
+            let app = fn_at(apps, sel_obj_at, i);
+            let pid = fn_pid(app, sel_pid);
+            if pid > 0 {
+                pids.push(pid);
+            }
+        }
+    }
+    pids
+}
+
+fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
+    let mut titles = Vec::new();
+    if target_pids.is_empty() {
+        return titles;
+    }
+    unsafe {
+        // kCGWindowListOptionAll = 0, kCGWindowListExcludeDesktopElements = 16
+        let list = CGWindowListCopyWindowInfo(16, 0);
+        if list.is_null() {
+            return titles;
+        }
+        // kCFStringEncodingUTF8 = 0x08000100
+        let k_pid = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowOwnerPID".as_ptr(), 0x08000100);
+        let k_name = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowName".as_ptr(), 0x08000100);
+        let k_layer = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowLayer".as_ptr(), 0x08000100);
+
+        let count = CFArrayGetCount(list);
+        for i in 0..count {
+            let dict = CFArrayGetValueAtIndex(list, i);
+            if dict.is_null() {
+                continue;
+            }
+            let pid_ref = CFDictionaryGetValue(dict, k_pid);
+            let mut pid: i32 = 0;
+            // kCFNumberSInt32Type = 3
+            if pid_ref.is_null() || !CFNumberGetValue(pid_ref, 3, &mut pid as *mut i32 as *mut c_void) {
+                continue;
+            }
+            if !target_pids.contains(&pid) {
+                continue;
+            }
+            let layer_ref = CFDictionaryGetValue(dict, k_layer);
+            let mut layer: i32 = 0;
+            if !layer_ref.is_null() {
+                CFNumberGetValue(layer_ref, 3, &mut layer as *mut i32 as *mut c_void);
+            }
+            if layer != 0 {
+                continue;
+            }
+            let name_ref = CFDictionaryGetValue(dict, k_name);
+            if !name_ref.is_null() {
+                let mut buf = [0i8; 512];
+                if CFStringGetCString(name_ref, buf.as_mut_ptr(), buf.len() as isize, 0x08000100) {
+                    let s = CStr::from_ptr(buf.as_ptr()).to_string_lossy().trim().to_string();
+                    if !s.is_empty() {
+                        titles.push(s);
+                    }
+                }
+            }
+        }
+
+        CFRelease(k_pid);
+        CFRelease(k_name);
+        CFRelease(k_layer);
+        CFRelease(list);
+    }
+    titles
+}
+
 pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     let spec = resolve_editor_spec(favorite);
-    let mut pids = Vec::new();
-    for proc_name in spec.proc_names {
-        if let Ok(o) = Command::new("pgrep").args(["-x", proc_name]).output() {
-            if o.status.success() {
-                for pid in String::from_utf8_lossy(&o.stdout).split_whitespace() {
-                    if !pids.contains(&pid.to_string()) {
-                        pids.push(pid.to_string());
-                    }
-                }
-            }
-        }
-    }
-    if pids.is_empty() {
-        return Vec::new();
-    }
+    let pids = running_pids_for_bundle(spec.bundle_id);
+    let win_titles = list_window_titles_for_pids(&pids);
 
     let mut open_paths = Vec::new();
-    if let Ok(out) = Command::new("lsof")
-        .args(["-a", "-p", &pids.join(","), "-Fn"])
-        .output()
-    {
-        for line in String::from_utf8_lossy(&out.stdout).lines() {
-            if let Some(raw_path) = line.strip_prefix('n') {
-                let p = Path::new(raw_path.trim());
-                if p.starts_with(repos_root) && p != repos_root {
-                    let pb = p.to_path_buf();
-                    if !open_paths.contains(&pb) {
-                        open_paths.push(pb);
-                    }
-                }
-            }
+    let Ok(entries) = std::fs::read_dir(repos_root) else {
+        return open_paths;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_lowercase();
+        let matched = win_titles.iter().any(|t| {
+            let tl = t.to_lowercase();
+            tl == name
+                || tl.starts_with(&format!("{} ", name))
+                || tl.starts_with(&format!("{} —", name))
+                || tl.starts_with(&format!("{} -", name))
+                || tl.ends_with(&format!(" — {}", name))
+                || tl.ends_with(&format!(" - {}", name))
+        });
+        if matched {
+            open_paths.push(path);
         }
     }
+
     open_paths
 }
 
