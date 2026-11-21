@@ -1,7 +1,9 @@
 # ContextBraid Changelog
 
-## [Initial Version] - {PR_MERGE_DATE}
+## [Initial Release] - 2026-11-21
 
-- Sub-millisecond Git repository indexing via `gitoxide` with dirty status, 30-day commit velocity chart, merged PRs, and `main` branch CI rollup icon.
-- Real-time pairing with macOS code editors (Zed, VS Code, Cursor, Neovim) and AI browser tabs (Z.ai, Qwen, Gemini, DeepSeek, Google AI).
-- Native macOS menu bar status indicator, `Option + A` alert jump, `Cmd + M` 30-minute per-repo snooze, and full English & French localization.
+- Added **Project Cockpit** command linking local Git repositories, code editors, and browser AI agents (`Z.ai`, `Qwen`, `Gemini`, `Google AI`, `DeepSeek`).
+- Added **macOS Menu Bar** extra grouping active workspaces and idle repositories with instant tab switching and mute controls.
+- Added **Cycle Project Windows** and **Jump to Next Agent Alert** quick commands.
+- Added automatic one-click installation of the native macOS `ContextBraid.app` background daemon.
+- Added full localization in 7 languages (`en`, `fr`, `zh-CN`, `ja`, `de`, `es`, `ko`).
