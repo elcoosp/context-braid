@@ -272,11 +272,11 @@ export default function Command() {
                     ? [
                         `**${t`Recently Merged PRs`}**`,
                         ...proj.recent_prs.slice(0, 2).map((pr) => {
-                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 52);
-                          const display = pr.title.length > 52 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
-                          return `- \`#${pr.number}\` ${display}`;
+                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 56);
+                          const display = pr.title.length > 56 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
+                          return `\`#${pr.number}\`  ${display}`;
                         }),
-                      ].join('\n')
+                      ].join('  \n')
                     : '';
 
                 const velocitySection = chartImage
