@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-echo "1/3 Ouverture de Open Project Cockpit..."
+echo "1/3 Ouverture de Open Project Cockpit dans Raycast..."
 open "raycast://extensions/elcoosp/context-braid-raycast/index"
-sleep 1.6
+sleep 1.8
 
-RAYCAST_WIN_ID=$(swift -e '
+# Récupère les coordonnées exactes x,y,w,h de la fenêtre Raycast via PID com.raycast.macos
+RECT=$(swift -e '
 import AppKit
 import CoreGraphics
 
@@ -19,35 +20,36 @@ guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "
 let pid = app.processIdentifier
 let opts: CGWindowListOption = [.optionAll, .excludeDesktopElements]
 if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] {
-    var bestId: Int?
+    var bestRect: (Int, Int, Int, Int)?
     var bestArea: Double = 0
     for w in list {
         guard let ownerPid = w[kCGWindowOwnerPID as String] as? pid_t, ownerPid == pid,
               let bounds = w[kCGWindowBounds as String] as? [String: Any],
+              let x = bounds["X"] as? Double,
+              let y = bounds["Y"] as? Double,
               let width = bounds["Width"] as? Double,
               let height = bounds["Height"] as? Double,
-              width > 400 && height > 250,
-              let id = w[kCGWindowNumber as String] as? Int else { continue }
+              width > 400 && height > 250 else { continue }
         let area = width * height
         if area > bestArea {
             bestArea = area
-            bestId = id
+            bestRect = (Int(x), Int(y), Int(width), Int(height))
         }
     }
-    if let id = bestId {
-        print(id)
+    if let r = bestRect {
+        print("\(r.0),\(r.1),\(r.2),\(r.3)")
     }
 }
 ')
 
-if [[ -z "${RAYCAST_WIN_ID}" ]]; then
-  echo "Erreur : Fenêtre Raycast introuvable (PID com.raycast.macos)." >&2
+if [[ -z "${RECT}" ]]; then
+  echo "Erreur : Impossible de lire les dimensions de la fenêtre Raycast." >&2
   exit 1
 fi
 
 RAW_1="/tmp/cb_raycast_raw_1.png"
-echo "2/3 Capture Retina de la fenêtre (ID=${RAYCAST_WIN_ID})..."
-screencapture -l "${RAYCAST_WIN_ID}" -o -x "${RAW_1}"
+echo "2/3 Capture Retina de la zone Raycast (${RECT})..."
+screencapture -x -R "${RECT}" "${RAW_1}"
 
 echo "3/3 Composition Store 2000x1250 px (16:10)..."
 python3 - "${RAW_1}" "${OUT_DIR}/01-project-cockpit.png" << 'PY'
