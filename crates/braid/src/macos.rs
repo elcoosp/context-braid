@@ -418,7 +418,7 @@ fn git_history_cache() -> &'static Mutex<HashMap<String, (String, i64, Vec<u32>,
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
-    let Ok(repo) = gix::open_opts(repo_path, gix::open::Options::isolated()) else {
+    let Ok(repo) = gix::open(repo_path) else {
         return GitRepoMeta {
             branch: String::new(),
             dirty: 0,
@@ -478,6 +478,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             let gh_base = repo
                 .config_snapshot()
                 .string("remote.origin.url")
+                .or_else(|| repo.config_snapshot().string("remote.upstream.url"))
                 .and_then(|raw| github_base_url_from_remote(&raw.to_string()));
 
             let cutoff = now_sec - 30 * 86_400;

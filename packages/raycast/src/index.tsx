@@ -231,7 +231,7 @@ export default function Command() {
                         `**${t`Recently Merged PRs`}**`,
                         ...proj.recent_prs.map((pr) =>
                           pr.url
-                            ? `- [\`#${pr.number}\`](${pr.url}) ${pr.title}`
+                            ? `- [#${pr.number}](${pr.url}) ${pr.title}`
                             : `- \`#${pr.number}\` ${pr.title}`
                         ),
                       ].join('\n')
