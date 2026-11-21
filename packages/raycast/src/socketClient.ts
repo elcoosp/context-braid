@@ -1,6 +1,6 @@
-import net from 'node:net';
+import net from "node:net";
 
-const SOCKET_PATH = '/tmp/braid.sock';
+const SOCKET_PATH = "/tmp/braid.sock";
 
 export interface TabContext {
   browser: string;
@@ -11,7 +11,7 @@ export interface TabContext {
   url: string;
   title: string;
   context_snippet: string;
-  status: 'idle' | 'working' | 'needs_attention' | 'completed';
+  status: "idle" | "working" | "needs_attention" | "completed";
   updated_at_ms: number;
 }
 
@@ -42,16 +42,16 @@ export interface ProjectWorkspace {
 function sendOnce<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
     const client = net.createConnection({ path: SOCKET_PATH });
-    let buffer = '';
+    let buffer = "";
 
     client.setTimeout(5000);
-    client.on('connect', () => {
+    client.on("connect", () => {
       client.write(`${JSON.stringify(payload)}\n`);
     });
 
-    client.on('data', (chunk) => {
-      buffer += chunk.toString('utf8');
-      const nl = buffer.indexOf('\n');
+    client.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      const nl = buffer.indexOf("\n");
       if (nl !== -1) {
         const line = buffer.slice(0, nl);
         client.end();
@@ -63,16 +63,18 @@ function sendOnce<T>(payload: Record<string, unknown>): Promise<T> {
       }
     });
 
-    client.on('timeout', () => {
+    client.on("timeout", () => {
       client.destroy();
-      reject(new Error('Daemon socket timeout'));
+      reject(new Error("Daemon socket timeout"));
     });
 
-    client.on('error', (err) => reject(err));
+    client.on("error", (err) => reject(err));
   });
 }
 
-export async function queryDaemon<T>(payload: Record<string, unknown>): Promise<T> {
+export async function queryDaemon<T>(
+  payload: Record<string, unknown>,
+): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {

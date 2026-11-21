@@ -1,20 +1,33 @@
-import { useState } from 'react';
-import { t } from '@lingui/core/macro';
-import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from '@raycast/api';
-import { runBraidInstall } from './bootstrap';
-import './i18n';
+import { useState } from "react";
+import { t } from "@lingui/core/macro";
+import {
+  Action,
+  ActionPanel,
+  Form,
+  showToast,
+  Toast,
+  useNavigation,
+} from "@raycast/api";
+import { runBraidInstall } from "./bootstrap";
+import "./i18n";
 
 export function PairBrowserForm({ onDone }: { onDone: () => void }) {
   const { pop } = useNavigation();
-  const [extId, setExtId] = useState('');
+  const [extId, setExtId] = useState("");
 
   const handleSubmit = async () => {
     const clean = extId.trim().toLowerCase();
     if (!/^[a-p]{32}$/.test(clean)) {
-      await showToast({ style: Toast.Style.Failure, title: t`Invalid ID (32 lowercase letters expected)` });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: t`Invalid ID (32 lowercase letters expected)`,
+      });
       return;
     }
-    const toast = await showToast({ style: Toast.Style.Animated, title: t`Registering extension...` });
+    const toast = await showToast({
+      style: Toast.Style.Animated,
+      title: t`Registering extension...`,
+    });
     try {
       await runBraidInstall(clean);
       toast.style = Toast.Style.Success;
@@ -33,7 +46,10 @@ export function PairBrowserForm({ onDone }: { onDone: () => void }) {
       navigationTitle={t`Register Local Browser Extension ID`}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title={t`Save and Reconnect`} onSubmit={handleSubmit} />
+          <Action.SubmitForm
+            title={t`Save and Reconnect`}
+            onSubmit={handleSubmit}
+          />
         </ActionPanel>
       }
     >
