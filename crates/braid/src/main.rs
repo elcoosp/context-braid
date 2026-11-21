@@ -138,8 +138,24 @@ impl DaemonState {
     }
 
     fn focus_tab(&mut self, tab: &TabContextPayload) -> Result<()> {
-        if matches!(tab.browser.as_str(), "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor") {
-            macos::focus_specific_editor_window(&self.config.editor.favorite, &tab.title)?;
+        let is_editor = matches!(
+            tab.browser.as_str(),
+            "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor"
+        );
+        let receivers = self.push_tx.receiver_count();
+        tracing::info!(
+            is_editor = is_editor,
+            browser = %tab.browser,
+            window_id = tab.window_id,
+            tab_id = tab.tab_id,
+            title = %tab.title,
+            host_receivers = receivers,
+            "CYCLE_E2E_FOCUS_TAB_ENTER"
+        );
+        if is_editor {
+            let res = macos::focus_specific_editor_window(&self.config.editor.favorite, &tab.title);
+            tracing::info!(result = ?res, "CYCLE_E2E_FOCUS_EDITOR_DONE");
+            res?;
         } else {
             macos::activate_browser_app(&tab.browser);
             let cmd = serde_json::json!({
@@ -151,7 +167,8 @@ impl DaemonState {
                 }]
             });
             if let Ok(json) = serde_json::to_string(&cmd) {
-                let _ = self.push_tx.send(json);
+                let sent = self.push_tx.send(json.clone());
+                tracing::info!(sent = ?sent, payload = %json, "CYCLE_E2E_PUSH_BROWSER_CMD");
             }
         }
         self.last_focused_tab = Some((tab.browser.clone(), tab.window_id, tab.tab_id));
@@ -316,6 +333,14 @@ IpcMessage::CycleProject { repo_name } => {
                     stored_active_repo = ?st.active_repo,
                     "CYCLE_PROJECT_REQUEST"
                 );
+                for p in &projects {
+                    let surfaces: Vec<String> = p
+                        .tabs
+                        .iter()
+                        .map(|t| format!("{}[w={},t={},title={:?}]", t.browser, t.window_id, t.tab_id, t.title))
+                        .collect();
+                    tracing::info!(repo = %p.repo_name, surfaces = ?surfaces, "CYCLE_E2E_DASHBOARD_REPO");
+                }
 
                 // 1. Si l'éditeur est au premier plan, résout le repo via le titre AX de la fenêtre éditeur
                 let win_lower = front_win_title.to_lowercase();

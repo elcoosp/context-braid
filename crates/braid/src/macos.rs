@@ -161,7 +161,7 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
     }
     unsafe {
         // kCGWindowListOptionAll = 0, kCGWindowListExcludeDesktopElements = 16
-        let list = CGWindowListCopyWindowInfo(16, 0);
+        let list = CGWindowListCopyWindowInfo(17, 0);
         if list.is_null() {
             return titles;
         }
