@@ -126,25 +126,32 @@ export default defineBackground(() => {
       .executeScript({
         target: { tabId },
         func: () => {
+          // 1. Carte "Generated files" z.ai : `<li>` contenant `· zip` -> `<button title="Download file">`
+          const zipItems = Array.from(document.querySelectorAll('li')).filter((li) =>
+            Array.from(li.querySelectorAll('span')).some((s) => s.textContent?.trim() === '· zip'),
+          );
+          if (zipItems.length > 0) {
+            const latestLi = zipItems.at(-1);
+            const dlBtn = latestLi?.querySelector<HTMLElement>('button[title="Download file"]');
+            if (dlBtn) {
+              dlBtn.click();
+              return;
+            }
+          }
+
+          // 2. Lien artefact inline dans la bulle assistant : `a[data-sandbox-file$='.zip']`
           const sandboxLinks = document.querySelectorAll<HTMLElement>(
             "a[data-sandbox-file$='.zip'], a[data-sandbox-file*='.zip']",
           );
           if (sandboxLinks.length > 0) {
-            const lastLink = sandboxLinks.item(sandboxLinks.length - 1);
-            lastLink?.click();
+            sandboxLinks.item(sandboxLinks.length - 1)?.click();
             return;
           }
-          const direct = document.querySelector<HTMLElement>(
-            "a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']",
-          );
-          if (direct) {
-            direct.click();
-            return;
-          }
-          const legacySpan = Array.from(document.querySelectorAll('li span')).find(
-            (s) => s.textContent?.trim() === '· zip',
-          );
-          (legacySpan?.closest('li, button, a') as HTMLElement | null)?.click();
+
+          // 3. Fallback générique
+          document
+            .querySelector<HTMLElement>("a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']")
+            ?.click();
         },
       })
       .catch(() => {});
