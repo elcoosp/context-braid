@@ -1,36 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-# Détecte automatiquement le deeplink exact enregistré par Raycast sur cette machine
-DEEPLINK=$(python3 - << 'PY'
-import os, re
-base = os.path.expanduser("~/Library/Application Support/com.raycast.macos")
-for root, _, files in os.walk(base):
-    for fn in files:
-        p = os.path.join(root, fn)
-        try:
-            data = open(p, "rb").read()
-            m = re.search(rb"raycast://extensions/[a-zA-Z0-9_@.-]+/context-braid-raycast/index", data)
-            if m:
-                print(m.group(0).decode("utf-8"))
-                raise SystemExit(0)
-        except SystemExit:
-            raise
-        except Exception:
-            pass
-print("raycast://extensions/elcoosp/context-braid-raycast/index")
-PY
-)
+# 1. Si tu as pris une capture native Raycast (Cmd + Shift + M -> "Save Screenshot for Store")
+#    dans les 10 dernières minutes sur ~/Desktop, on l'importe directement !
+RECENT_NATIVE=$(find "${HOME}/Desktop" -maxdepth 1 -name "Raycast*.png" -mmin -10 2>/dev/null | sort | tail -n 1 || true)
+if [[ -n "${RECENT_NATIVE}" ]]; then
+  echo "Importation de la capture native Raycast Store : ${RECENT_NATIVE}"
+  cp -f "${RECENT_NATIVE}" "${OUT_DIR}/01-project-cockpit.png"
+  cd "${ROOT_DIR}/packages/raycast"
+  npx ray lint
+  exit 0
+fi
 
-echo "1/3 Ouverture via deeplink : ${DEEPLINK}"
-open "${DEEPLINK}"
+# 2. Sinon, ouvre directement le deeplink de Open Project Cockpit et vérifie que la fenêtre est visible (alpha > 0.5)
+open "raycast://extensions/elcoosp/context-braid-raycast/index"
 sleep 1.6
 
-# Récupère le CGWindowID exact de la fenêtre active de Raycast (kCGWindowLayer > 0)
 RAYCAST_WIN_ID=$(swift -e '
 import AppKit
 import CoreGraphics
@@ -39,13 +28,13 @@ guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "
     exit(1)
 }
 let pid = app.processIdentifier
-let opts: CGWindowListOption = [.optionAll, .excludeDesktopElements]
+let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
 if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] {
     var bestId: Int?
     var bestArea: Double = 0
     for w in list {
         guard let ownerPid = w[kCGWindowOwnerPID as String] as? pid_t, ownerPid == pid,
-              let layer = w[kCGWindowLayer as String] as? Int, layer > 0,
+              let alpha = w[kCGWindowAlpha as String] as? Double, alpha > 0.5,
               let bounds = w[kCGWindowBounds as String] as? [String: Any],
               let width = bounds["Width"] as? Double,
               let height = bounds["Height"] as? Double,
@@ -64,15 +53,13 @@ if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: An
 ')
 
 if [[ -z "${RAYCAST_WIN_ID}" ]]; then
-  echo "Erreur : Fenêtre Raycast introuvable." >&2
+  echo "Astuce : Ouvre 'Open Project Cockpit' dans Raycast, appuie sur Cmd + Shift + M (Save Screenshot for Store), puis relance 'just screenshots' !" >&2
   exit 1
 fi
 
 RAW_1="/tmp/cb_raycast_raw_1.png"
-echo "2/3 Capture Retina directe de la fenêtre Raycast (CGWindowID=${RAYCAST_WIN_ID})..."
 screencapture -l "${RAYCAST_WIN_ID}" -o -x "${RAW_1}"
 
-echo "3/3 Composition Store 2000x1250 px (16:10)..."
 python3 - "${RAW_1}" "${OUT_DIR}/01-project-cockpit.png" << 'PY'
 import sys
 from PIL import Image, ImageDraw, ImageFilter
