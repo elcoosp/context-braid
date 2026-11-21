@@ -1,0 +1,150 @@
+use anyhow::{Context, Result};
+use std::collections::BTreeSet;
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+pub fn default_install_bin() -> Result<PathBuf> {
+    let app_support = dirs::data_local_dir()
+        .context("Impossible de résoudre ~/Library/Application Support")?
+        .join("ContextBraid/bin");
+    fs::create_dir_all(&app_support)?;
+    Ok(app_support.join("braid"))
+}
+
+fn collect_existing_origins(manifest_path: &Path, set: &mut BTreeSet<String>) {
+    if let Ok(raw) = fs::read_to_string(manifest_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) {
+            if let Some(arr) = val.get("allowed_origins").and_then(|v| v.as_array()) {
+                for item in arr {
+                    if let Some(s) = item.as_str() {
+                        if s.starts_with("chrome-extension://") {
+                            set.insert(s.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
+    let current_exe = std::env::current_exe()?;
+    let target_bin = default_install_bin()?;
+
+    if current_exe != target_bin {
+        let _ = fs::remove_file(&target_bin);
+        fs::copy(&current_exe, &target_bin)?;
+        let mut perms = fs::metadata(&target_bin)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&target_bin, perms)?;
+    }
+    // Re-signe en ad-hoc le Mach-O arm64 (obligatoire sur Apple Silicon après copie)
+    let _ = Command::new("codesign")
+        .args(["-s", "-", "--force", &target_bin.to_string_lossy()])
+        .output();
+
+    let host_link = target_bin
+        .parent()
+        .context("Parent bin dir missing")?
+        .join("braid-host");
+    let _ = fs::remove_file(&host_link);
+    std::os::unix::fs::symlink(&target_bin, &host_link)?;
+
+    let app_support = dirs::data_local_dir().context("Application Support introuvable")?;
+    let browser_dirs = [
+        "Google/Chrome/NativeMessagingHosts",
+        "BraveSoftware/Brave-Browser/NativeMessagingHosts",
+        "Microsoft Edge/NativeMessagingHosts",
+    ];
+
+    let mut origins = BTreeSet::new();
+    origins.insert("chrome-extension://dglmcdpnglffnfdnhaeaifholhncglgc/".to_string());
+
+    for rel in &browser_dirs {
+        collect_existing_origins(&app_support.join(rel).join("com.contextbraid.host.json"), &mut origins);
+    }
+
+    for id in extra_ext_ids {
+        let clean = id.trim().trim_matches('/');
+        if !clean.is_empty() {
+            origins.insert(format!("chrome-extension://{}/", clean));
+        }
+    }
+
+    let manifest_json = serde_json::json!({
+        "name": "com.contextbraid.host",
+        "description": "ContextBraid Native Messaging Host",
+        "path": host_link.to_string_lossy(),
+        "type": "stdio",
+        "allowed_origins": origins.into_iter().collect::<Vec<_>>(),
+    });
+    let chromium_manifest = serde_json::to_string_pretty(&manifest_json)?;
+
+    for rel in &browser_dirs {
+        let dir = app_support.join(rel);
+        fs::create_dir_all(&dir)?;
+        fs::write(dir.join("com.contextbraid.host.json"), &chromium_manifest)?;
+    }
+
+    let ff_dir = app_support.join("Mozilla/NativeMessagingHosts");
+    fs::create_dir_all(&ff_dir)?;
+    let ff_manifest = serde_json::json!({
+        "name": "com.contextbraid.host",
+        "description": "ContextBraid Native Messaging Host",
+        "path": host_link.to_string_lossy(),
+        "type": "stdio",
+        "allowed_extensions": ["contextbraid@extensions.local"],
+    });
+    fs::write(
+        ff_dir.join("com.contextbraid.host.json"),
+        serde_json::to_string_pretty(&ff_manifest)?,
+    )?;
+
+    let home = dirs::home_dir().context("HOME introuvable")?;
+    let launch_agents = home.join("Library/LaunchAgents");
+    fs::create_dir_all(&launch_agents)?;
+    let plist_path = launch_agents.join("com.contextbraid.daemon.plist");
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.contextbraid.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{}</string>
+        <string>daemon</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/braidd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/braidd.err.log</string>
+</dict>
+</plist>
+"#,
+        target_bin.display()
+    );
+    fs::write(&plist_path, plist)?;
+
+    let uid_out = Command::new("id").arg("-u").output()?;
+    let uid = String::from_utf8_lossy(&uid_out.stdout).trim().to_string();
+    let domain_target = format!("gui/{}", uid);
+    let service_target = format!("gui/{}/com.contextbraid.daemon", uid);
+
+    let kick = Command::new("launchctl").args(["kickstart", "-k", &service_target]).output();
+    if kick.map(|o| !o.status.success()).unwrap_or(true) {
+        let _ = Command::new("launchctl")
+            .args(["bootstrap", &domain_target, &plist_path.to_string_lossy()])
+            .output();
+    }
+
+    println!("ContextBraid installé et démarré depuis {}", target_bin.display());
+    Ok(())
+}
