@@ -15,7 +15,7 @@ export const DEFAULT_RULES: ExtractionRules = {
     '[data-captcha]',
   ],
   workingSelectors: [
-    '.terminal-loading',
+    '[data-slot="agent-thinking"]', 'button[aria-label="Stop"]', '.terminal-loading',
     'button[aria-label*="Stop" i]',
   ],
   completedSelectors: [
@@ -124,7 +124,11 @@ export function extractPageState(
   }
   for (const sel of rules.workingSelectors) {
     if (isVisible(doc.querySelector(sel))) {
-      return { status: 'working', contextSnippet: snippet };
+      const liveStep = extractLiveAgentStep(doc);
+      return {
+        status: 'working',
+        contextSnippet: liveStep ? `${liveStep} — ${snippet}` : snippet,
+      };
     }
   }
   return { status: 'idle', contextSnippet: snippet };
@@ -196,4 +200,17 @@ function collectFastSnippet(doc: Document, title: string, rules: ExtractionRules
   }
 
   return parts.join(' | ');
+}
+
+export function extractLiveAgentStep(doc: Document): string {
+  const thinkingLabels = doc.querySelectorAll('[data-slot="agent-thinking-label"]');
+  for (let i = thinkingLabels.length - 1; i >= 0; i--) {
+    const el = thinkingLabels.item(i);
+    if (!isVisible(el)) continue;
+    const raw = (el?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (raw.length >= 3 && raw.length <= 120) {
+      return raw;
+    }
+  }
+  return '';
 }

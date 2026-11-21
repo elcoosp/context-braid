@@ -108,4 +108,28 @@ describe('ContextBraid Fast Extractor (Chromium & Firefox)', () => {
 
     expect(extractPageState(document).status).toBe('idle');
   });
+
+  test('extracts semantic z.ai agent-thinking-label step while working and data-sandbox-file zip when completed', () => {
+    document.body.innerHTML = `
+      <main>
+        <div data-user-bubble="true">Task: ://github.com. Deliver ship.toml.</div>
+        <div role="status" data-slot="agent-thinking">
+          <span data-slot="agent-thinking-label">Re-run measurement (12 programs)</span>
+        </div>
+        <button aria-label="Stop">Stop</button>
+      </main>
+    `;
+    const working = extractPageState(document);
+    expect(working.status).toBe('working');
+    expect(working.contextSnippet.startsWith('Re-run measurement (12 programs) — ')).toBe(true);
+
+    document.body.innerHTML = `
+      <main>
+        <div data-user-bubble="true">Task: ://github.com. Deliver ship.toml.</div>
+        <a href="/home/z/my-project/download/glyim-m2.zip" data-sandbox-file="download/glyim-m2.zip">glyim-m2.zip</a>
+      </main>
+    `;
+    const done = extractPageState(document);
+    expect(done.status).toBe('completed');
+  });
 });

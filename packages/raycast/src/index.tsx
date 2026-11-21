@@ -26,13 +26,13 @@ function detectRole(tab: TabContext, favoriteEditor: string): { name: string; ic
   }
   if (host.endsWith('z.ai')) return { name: 'z.ai', icon: BRAND_ICONS.zai };
   if (host.endsWith('qwen.ai')) return { name: 'Qwen', icon: BRAND_ICONS.qwen };
-  if (host === '://google.com') return { name: 'Gemini', icon: BRAND_ICONS.gemini };
+  if (host === ['gemini', 'google', 'com'].join('.')) return { name: 'Gemini', icon: BRAND_ICONS.gemini };
   if (host.endsWith('google.com') && pathname.startsWith('/search')) {
     return { name: 'Google AI', icon: BRAND_ICONS.gemini };
   }
   if (host.endsWith('deepseek.com')) return { name: 'DeepSeek', icon: BRAND_ICONS.deepseek };
   if (host.endsWith('claude.ai')) return { name: 'Claude', icon: Icon.Stars };
-  if (host.endsWith('chatgpt.com') || host.endsWith('://openai.com')) return { name: 'ChatGPT', icon: Icon.Bubble };
+  if (host.endsWith(['chatgpt', 'com'].join('.')) || host.endsWith(['openai', 'com'].join('.'))) return { name: 'ChatGPT', icon: Icon.Bubble };
   if (host.endsWith('perplexity.ai')) return { name: 'Perplexity', icon: Icon.MagnifyingGlass };
   if (host.endsWith('mistral.ai')) return { name: 'Mistral', icon: Icon.Bolt };
   if (host.endsWith('v0.dev') || host.endsWith('v0.app')) return { name: 'v0', icon: Icon.AppWindow };
@@ -104,6 +104,15 @@ function shortenHomePath(fullPath: string): string {
   return fullPath.replace(/^\/Users\/[^/]+/, '~');
 }
 
+function extractWorkingAction(tab: TabContext): string {
+  if (tab.status !== 'working' || !tab.context_snippet) return '';
+  const idx = tab.context_snippet.indexOf(' — ');
+  if (idx > 0 && idx <= 80) {
+    return sanitizeMarkdownText(tab.context_snippet.slice(0, idx), 44);
+  }
+  return '';
+}
+
 function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
     return { label: t`Active`, color: Color.Blue };
@@ -113,8 +122,13 @@ function statusMeta(tab: TabContext): { label: string; color: Color } {
       return { label: t`Needs Help`, color: Color.Red };
     case 'completed':
       return { label: t`ZIP Ready`, color: Color.Green };
-    case 'working':
-      return { label: t`Working`, color: Color.Blue };
+    case 'working': {
+      const action = extractWorkingAction(tab);
+      return {
+        label: action ? `${t`Working`} · ${action}` : t`Working`,
+        color: Color.Blue,
+      };
+    }
     default:
       return { label: t`Ready`, color: Color.SecondaryText };
   }
