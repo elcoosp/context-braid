@@ -34,6 +34,12 @@ pub struct ProjectWorkspace {
     pub dirty_files: usize,
     #[serde(default)]
     pub favorite_editor: String,
+    #[serde(default)]
+    pub last_commit_sha: String,
+    #[serde(default)]
+    pub last_commit_msg: String,
+    #[serde(default)]
+    pub last_commit_ts: i64,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,
 }

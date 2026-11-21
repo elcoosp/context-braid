@@ -106,13 +106,16 @@ impl DaemonState {
                         AgentStatus::NeedsAttention | AgentStatus::Completed
                     )
                 });
-                let (git_branch, dirty_files) = macos::git_repo_stats(&repo_path);
+                let git_meta = macos::git_repo_stats(&repo_path);
                 Some(ProjectWorkspace {
                     repo_name,
                     repo_path: repo_path.to_string_lossy().into_owned(),
-                    git_branch,
-                    dirty_files,
+                    git_branch: git_meta.branch,
+                    dirty_files: git_meta.dirty,
                     favorite_editor: editor_spec.id.into(),
+                    last_commit_sha: git_meta.commit_sha,
+                    last_commit_msg: git_meta.commit_msg,
+                    last_commit_ts: git_meta.commit_ts,
                     tabs,
                     has_alert,
                 })

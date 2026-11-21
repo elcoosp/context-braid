@@ -361,9 +361,23 @@ pub fn activate_browser_app(browser: &str) {
     }
 }
 
-pub fn git_repo_stats(repo_path: &Path) -> (String, usize) {
+pub struct GitRepoMeta {
+    pub branch: String,
+    pub dirty: usize,
+    pub commit_sha: String,
+    pub commit_msg: String,
+    pub commit_ts: i64,
+}
+
+pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     let Ok(repo) = gix::open_opts(repo_path, gix::open::Options::isolated()) else {
-        return (String::new(), 0);
+        return GitRepoMeta {
+            branch: String::new(),
+            dirty: 0,
+            commit_sha: String::new(),
+            commit_msg: String::new(),
+            commit_ts: 0,
+        };
     };
 
     let branch = repo
@@ -378,6 +392,21 @@ pub fn git_repo_stats(repo_path: &Path) -> (String, usize) {
                 .unwrap_or_default()
         });
 
+    let (commit_sha, commit_msg, commit_ts) = repo
+        .head_commit()
+        .ok()
+        .map(|c| {
+            let sha = c.id().to_hex_with_len(7).to_string();
+            let msg = c
+                .message()
+                .ok()
+                .map(|m| m.summary().to_string())
+                .unwrap_or_default();
+            let ts = c.time().map(|t| t.seconds).unwrap_or(0);
+            (sha, msg, ts)
+        })
+        .unwrap_or_default();
+
     let dirty = repo
         .status(gix::progress::Discard)
         .ok()
@@ -385,5 +414,11 @@ pub fn git_repo_stats(repo_path: &Path) -> (String, usize) {
         .map(|iter| iter.filter_map(Result::ok).count())
         .unwrap_or(0);
 
-    (branch, dirty)
+    GitRepoMeta {
+        branch,
+        dirty,
+        commit_sha,
+        commit_msg,
+        commit_ts,
+    }
 }
