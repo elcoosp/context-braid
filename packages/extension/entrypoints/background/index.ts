@@ -132,41 +132,64 @@ export default defineBackground(() => {
     downloadedZips.add(dedupKey);
     autoDownloadTabIds.add(tabId);
     setTimeout(() => autoDownloadTabIds.delete(tabId), 15000);
+
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
       browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
       return;
     }
+
     browser.scripting
       .executeScript({
         target: { tabId },
         func: () => {
-          // 1. Carte "Generated files" z.ai : `<li>` contenant `· zip` -> `<button title="Download file">`
+          // 1. Si une modale d'aperçu est déjà ouverte avec un `.zip`, cliquer sur son bouton `aria-label="Download"`
+          const modalDlBtn = document.querySelector<HTMLElement>('button[aria-label="Download"]');
+          if (modalDlBtn) {
+            modalDlBtn.click();
+            return 'clicked_modal_download';
+          }
+
+          // 2. Liste "Generated files" z.ai : `<li>` contenant `· zip` -> `<button title="Download file">`
           const zipItems = Array.from(document.querySelectorAll('li')).filter((li) =>
-            Array.from(li.querySelectorAll('span')).some((s) => s.textContent?.trim() === '· zip'),
+            Array.from(li.querySelectorAll('span')).some((s) => /·\s*zip/i.test(s.textContent || '')),
           );
           if (zipItems.length > 0) {
             const latestLi = zipItems.at(-1);
             const dlBtn = latestLi?.querySelector<HTMLElement>('button[title="Download file"]');
             if (dlBtn) {
               dlBtn.click();
-              return 'clicked_download_button';
+              return 'clicked_list_download_button';
             }
           }
 
-          // 2. Lien artefact inline dans la bulle assistant : `a[data-sandbox-file$='.zip']`
-          const sandboxLinks = document.querySelectorAll<HTMLElement>(
-            "a[data-sandbox-file$='.zip'], a[data-sandbox-file*='.zip']",
-          );
-          if (sandboxLinks.length > 0) {
-            sandboxLinks.item(sandboxLinks.length - 1)?.click();
-            return 'clicked_sandbox_link';
+          // 3. Fallback générique uniquement sur de vrais attributs `download` (jamais `a[data-sandbox-file]` qui ouvre l'aperçu !)
+          const direct = document.querySelector<HTMLElement>("a[download$='.zip'], button[data-testid='download-zip']");
+          if (direct) {
+            direct.click();
+            return 'clicked_direct_download';
           }
 
-          // 3. Fallback générique
-          document
-            .querySelector<HTMLElement>("a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']")
-            ?.click();
+          return 'not_ready_yet';
         },
+      })
+      .then((res) => {
+        // Si React n'avait pas encore monté le `<li>` `· zip` (ex: fenêtre minimisée), retenter une fois après 1.5s
+        if (res?.at(0)?.result === 'not_ready_yet') {
+          setTimeout(() => {
+            browser.scripting
+              .executeScript({
+                target: { tabId },
+                func: () => {
+                  const zipItems = Array.from(document.querySelectorAll('li')).filter((li) =>
+                    Array.from(li.querySelectorAll('span')).some((s) => /·\s*zip/i.test(s.textContent || '')),
+                  );
+                  const dlBtn = zipItems.at(-1)?.querySelector<HTMLElement>('button[title="Download file"]');
+                  dlBtn?.click();
+                },
+              })
+              .catch(() => {});
+          }, 1500);
+        }
       })
       .catch(() => {});
   };
