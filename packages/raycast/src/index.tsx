@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { plural, t } from "@lingui/core/macro";
 import {
   Action,
@@ -180,11 +180,22 @@ export default function Command() {
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [showDetail, setShowDetail] = useState<boolean>(true);
 
+  const lastSnapshotRef = useRef<{ json: string; list: ProjectWorkspace[] }>({
+    json: "[]",
+    list: [],
+  });
+
   const { data, isLoading, error, revalidate } = usePromise(async () => {
     const res = await queryDaemon<{ projects: ProjectWorkspace[] }>({
       type: "get_dashboard",
     });
-    return res.projects ?? [];
+    const next = res.projects ?? [];
+    const nextJson = JSON.stringify(next);
+    if (nextJson === lastSnapshotRef.current.json) {
+      return lastSnapshotRef.current.list;
+    }
+    lastSnapshotRef.current = { json: nextJson, list: next };
+    return next;
   });
 
   useEffect(() => {

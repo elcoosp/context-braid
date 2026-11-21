@@ -236,14 +236,15 @@ export function findZipDownloadTargets(doc: Document): ZipDownloadTarget[] {
     results.push({ url: href, element: el, key });
   };
 
-  for (const el of Array.from(doc.querySelectorAll('a[download], a[href$=".zip"], a[href*=".zip?"]'))) {
-    const htmlEl = el as HTMLAnchorElement;
-    addCandidate(htmlEl, htmlEl.href || htmlEl.getAttribute("href") || "");
-  }
-
-  for (const span of Array.from(doc.querySelectorAll('li.group\\/item span'))) {
-    if (span.textContent?.trim() === "· zip") {
-      const li = span.closest("li");
+  const nodes = doc.querySelectorAll('a[download], a[href$=".zip"], a[href*=".zip?"], li.group\\/item span');
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes.item(i);
+    if (!node) continue;
+    if (node.tagName === "A") {
+      const htmlEl = node as HTMLAnchorElement;
+      addCandidate(htmlEl, htmlEl.href || htmlEl.getAttribute("href") || "");
+    } else if (node.textContent?.trim() === "· zip") {
+      const li = node.closest("li");
       const link = li?.querySelector("a[href]") as HTMLAnchorElement | null;
       const btn = (link || li?.querySelector("button")) as HTMLElement | null;
       addCandidate(btn, link?.href || link?.getAttribute("href") || "");
