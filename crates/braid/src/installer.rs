@@ -53,7 +53,87 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     let _ = fs::remove_file(&host_link);
     std::os::unix::fs::symlink(&target_bin, &host_link)?;
 
+    // Build self-contained macOS .app bundle with native .icns so macOS notifications display the ContextBraid icon
     let app_support = dirs::data_local_dir().context("Application Support introuvable")?;
+    let base_dir = app_support.join("ContextBraid");
+    let app_dir = base_dir.join("ContextBraid.app");
+    let app_contents = app_dir.join("Contents");
+    let app_macos = app_contents.join("MacOS");
+    let app_res = app_contents.join("Resources");
+    fs::create_dir_all(&app_macos)?;
+    fs::create_dir_all(&app_res)?;
+
+    let app_exec = app_macos.join("braid");
+    let _ = fs::remove_file(&app_exec);
+    std::os::unix::fs::symlink(&target_bin, &app_exec)?;
+
+    let icon_png = base_dir.join("icon.png");
+    fs::write(&icon_png, APP_ICON_PNG)?;
+
+    let iconset_dir = std::env::temp_dir().join("ContextBraid.iconset");
+    let _ = fs::remove_dir_all(&iconset_dir);
+    if fs::create_dir_all(&iconset_dir).is_ok() {
+        for (size, name) in [
+            (16, "icon_16x16.png"),
+            (32, "icon_16x16@2x.png"),
+            (32, "icon_32x32.png"),
+            (64, "icon_32x32@2x.png"),
+            (128, "icon_128x128.png"),
+        ] {
+            let _ = Command::new("sips")
+                .args([
+                    "-z",
+                    &size.to_string(),
+                    &size.to_string(),
+                    &icon_png.to_string_lossy(),
+                    "--out",
+                    &iconset_dir.join(name).to_string_lossy(),
+                ])
+                .output();
+        }
+        let _ = Command::new("iconutil")
+            .args([
+                "-c",
+                "icns",
+                &iconset_dir.to_string_lossy(),
+                "-o",
+                &app_res.join("AppIcon.icns").to_string_lossy(),
+            ])
+            .output();
+        let _ = fs::remove_dir_all(&iconset_dir);
+    }
+
+    let dtd = ["http", "://", "www", ".apple.com", "/DTDs/PropertyList-1.0.dtd"].join("");
+    let info_plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "{}">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.contextbraid.app</string>
+    <key>CFBundleName</key>
+    <string>ContextBraid</string>
+    <key>CFBundleDisplayName</key>
+    <string>ContextBraid</string>
+    <key>CFBundleExecutable</key>
+    <string>braid</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>"#,
+        dtd
+    );
+    fs::write(app_contents.join("Info.plist"), info_plist)?;
+
+    let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+    if Path::new(lsregister).exists() {
+        let _ = Command::new(lsregister)
+            .args(["-f", &app_dir.to_string_lossy()])
+            .output();
+    }
+
     let browser_dirs = [
         "Google/Chrome/NativeMessagingHosts",
         "BraveSoftware/Brave-Browser/NativeMessagingHosts",
