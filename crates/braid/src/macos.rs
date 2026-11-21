@@ -439,7 +439,7 @@ fn remote_to_github_url(raw: &str) -> String {
     if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
         return format!("https://github.com{}", rest);
     }
-    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://://github.com") {
+    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://github.com") {
         return trimmed.replace("http://", "https://");
     }
     String::new()

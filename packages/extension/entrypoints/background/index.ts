@@ -138,7 +138,7 @@ export default defineBackground(() => {
     if (!chatId || chatId.length < 8) return;
 
     try {
-      const apiUrl = `https://z.ai{chatId}/files/by-message?prefix=download&limit=20`;
+      const apiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/storage/chats/', chatId, '/files/by-message', '?prefix=download&limit=20'].join('');
       const res = await fetch(apiUrl, { credentials: 'include' });
       if (!res.ok) return;
       const bodyText = await res.text();

@@ -15,7 +15,7 @@ export const INSTALL_BIN = path.join(
   'braid',
 );
 
-const RELEASE_HOST = [['https', '://', 'github', '.com', '/elcoosp/context-braid/releases/latest/download/braid-macos-universal.tar.gz'].join(''), 'elcoosp', 'context-braid'].join('/');
+const RELEASE_HOST = ['https', '://', 'github', '.com', '/elcoosp/context-braid'].join('/');
 const RELEASE_ASSET_URL = `${RELEASE_HOST}/releases/latest/download/braid-macos-universal`;
 
 export async function ensureBraidInstalledAndRunning(extraExtId?: string): Promise<void> {
