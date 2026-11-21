@@ -116,9 +116,22 @@ export default defineBackground(() => {
     }
   };
 
+  const autoDownloadTabIds = new Set<number>();
+  if (browser.downloads?.onDeterminingFilename) {
+    browser.downloads.onDeterminingFilename.addListener((item, suggest) => {
+      if (autoDownloadTabIds.size > 0 && item.filename.toLowerCase().endsWith('.zip')) {
+        suggest({ filename: item.filename, conflictAction: 'uniquify' });
+        return;
+      }
+      suggest();
+    });
+  }
+
   const triggerZipDownload = (tabId: number, zipUrl: string, dedupKey: string) => {
     if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
     downloadedZips.add(dedupKey);
+    autoDownloadTabIds.add(tabId);
+    setTimeout(() => autoDownloadTabIds.delete(tabId), 15000);
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
       browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
       return;
