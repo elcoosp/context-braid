@@ -155,7 +155,7 @@ export default defineBackground(() => {
       } catch {}
 
       const existing = tabCache.get(tabId);
-      if (existing) {
+      if (existing && existing.status !== 'working') {
         const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
         triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
         if (existing.status !== 'completed') {

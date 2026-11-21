@@ -271,7 +271,7 @@ IpcMessage::SyncTabs { tabs, .. } => {
                             macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
                         }
                     } else {
-                        st.notified_alerts.retain(|(b, w, tid, _, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id));
+                        st.notified_alerts.retain(|(b, w, tid, k, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id && *k == 1));
                     }
                     st.tabs.insert(key, (t, now));
                 }

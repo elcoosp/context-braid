@@ -114,14 +114,6 @@ export function extractPageState(
   if (hasInlineRuntimeError(doc)) {
     return { status: 'needs_attention', contextSnippet: snippet };
   }
-  const zipUrl = findCompletedZipUrl(doc, rules);
-  if (zipUrl !== null) {
-    return {
-      status: 'completed',
-      contextSnippet: snippet,
-      ...(zipUrl ? { zipDownloadUrl: zipUrl } : {}),
-    };
-  }
   for (const sel of rules.workingSelectors) {
     if (isVisible(doc.querySelector(sel))) {
       const liveStep = extractLiveAgentStep(doc);
@@ -130,6 +122,14 @@ export function extractPageState(
         contextSnippet: liveStep ? `${liveStep} — ${snippet}` : snippet,
       };
     }
+  }
+  const zipUrl = findCompletedZipUrl(doc, rules);
+  if (zipUrl !== null) {
+    return {
+      status: 'completed',
+      contextSnippet: snippet,
+      ...(zipUrl ? { zipDownloadUrl: zipUrl } : {}),
+    };
   }
   return { status: 'idle', contextSnippet: snippet };
 }
