@@ -285,8 +285,8 @@ export default function Command() {
                     ? `> **${favEditor.label}** · \`${shortenHomePath(proj.repo_path)}\``
                     : workingAction
                       ? taskDetail
-                        ? `> ⚡ **${workingAction}**  \n> *${taskDetail}*`
-                        : `> ⚡ **${workingAction}**`
+                        ? `> **${workingAction}**  \n> *${taskDetail}*`
+                        : `> **${workingAction}**`
                       : taskDetail
                         ? `> **${role.name}** — ${taskDetail}`
                         : `\`${shortenHomePath(proj.repo_path)}\``;
