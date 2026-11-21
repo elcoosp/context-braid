@@ -1,0 +1,9 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2024",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals"]
+  }
+}
