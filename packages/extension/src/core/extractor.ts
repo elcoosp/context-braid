@@ -50,21 +50,35 @@ const INLINE_ERROR_PATTERNS: RegExp[] = [
   /please send your request again/i,
 ];
 
+function isAfterLastUserBubble(el: Element, lastUserBubble: Element | null): boolean {
+  if (!lastUserBubble) return true;
+  return Boolean(
+    lastUserBubble.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
 function hasInlineRuntimeError(doc: Document): boolean {
+  const userBubbles = doc.querySelectorAll('main [data-user-bubble="true"]');
+  const lastUserBubble = userBubbles.length > 0 ? userBubbles[userBubbles.length - 1] : null;
+
+  // 1. Semantic red alert banners inside <main> strictly AFTER the latest user message
   const alertBanners = doc.querySelectorAll('main [role="alert"], main [class*="border-red-"]');
   for (let i = alertBanners.length - 1; i >= 0; i--) {
     const el = alertBanners[i];
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
+    if (!isAfterLastUserBubble(el, lastUserBubble)) continue;
     const text = (el.textContent || '').trim();
     if (text.length > 0 && text.length < 280) {
       return true;
     }
   }
 
+  // 2. Fallback text scan strictly AFTER the latest user message
   const candidates = doc.querySelectorAll('main div, main p, main span');
   for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 50; i--) {
     const el = candidates[i];
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
+    if (!isAfterLastUserBubble(el, lastUserBubble)) continue;
     const text = (el.textContent || '').trim();
     if (text.length > 0 && text.length < 280 && INLINE_ERROR_PATTERNS.some((re) => re.test(text))) {
       return true;

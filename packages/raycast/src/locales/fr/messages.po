@@ -60,10 +60,6 @@ msgstr "Alertes & ZIP Prêts"
 msgid "All contexts"
 msgstr "Tous les contextes"
 
-#: src/index.tsx:102
-msgid "Captcha"
-msgstr "Captcha"
-
 #: src/index.tsx:210
 msgid "clean"
 msgstr "propre"
@@ -161,6 +157,10 @@ msgstr "à l’instant"
 #: src/index.tsx:227
 msgid "Last activity"
 msgstr "Dernière activité"
+
+#: src/index.tsx:102
+msgid "Needs Help"
+msgstr "Alerte"
 
 #: src/index.tsx:172
 msgid "Open editors"

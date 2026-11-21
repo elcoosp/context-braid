@@ -99,7 +99,7 @@ function statusMeta(tab: TabContext): { label: string; color: Color } {
   }
   switch (tab.status) {
     case 'needs_attention':
-      return { label: t`Captcha`, color: Color.Red };
+      return { label: t`Needs Help`, color: Color.Red };
     case 'completed':
       return { label: t`ZIP Ready`, color: Color.Green };
     case 'working':

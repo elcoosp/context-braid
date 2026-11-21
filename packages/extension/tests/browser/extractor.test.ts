@@ -80,4 +80,19 @@ describe('ContextBraid Fast Extractor (Chromium & Firefox)', () => {
     expect(res.status).toBe('needs_attention');
     expect(res.contextSnippet).toContain('Oxide');
   });
+
+  test('efface l’erreur dès qu’un nouveau message utilisateur relance la conversation', () => {
+    document.title = 'Glyim';
+    document.body.innerHTML = `
+      <main>
+        <div data-user-bubble="true">First attempt</div>
+        <div class="border-red-600/10 bg-red-600/10">The service was updated while this task was running, so it was interrupted.</div>
+        <div data-user-bubble="true">continue working</div>
+        <button aria-label="Stop"></button>
+      </main>
+    `;
+
+    const res = extractPageState(document);
+    expect(res.status).toBe('working');
+  });
 });
