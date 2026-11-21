@@ -676,72 +676,144 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
                 .spawn();
         }
 
-        let full_title = format!("ContextBraid • {}", repo_name);
-        let sub_owned = subtitle.to_string();
-        let msg_owned = msg.to_string();
-        let req_id = format!(
-            "contextbraid-{}-{}-{}-{}",
-            _browser,
-            _window_id,
-            _tab_id,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-        );
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let app_bundle = home.join("Library/Application Support/ContextBraid/ContextBraid.app");
+        if app_bundle.exists() {
+            let _ = std::process::Command::new("open")
+                .args([
+                    "-n",
+                    "-g",
+                    "-a",
+                    &app_bundle.to_string_lossy(),
+                    "--args",
+                    "notify",
+                    repo_name,
+                    subtitle,
+                    msg,
+                ])
+                .spawn();
+        } else {
+            deliver_un_notification_gui(repo_name, subtitle, msg);
+        }
+    }
+}
 
-        std::thread::spawn(move || {
-            use block2::RcBlock;
-            use objc2::rc::Retained;
-            use objc2::runtime::Bool;
-            use objc2_foundation::{NSError, NSString};
-            use objc2_user_notifications::{
-                UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
-                UNUserNotificationCenter,
-            };
-            use std::sync::mpsc;
-            use std::time::Duration;
+pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &str) {
+    use block2::RcBlock;
+    use objc2::rc::Retained;
+    use objc2::runtime::Bool;
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    use objc2_foundation::{NSDate, NSError, NSRunLoop, NSString};
+    use objc2_user_notifications::{
+        UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
+        UNUserNotificationCenter,
+    };
+    use std::cell::Cell;
+    use std::io::Write;
+    use std::rc::Rc;
 
-            let center = UNUserNotificationCenter::currentNotificationCenter();
+    let full_title = format!("ContextBraid • {}", repo_name);
+    let mut log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/braid-notif.log")
+        .ok();
 
-            let (tx, rx) = mpsc::channel::<bool>();
-            let auth_block = RcBlock::new(move |granted: Bool, _err: *mut NSError| {
-                let _ = tx.send(granted.as_bool());
-            });
-            let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
-            center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+    if let Some(mtm) = MainThreadMarker::new() {
+        let _app = NSApplication::sharedApplication(mtm);
+        let center = UNUserNotificationCenter::currentNotificationCenter();
 
-            let granted = rx.recv_timeout(Duration::from_secs(3)).unwrap_or(false);
-            if granted {
-                let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
-                content.setTitle(&NSString::from_str(&full_title));
-                content.setSubtitle(&NSString::from_str(&sub_owned));
-                content.setBody(&NSString::from_str(&msg_owned));
+        let done = Rc::new(Cell::new(false));
+        let granted_flag = Rc::new(Cell::new(false));
+        let done_c = Rc::clone(&done);
+        let granted_c = Rc::clone(&granted_flag);
 
-                let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
-                    &NSString::from_str(&req_id),
-                    &content,
-                    None,
-                );
-
-                let (done_tx, done_rx) = mpsc::channel::<bool>();
-                let add_block = RcBlock::new(move |err: *mut NSError| {
-                    let _ = done_tx.send(err.is_null());
-                });
-                center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
-                if done_rx.recv_timeout(Duration::from_secs(3)).unwrap_or(false) {
-                    return;
+        let auth_block = RcBlock::new(move |granted: Bool, err: *mut NSError| {
+            granted_c.set(granted.as_bool());
+            done_c.set(true);
+            if !err.is_null() {
+                let desc = unsafe { (&*err).localizedDescription().to_string() };
+                if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/braid-notif.log") {
+                    let _ = writeln!(f, "AUTH_ERR: {}", desc);
                 }
             }
-
-            // Fallback osascript uniquement si l'autorisation macOS est refusée
-            let script = format!(
-                "display notification {:?} with title {:?} subtitle {:?}",
-                msg_owned, full_title, sub_owned
-            );
-            let _ = std::process::Command::new("/usr/bin/osascript")
-                .args(["-e", &script])
-                .spawn();
         });
+
+        let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
+        center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+
+        let run_loop = NSRunLoop::currentRunLoop();
+        for _ in 0..30 {
+            if done.get() {
+                break;
+            }
+            let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
+            run_loop.runUntilDate(&next);
+        }
+
+        if let Some(f) = log.as_mut() {
+            let _ = writeln!(f, "AUTH_RESULT: done={} granted={}", done.get(), granted_flag.get());
+        }
+
+        if granted_flag.get() {
+            let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
+            content.setTitle(&NSString::from_str(&full_title));
+            content.setSubtitle(&NSString::from_str(subtitle));
+            content.setBody(&NSString::from_str(message));
+
+            let req_id = format!(
+                "cb-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis()
+            );
+            let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+                &NSString::from_str(&req_id),
+                &content,
+                None,
+            );
+
+            let sent = Rc::new(Cell::new(false));
+            let ok_flag = Rc::new(Cell::new(false));
+            let sent_c = Rc::clone(&sent);
+            let ok_c = Rc::clone(&ok_flag);
+            let add_block = RcBlock::new(move |err: *mut NSError| {
+                ok_c.set(err.is_null());
+                sent_c.set(true);
+                if !err.is_null() {
+                    let desc = unsafe { (&*err).localizedDescription().to_string() };
+                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/braid-notif.log") {
+                        let _ = writeln!(f, "ADD_ERR: {}", desc);
+                    }
+                }
+            });
+            center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
+
+            for _ in 0..20 {
+                if sent.get() {
+                    break;
+                }
+                let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
+                run_loop.runUntilDate(&next);
+            }
+
+            if ok_flag.get() {
+                // Laisse 250ms à usernoted pour récupérer l'icône du bundle avant la sortie du processus
+                let next = NSDate::dateWithTimeIntervalSinceNow(0.25);
+                run_loop.runUntilDate(&next);
+                return;
+            }
+        }
     }
+
+    // Fallback garanti si l'utilisateur n'a pas encore cliqué Autoriser
+    let script = format!(
+        "display notification {:?} with title {:?} subtitle {:?}",
+        message, full_title, subtitle
+    );
+    let _ = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .spawn();
 }

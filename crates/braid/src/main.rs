@@ -389,6 +389,13 @@ Some("host") => {
 host::run_host_entry();
 Ok(())
 }
+Some("notify") => {
+let repo = args.get(2).map(|s| s.as_str()).unwrap_or("ContextBraid");
+let subtitle = args.get(3).map(|s| s.as_str()).unwrap_or("Agent Alert");
+let message = args.get(4).map(|s| s.as_str()).unwrap_or("");
+macos::deliver_un_notification_gui(repo, subtitle, message);
+Ok(())
+}
 Some("install") => {
 let extra: Vec<String> = args.iter().skip(2).cloned().collect();
 installer::install_self(&extra)
