@@ -122,13 +122,8 @@ function statusMeta(tab: TabContext): { label: string; color: Color } {
       return { label: t`Needs Help`, color: Color.Red };
     case 'completed':
       return { label: t`ZIP Ready`, color: Color.Green };
-    case 'working': {
-      const action = extractWorkingAction(tab);
-      return {
-        label: action ? `${t`Working`} · ${action}` : t`Working`,
-        color: Color.Blue,
-      };
-    }
+    case 'working':
+      return { label: t`Working`, color: Color.Blue };
     default:
       return { label: t`Ready`, color: Color.SecondaryText };
   }
@@ -244,7 +239,9 @@ export default function Command() {
                 const role = detectRole(tab, proj.favorite_editor);
                 const meta = statusMeta(tab);
                 const bBadge = browserBadge(tab.browser, proj.favorite_editor);
+                const workingAction = extractWorkingAction(tab);
                 const taskDetail = extractCleanIntent(tab.title, proj.repo_name, role.name === 'Google AI');
+                const rowSubtitle = workingAction || taskDetail;
                 const age = formatRelativeAge(tab.updated_at_ms);
 
                 const accessories: List.Item.Accessory[] = [];
@@ -282,32 +279,27 @@ export default function Command() {
                     ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
                     : t`Clean`;
 
-                const subtitleLine = taskDetail
-                  ? `> **${role.name}** — ${taskDetail}`
-                  : `\`${shortenHomePath(proj.repo_path)}\``;
+                const activityCallout =
+                  tab.browser === 'editor' || tab.browser === 'zed'
+                    ? `> **${favEditor.label}** · \`${shortenHomePath(proj.repo_path)}\``
+                    : workingAction
+                      ? taskDetail
+                        ? `> ⚡ **${workingAction}**  \n> *${taskDetail}*`
+                        : `> ⚡ **${workingAction}**`
+                      : taskDetail
+                        ? `> **${role.name}** — ${taskDetail}`
+                        : `\`${shortenHomePath(proj.repo_path)}\``;
 
-                const cleanCommitMsg = sanitizeMarkdownText(proj.last_commit_msg, 54);
+                const cleanCommitMsg = sanitizeMarkdownText(proj.last_commit_msg, 56);
                 const commitLine = proj.last_commit_sha
                   ? `**HEAD** \`${proj.last_commit_sha}\` · ${cleanCommitMsg}${commitAge ? ` *(${commitAge})*` : ''}`
                   : '';
 
-                const prsBlock =
-                  proj.recent_prs && proj.recent_prs.length > 0
-                    ? [
-                        `**${t`Recently Merged PRs`}**`,
-                        ...proj.recent_prs.slice(0, 2).map((pr) => {
-                          const rawPr = sanitizeMarkdownText(pr.title, 44);
-                          return `\`#${pr.number}\` ${rawPr}`;
-                        }),
-                      ].join('  \n')
-                    : '';
-
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
-                  subtitleLine,
+                  activityCallout,
                   chartImage,
                   commitLine,
-                  prsBlock,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
@@ -317,7 +309,7 @@ export default function Command() {
                     key={`${tab.browser}-${tab.window_id}-${tab.tab_id}`}
                     icon={role.icon}
                     title={role.name}
-                    subtitle={showDetail ? undefined : taskDetail}
+                    subtitle={rowSubtitle ? { value: rowSubtitle, tooltip: rowSubtitle } : undefined}
                     keywords={[
                       proj.repo_name,
                       proj.git_branch,
@@ -325,6 +317,7 @@ export default function Command() {
                       proj.last_commit_msg,
                       role.name,
                       tab.browser,
+                      workingAction,
                       taskDetail,
                       meta.label,
                     ]}
@@ -334,6 +327,13 @@ export default function Command() {
                         markdown={detailMarkdown}
                         metadata={
                           <List.Item.Detail.Metadata>
+                            {workingAction && (
+                              <List.Item.Detail.Metadata.Label
+                                title={t`Current Step`}
+                                text={workingAction}
+                                icon={{ source: Icon.Bolt, tintColor: Color.Blue }}
+                              />
+                            )}
                             <List.Item.Detail.Metadata.TagList title={t`Git`}>
                               {proj.git_branch && (
                                 <List.Item.Detail.Metadata.TagList.Item
