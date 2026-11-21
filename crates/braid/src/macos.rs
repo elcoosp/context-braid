@@ -578,7 +578,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
                 .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
                 .all()
             {
-                for info in walk.flatten().take(3000) {
+                for info in walk.flatten().take(25000) {
                     let Some(ts) = info.commit_time else { continue; };
                     if ts < cutoff {
                         break;
