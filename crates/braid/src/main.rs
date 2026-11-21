@@ -174,6 +174,21 @@ async fn handle_client(stream: UnixStream, state: Arc<RwLock<DaemonState>>) -> R
 return Ok(());
 }
 let response = match msg {
+IpcMessage::NotifyTabFocused {
+                browser,
+                window_id,
+                tab_id,
+            } => {
+                let mut st = state.write().await;
+                st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
+                if let Some(repo) = st.tab_repo_history.get(&(browser, tab_id)).cloned() {
+                    if st.active_repo.as_deref() != Some(&repo) {
+                        st.active_repo = Some(repo);
+                        st.cycle_cursor = 0;
+                    }
+                }
+                IpcMessage::Ack
+            }
 IpcMessage::SyncTabs { tabs, .. } => {
 let mut st = state.write().await;
 let now = now_ms();

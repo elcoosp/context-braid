@@ -118,9 +118,7 @@ pub fn list_zed_windows(repos_root: &Path) -> Vec<PathBuf> {
     open_paths
 }
 
-pub fn focus_zed_repo(repo_path: &str) -> Result<()> {
-    let clean = repo_path.strip_prefix("file://").unwrap_or(repo_path);
-    let _ = Command::new("open").args(["-a", "Zed", clean]).output();
+pub fn focus_zed_repo(_repo_path: &str) -> Result<()> {
     unsafe {
         activate_bundle_id("dev.zed.Zed");
     }

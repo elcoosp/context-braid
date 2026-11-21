@@ -63,7 +63,35 @@ export default defineBackground(() => {
   };
 
   browser.runtime.onInstalled.addListener(() => {
-    reinjectOpenTabs();
+    const notifyFocused = (browserNameArg: string, windowId?: number, tabId?: number) => {
+    if (windowId == null || tabId == null) return;
+    try {
+      ensurePort().postMessage({
+        type: 'notify_tab_focused',
+        browser: browserNameArg,
+        window_id: windowId,
+        tab_id: tabId,
+      });
+    } catch {
+      port = null;
+    }
+  };
+
+  browser.tabs.onActivated.addListener((activeInfo) => {
+    notifyFocused(browserName, activeInfo.windowId, activeInfo.tabId);
+  });
+
+  browser.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === browser.windows.WINDOW_ID_NONE) return;
+    try {
+      const [activeTab] = await browser.tabs.query({ active: true, windowId });
+      if (activeTab?.id != null) {
+        notifyFocused(browserName, windowId, activeTab.id);
+      }
+    } catch {}
+  });
+
+  reinjectOpenTabs();
   });
 
   const handleDaemonResponse = async (resp: unknown) => {

@@ -7,6 +7,7 @@ pub enum IpcMessage {
     SyncTabs { browser: String, tabs: Vec<TabContextPayload> },
     GetDashboard,
     SubscribeHost { browser: String },
+    NotifyTabFocused { browser: String, window_id: i64, tab_id: i64 },
     DashboardResponse { projects: Vec<ProjectWorkspace> },
     FocusTarget { browser: String, window_id: i64, tab_id: i64 },
     JumpNextAlert,
