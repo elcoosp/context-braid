@@ -7,7 +7,7 @@ import { BRAND_ICONS, browserBadge, editorMeta } from './brandIcons';
 import './i18n';
 import { PairBrowserForm } from './PairBrowserForm';
 import { ProjectWorkspace, queryDaemon, TabContext } from './socketClient';
-import { buildGitVelocitySvg } from './sparklineSvg';
+import { buildGitVelocityBar } from './sparklineChart';
 
 type StatusFilter = 'all' | 'attention' | 'working' | 'editor';
 
@@ -214,19 +214,29 @@ export default function Command() {
                 accessories.push({ tag: { value: meta.label, color: meta.color } });
 
                 const commitAge = formatCommitAge(proj.last_commit_ts);
-                const chartAccent = proj.has_alert ? '#EF4444' : proj.dirty_files > 0 ? '#F59E0B' : '#3B82F6';
-                const chartUri = buildGitVelocitySvg(proj.commit_sparkline, chartAccent, t`14d Git Velocity`);
-                const headline =
+                const vel = buildGitVelocityBar(proj.commit_sparkline);
+                const activeContextLine =
                   tab.browser === 'editor' || tab.browser === 'zed'
-                    ? proj.last_commit_msg
-                      ? `\`${proj.last_commit_sha}\` ${proj.last_commit_msg}`
-                      : shortenHomePath(proj.repo_path)
-                    : taskDetail || proj.last_commit_msg || role.name;
+                    ? `> **${favEditor.label}** — ${shortenHomePath(proj.repo_path)}`
+                    : taskDetail
+                      ? `> **${role.name}** — ${taskDetail}`
+                      : `> **${role.name}**`;
+
+                const gitHeadline = proj.last_commit_sha
+                  ? `**HEAD** \`${proj.last_commit_sha}\` · ${proj.last_commit_msg}${commitAge ? ` *(${commitAge})*` : ''}`
+                  : '';
+
+                const velocityTable = [
+                  `| ${t`14d Git Velocity`} | ${t`Commits`} |`,
+                  `| :--- | ---: |`,
+                  `| \`${vel.spark}\` | **${vel.total}** |`,
+                ].join('\n');
 
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
-                  headline,
-                  `![](${chartUri})`,
+                  activeContextLine,
+                  gitHeadline,
+                  velocityTable,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
@@ -240,6 +250,7 @@ export default function Command() {
                     keywords={[
                       proj.repo_name,
                       proj.git_branch,
+                      proj.last_commit_sha,
                       proj.last_commit_msg,
                       role.name,
                       tab.browser,
@@ -263,12 +274,6 @@ export default function Command() {
                                   }
                                   color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
                                 />
-                                {proj.last_commit_sha && (
-                                  <List.Item.Detail.Metadata.TagList.Item
-                                    text={commitAge ? `${proj.last_commit_sha} • ${commitAge}` : proj.last_commit_sha}
-                                    color={Color.SecondaryText}
-                                  />
-                                )}
                               </List.Item.Detail.Metadata.TagList>
                             )}
                             <List.Item.Detail.Metadata.TagList title={t`Workspace Windows`}>
