@@ -416,11 +416,15 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             .unwrap_or(commit_ts);
         let cutoff = now_sec - 14 * 86_400;
 
-        if let Ok(walk) = repo.rev_walk([head_commit.id()]).all() {
-            for info in walk.flatten().take(300) {
+        if let Ok(walk) = repo
+            .rev_walk([head_commit.id()])
+            .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
+            .all()
+        {
+            for info in walk.flatten().take(500) {
                 let Some(ts) = info.commit_time else { continue; };
                 if ts < cutoff {
-                    continue;
+                    break;
                 }
                 let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
                 if age_days < 14 {
