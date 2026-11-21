@@ -146,7 +146,7 @@ export default defineBackground(() => {
   const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
     const resolvedUrl = tabUrl || (tabCache.get(tabId)?.url as string | undefined) || '';
     if (!resolvedUrl.includes('chat.z.ai/c/')) return;
-    const chatId = resolvedUrl.split('/c/')?.split(/[?#]/);
+    const chatId = new URL(resolvedUrl).pathname.match(/^\/c\/([^/?#]+)/)?.at(1);
     if (!chatId || chatId.length < 8) return;
 
     const subApiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/chats/subagents?chat_id=', chatId].join('');
@@ -180,7 +180,7 @@ export default defineBackground(() => {
         let zipDownloadUrl = '';
         const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
         if (urlMatch) {
-          zipDownloadUrl = urlMatch;
+          zipDownloadUrl = urlMatch.at(0) ?? '';
         }
         const latestCached = tabCache.get(tabId);
         if (latestCached && latestCached.status !== 'working') {
