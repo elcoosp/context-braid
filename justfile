@@ -18,3 +18,6 @@ build:
     cargo build --workspace
     pnpm --filter @context-braid/extension build
     pnpm --filter @context-braid/extension build:firefox
+
+screenshots:
+    ./scripts/capture-store-screenshots.sh
