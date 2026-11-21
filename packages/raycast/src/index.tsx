@@ -313,7 +313,7 @@ export default function Command() {
                                 )}
                               </List.Item.Detail.Metadata.TagList>
                             )}
-                            <List.Item.Detail.Metadata.TagList title={t`Workspace Windows`}>
+                            <List.Item.Detail.Metadata.TagList title={t`Workspace`}>
                               {proj.tabs.map((itemTab) => {
                                 const itemRole = detectRole(itemTab, proj.favorite_editor);
                                 const itemStatus = statusMeta(itemTab);
@@ -327,16 +327,18 @@ export default function Command() {
                                 );
                               })}
                             </List.Item.Detail.Metadata.TagList>
-                            <List.Item.Detail.Metadata.Separator />
-                            <List.Item.Detail.Metadata.Label title={t`Surface`} text={bBadge.label} icon={bBadge.icon} />
-                            <List.Item.Detail.Metadata.TagList title={t`Status`}>
+                            <List.Item.Detail.Metadata.TagList title={t`Session`}>
+                              <List.Item.Detail.Metadata.TagList.Item
+                                text={bBadge.label}
+                                icon={bBadge.icon}
+                                color={Color.SecondaryText}
+                              />
                               <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
                               {age && <List.Item.Detail.Metadata.TagList.Item text={age} color={Color.SecondaryText} />}
                               {tab.incognito && (
                                 <List.Item.Detail.Metadata.TagList.Item text={t`Private`} color={Color.SecondaryText} />
                               )}
                             </List.Item.Detail.Metadata.TagList>
-                            <List.Item.Detail.Metadata.Label title={t`Path`} text={shortenHomePath(proj.repo_path)} />
                           </List.Item.Detail.Metadata>
                         }
                       />
