@@ -388,16 +388,30 @@ export default defineBackground(() => {
 const recentDownloadUrls = new Map<string, number>();
 const LOG_STORAGE_KEY = "cb_autodownload_logs";
 
-async function appendAutoDownloadLog(entry: Record<string, unknown>) {
-  console.info("[ContextBraid:AutoDownload:BG]", entry);
+const pendingAutoDownloadLogs: Record<string, unknown>[] = [];
+let logFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function flushAutoDownloadLogs() {
+  logFlushTimer = null;
+  if (pendingAutoDownloadLogs.length === 0 || !browser.storage?.local) return;
+  const batch = pendingAutoDownloadLogs.splice(0, pendingAutoDownloadLogs.length);
   try {
-    if (!browser.storage?.local) return;
     const data = await browser.storage.local.get(LOG_STORAGE_KEY);
     const list = Array.isArray(data?.[LOG_STORAGE_KEY]) ? data[LOG_STORAGE_KEY] : [];
-    list.push(entry);
+    list.push(...batch);
     await browser.storage.local.set({ [LOG_STORAGE_KEY]: list.slice(-50) });
   } catch {
     // ignore storage errors
+  }
+}
+
+function appendAutoDownloadLog(entry: Record<string, unknown>) {
+  console.info("[ContextBraid:AutoDownload:BG]", entry);
+  pendingAutoDownloadLogs.push(entry);
+  if (!logFlushTimer) {
+    logFlushTimer = setTimeout(() => {
+      void flushAutoDownloadLogs();
+    }, 1500);
   }
 }
 

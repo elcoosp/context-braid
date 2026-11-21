@@ -342,7 +342,7 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
 }
 
 pub fn open_in_terminal(repo_path: &str) -> Result<()> {
-    let _ = Command::new("open").args(["-a", "Terminal", repo_path]).output();
+    let _ = Command::new("open").args(["-a", "Terminal", repo_path]).spawn();
     Ok(())
 }
 

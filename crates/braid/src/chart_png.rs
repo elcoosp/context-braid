@@ -205,6 +205,9 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
 
     let w: usize = 720;
     let h: usize = 84;
+    if out_path.metadata().map(|m| m.len() > 0).unwrap_or(false) {
+        return Some(out_path.to_string_lossy().into_owned());
+    }
     let mut buf = vec![0u8; w * h * 4];
     let mut canvas = Canvas { buf: &mut buf, w, h };
 
