@@ -14,3 +14,7 @@ node_modules/
 *.log
 .vitest/
 test-results/
+
+# Compiled Lingui catalogs & SWC staging
+src/locales/**/*.ts
+.src-backup/

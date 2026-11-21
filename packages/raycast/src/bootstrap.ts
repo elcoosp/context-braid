@@ -38,3 +38,7 @@ export async function ensureBraidInstalledAndRunning(extraExtId?: string): Promi
   }
   await execFileAsync(INSTALL_BIN, args);
 }
+
+export async function runBraidInstall(extensionId?: string): Promise<void> {
+  await ensureBraidInstalledAndRunning(extensionId);
+}

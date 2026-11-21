@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { plural, t } from '@lingui/core/macro';
 import { Action, ActionPanel, Color, Icon, Image, List, showToast, Toast } from '@raycast/api';
 import { usePromise } from '@raycast/utils';
 import { ensureBraidInstalledAndRunning } from './bootstrap';
 import { BRAND_ICONS, browserBadge, editorMeta } from './brandIcons';
+import './i18n';
 import { PairBrowserForm } from './PairBrowserForm';
 import { ProjectWorkspace, queryDaemon, TabContext } from './socketClient';
 
@@ -45,26 +47,26 @@ function cleanTaskTitle(rawTitle: string, repoName: string): string {
 function formatRelativeAge(updatedAtMs: number): string {
   if (!updatedAtMs || updatedAtMs <= 0) return '';
   const diffSec = Math.max(0, Math.floor((Date.now() - updatedAtMs) / 1000));
-  if (diffSec < 60) return 'à l’instant';
+  if (diffSec < 60) return t`just now`;
   const mins = Math.floor(diffSec / 60);
-  if (mins < 60) return `il y a ${mins}m`;
+  if (mins < 60) return t`${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  return `il y a ${hrs}h`;
+  return t`${hrs}h ago`;
 }
 
 function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
-    return { label: 'Actif', color: Color.Purple };
+    return { label: t`Active`, color: Color.Purple };
   }
   switch (tab.status) {
     case 'needs_attention':
-      return { label: 'Captcha', color: Color.Red };
+      return { label: t`Captcha`, color: Color.Red };
     case 'completed':
-      return { label: 'ZIP Prêt', color: Color.Green };
+      return { label: t`ZIP Ready`, color: Color.Green };
     case 'working':
-      return { label: 'En cours', color: Color.Blue };
+      return { label: t`Working`, color: Color.Blue };
     default:
-      return { label: 'Prêt', color: Color.SecondaryText };
+      return { label: t`Ready`, color: Color.SecondaryText };
   }
 }
 
@@ -83,15 +85,15 @@ export default function Command() {
   }, [revalidate]);
 
   const installEngine = async () => {
-    const toast = await showToast({ style: Toast.Style.Animated, title: 'Démarrage moteur ContextBraid...' });
+    const toast = await showToast({ style: Toast.Style.Animated, title: t`Starting ContextBraid engine...` });
     try {
       await ensureBraidInstalledAndRunning();
       toast.style = Toast.Style.Success;
-      toast.title = 'Moteur ContextBraid actif';
+      toast.title = t`ContextBraid engine active`;
       revalidate();
     } catch (err) {
       toast.style = Toast.Style.Failure;
-      toast.title = "Erreur d'installation";
+      toast.title = t`Installation error`;
       toast.message = err instanceof Error ? err.message : String(err);
     }
   };
@@ -122,20 +124,20 @@ export default function Command() {
     <List
       isLoading={isLoading}
       isShowingDetail={showDetail}
-      searchBarPlaceholder="Rechercher un dépôt, une branche, un agent ou un éditeur..."
+      searchBarPlaceholder={t`Search a repo, branch, AI agent, or editor...`}
       searchBarAccessory={
-        <List.Dropdown tooltip="Filtrer par état" value={filter} onChange={(v) => setFilter(v as StatusFilter)}>
-          <List.Dropdown.Item title="Tous les contextes" value="all" icon={Icon.AppWindowGrid2x2} />
-          <List.Dropdown.Item title="Alertes & ZIP Prêts" value="attention" icon={Icon.Bell} />
-          <List.Dropdown.Item title="En cours de génération" value="working" icon={Icon.Clock} />
-          <List.Dropdown.Item title="Éditeurs ouverts" value="editor" icon={Icon.Code} />
+        <List.Dropdown tooltip={t`Filter by status`} value={filter} onChange={(v) => setFilter(v as StatusFilter)}>
+          <List.Dropdown.Item title={t`All contexts`} value="all" icon={Icon.AppWindowGrid2x2} />
+          <List.Dropdown.Item title={t`Alerts & Ready ZIPs`} value="attention" icon={Icon.Bell} />
+          <List.Dropdown.Item title={t`Generating`} value="working" icon={Icon.Clock} />
+          <List.Dropdown.Item title={t`Open editors`} value="editor" icon={Icon.Code} />
         </List.Dropdown>
       }
       actions={
         <ActionPanel>
-          <Action title="Installer / Démarrer le moteur" icon={Icon.Download} onAction={installEngine} />
+          <Action title={t`Install / Start Engine`} icon={Icon.Download} onAction={installEngine} />
           <Action.Push
-            title="Connecter un ID d'extension navigateur"
+            title={t`Connect Browser Extension ID`}
             icon={Icon.Plug}
             target={<PairBrowserForm onDone={revalidate} />}
           />
@@ -145,13 +147,13 @@ export default function Command() {
       {error && (
         <List.EmptyView
           icon={{ source: Icon.Download, tintColor: Color.Blue }}
-          title="Moteur local ContextBraid non démarré"
-          description="Appuyez sur Entrée pour installer et démarrer automatiquement le service local."
+          title={t`ContextBraid local engine is not running`}
+          description={t`Press Enter to automatically install and start the local background service.`}
           actions={
             <ActionPanel>
-              <Action title="Installer et démarrer maintenant" icon={Icon.Download} onAction={installEngine} />
+              <Action title={t`Install and Start Now`} icon={Icon.Download} onAction={installEngine} />
               <Action.Push
-                title="Configurer un ID d'extension"
+                title={t`Configure Extension ID`}
                 icon={Icon.Plug}
                 target={<PairBrowserForm onDone={revalidate} />}
               />
@@ -163,11 +165,14 @@ export default function Command() {
       {!error &&
         filteredProjects.map((proj) => {
           const favEditor = editorMeta(proj.favorite_editor);
-          const sectionParts = [
-            proj.git_branch ? `⎇ ${proj.git_branch}` : '',
-            proj.dirty_files > 0 ? `${proj.dirty_files} modifié${proj.dirty_files > 1 ? 's' : ''}` : 'propre',
-            `${proj.tabs.length} fenêtre${proj.tabs.length > 1 ? 's' : ''}`,
-          ].filter(Boolean);
+          const dirtyLabel =
+            proj.dirty_files > 0
+              ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
+              : t`clean`;
+          const windowsLabel = plural(proj.tabs.length, { one: '# window', other: '# windows' });
+          const sectionParts = [proj.git_branch ? `⎇ ${proj.git_branch}` : '', dirtyLabel, windowsLabel].filter(
+            Boolean,
+          );
 
           return (
             <List.Section key={proj.repo_name} title={proj.repo_name} subtitle={sectionParts.join('  •  ')}>
@@ -180,12 +185,12 @@ export default function Command() {
 
                 const accessories: List.Item.Accessory[] = [];
                 if (age && !showDetail) {
-                  accessories.push({ text: age, tooltip: 'Dernière activité' });
+                  accessories.push({ text: age, tooltip: t`Last activity` });
                 }
                 if (tab.incognito) {
                   accessories.push({
                     icon: { source: Icon.EyeDisabled, tintColor: Color.SecondaryText },
-                    tooltip: 'Fenêtre privée',
+                    tooltip: t`Private window`,
                   });
                 }
                 accessories.push({ icon: bBadge.icon, tooltip: bBadge.label });
@@ -211,32 +216,36 @@ export default function Command() {
                         markdown={detailMarkdown}
                         metadata={
                           <List.Item.Detail.Metadata>
-                            <List.Item.Detail.Metadata.Label title="Dépôt" text={proj.repo_name} icon={Icon.Folder} />
+                            <List.Item.Detail.Metadata.Label title={t`Repository`} text={proj.repo_name} icon={Icon.Folder} />
                             {proj.git_branch && (
-                              <List.Item.Detail.Metadata.TagList title="Git">
+                              <List.Item.Detail.Metadata.TagList title={t`Git`}>
                                 <List.Item.Detail.Metadata.TagList.Item text={proj.git_branch} color={Color.Blue} />
                                 <List.Item.Detail.Metadata.TagList.Item
-                                  text={proj.dirty_files > 0 ? `${proj.dirty_files} modifié(s)` : 'Propre'}
+                                  text={
+                                    proj.dirty_files > 0
+                                      ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
+                                      : t`Clean`
+                                  }
                                   color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
                                 />
                               </List.Item.Detail.Metadata.TagList>
                             )}
                             <List.Item.Detail.Metadata.Separator />
-                            <List.Item.Detail.Metadata.Label title="Surface" text={bBadge.label} icon={bBadge.icon} />
-                            <List.Item.Detail.Metadata.TagList title="État">
+                            <List.Item.Detail.Metadata.Label title={t`Surface`} text={bBadge.label} icon={bBadge.icon} />
+                            <List.Item.Detail.Metadata.TagList title={t`Status`}>
                               <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
                               {age && <List.Item.Detail.Metadata.TagList.Item text={age} color={Color.SecondaryText} />}
                               {tab.incognito && (
-                                <List.Item.Detail.Metadata.TagList.Item text="Privé" color={Color.SecondaryText} />
+                                <List.Item.Detail.Metadata.TagList.Item text={t`Private`} color={Color.SecondaryText} />
                               )}
                             </List.Item.Detail.Metadata.TagList>
                             <List.Item.Detail.Metadata.Separator />
                             <List.Item.Detail.Metadata.Label
-                              title="Éditeur favori"
+                              title={t`Favorite Editor`}
                               text={favEditor.label}
                               icon={favEditor.icon}
                             />
-                            <List.Item.Detail.Metadata.Label title="Chemin" text={proj.repo_path} />
+                            <List.Item.Detail.Metadata.Label title={t`Path`} text={proj.repo_path} />
                           </List.Item.Detail.Metadata>
                         }
                       />
@@ -244,21 +253,24 @@ export default function Command() {
                     actions={
                       <ActionPanel>
                         <Action
-                          title={`Basculer vers ${proj.repo_name} (${role.name})`}
+                          title={t`Switch to ${proj.repo_name} (${role.name})`}
                           icon={Icon.ArrowRight}
                           onAction={() => focusTab(proj.repo_name, role.name, tab)}
                         />
                         <Action
-                          title={`Ouvrir dans ${favEditor.label}`}
+                          title={t`Open in ${favEditor.label}`}
                           icon={favEditor.icon}
                           shortcut={{ modifiers: ['cmd'], key: 'e' }}
                           onAction={async () => {
                             await queryDaemon({ type: 'open_editor', repo_path: proj.repo_path });
-                            await showToast({ style: Toast.Style.Success, title: `Ouvert dans ${favEditor.label}` });
+                            await showToast({
+                              style: Toast.Style.Success,
+                              title: t`Opened in ${favEditor.label}`,
+                            });
                           }}
                         />
                         <Action
-                          title="Ouvrir dans le Terminal"
+                          title={t`Open in Terminal`}
                           icon={Icon.Terminal}
                           shortcut={{ modifiers: ['cmd'], key: 't' }}
                           onAction={async () => {
@@ -267,7 +279,7 @@ export default function Command() {
                           }}
                         />
                         <Action
-                          title="Rotation fenêtres du projet"
+                          title={t`Cycle Project Windows`}
                           icon={Icon.Switch}
                           shortcut={{ modifiers: ['opt'], key: 'tab' }}
                           onAction={async () => {
@@ -276,7 +288,7 @@ export default function Command() {
                           }}
                         />
                         <Action
-                          title="Sauter vers la prochaine alerte"
+                          title={t`Jump to Next Agent Alert`}
                           icon={Icon.Bolt}
                           shortcut={{ modifiers: ['opt'], key: 'a' }}
                           onAction={async () => {
@@ -285,19 +297,19 @@ export default function Command() {
                           }}
                         />
                         <Action
-                          title={showDetail ? 'Masquer le panneau détail' : 'Afficher le panneau détail'}
+                          title={showDetail ? t`Hide Detail Pane` : t`Show Detail Pane`}
                           icon={Icon.Sidebar}
                           shortcut={{ modifiers: ['cmd'], key: 'i' }}
                           onAction={() => setShowDetail((prev) => !prev)}
                         />
                         <Action.CopyToClipboard
-                          title="Copier le chemin du dépôt"
+                          title={t`Copy Repository Path`}
                           content={proj.repo_path}
                           shortcut={{ modifiers: ['cmd', 'shift'], key: 'c' }}
                         />
                         <Action.ShowInFinder path={proj.repo_path} />
                         <Action.Push
-                          title="Connecter un ID d'extension navigateur"
+                          title={t`Connect Browser Extension ID`}
                           icon={Icon.Plug}
                           target={<PairBrowserForm onDone={revalidate} />}
                         />

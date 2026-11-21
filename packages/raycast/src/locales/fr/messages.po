@@ -1,0 +1,242 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-21 11:45+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+
+#. placeholder {0}: proj.dirty_files
+#: src/index.tsx:170
+#: src/index.tsx:226
+msgid "{0, plural, one {# modified} other {# modified}}"
+msgstr "{0, plural, one {# modifié} other {# modifiés}}"
+
+#. placeholder {0}: proj.tabs.length
+#: src/index.tsx:172
+msgid "{0, plural, one {# window} other {# windows}}"
+msgstr "{0, plural, one {# fenêtre} other {# fenêtres}}"
+
+#: src/index.tsx:54
+msgid "{hrs}h ago"
+msgstr "il y a {hrs}h"
+
+#: src/index.tsx:52
+msgid "{mins}m ago"
+msgstr "il y a {mins}m"
+
+#: src/PairBrowserForm.tsx:49
+msgid "1. Open chrome://extensions or brave://extensions\n"
+"2. Enable Developer Mode\n"
+"3. Copy the ID displayed under ContextBraid"
+msgstr "1. Ouvrez chrome://extensions ou brave://extensions\n2. Activez le Mode développeur\n3. Copiez l’ID affiché sous ContextBraid"
+
+#: src/PairBrowserForm.tsx:42
+msgid "32-character Extension ID"
+msgstr "ID Extension (32 caractères)"
+
+#: src/index.tsx:59
+msgid "Active"
+msgstr "Actif"
+
+#: src/index.tsx:131
+msgid "Alerts & Ready ZIPs"
+msgstr "Alertes & ZIP Prêts"
+
+#: src/index.tsx:130
+msgid "All contexts"
+msgstr "Tous les contextes"
+
+#: src/index.tsx:63
+msgid "Captcha"
+msgstr "Captcha"
+
+#: src/index.tsx:171
+msgid "clean"
+msgstr "propre"
+
+#: src/index.tsx:227
+msgid "Clean"
+msgstr "Propre"
+
+#: src/index.tsx:156
+msgid "Configure Extension ID"
+msgstr "Configurer un ID d'extension"
+
+#: src/index.tsx:140
+#: src/index.tsx:312
+msgid "Connect Browser Extension ID"
+msgstr "Connecter un ID d'extension navigateur"
+
+#: src/index.tsx:92
+msgid "ContextBraid engine active"
+msgstr "Moteur ContextBraid actif"
+
+#: src/index.tsx:150
+msgid "ContextBraid local engine is not running"
+msgstr "Moteur local ContextBraid non démarré"
+
+#: src/index.tsx:306
+msgid "Copy Repository Path"
+msgstr "Copier le chemin du dépôt"
+
+#: src/index.tsx:282
+msgid "Cycle Project Windows"
+msgstr "Rotation fenêtres du projet"
+
+#: src/cycle-project.ts:8
+msgid "Cycled active project windows"
+msgstr "Fenêtres du projet actif alternées"
+
+#: src/PairBrowserForm.tsx:26
+msgid "Error"
+msgstr "Erreur"
+
+#: src/PairBrowserForm.tsx:21
+msgid "Extension registered! Click Reload (↻) in your browser."
+msgstr "Extension enregistrée ! Cliquez sur Recharger (↻) dans votre navigateur."
+
+#: src/index.tsx:244
+msgid "Favorite Editor"
+msgstr "Éditeur favori"
+
+#: src/index.tsx:129
+msgid "Filter by status"
+msgstr "Filtrer par état"
+
+#: src/index.tsx:132
+msgid "Generating"
+msgstr "En cours de génération"
+
+#: src/index.tsx:221
+msgid "Git"
+msgstr "Git"
+
+#: src/index.tsx:300
+msgid "Hide Detail Pane"
+msgstr "Masquer le panneau détail"
+
+#: src/PairBrowserForm.tsx:48
+msgid "How to find it"
+msgstr "Comment le trouver"
+
+#: src/index.tsx:138
+msgid "Install / Start Engine"
+msgstr "Installer / Démarrer le moteur"
+
+#: src/index.tsx:154
+msgid "Install and Start Now"
+msgstr "Installer et démarrer maintenant"
+
+#: src/index.tsx:96
+msgid "Installation error"
+msgstr "Erreur d'installation"
+
+#: src/PairBrowserForm.tsx:14
+msgid "Invalid ID (32 lowercase letters expected)"
+msgstr "ID invalide (32 lettres minuscules attendues)"
+
+#: src/index.tsx:291
+msgid "Jump to Next Agent Alert"
+msgstr "Sauter vers la prochaine alerte"
+
+#: src/jump-alert.ts:8
+msgid "Jumped to next agent alert"
+msgstr "Saut vers la prochaine alerte"
+
+#: src/index.tsx:50
+msgid "just now"
+msgstr "à l’instant"
+
+#: src/index.tsx:188
+msgid "Last activity"
+msgstr "Dernière activité"
+
+#: src/index.tsx:133
+msgid "Open editors"
+msgstr "Éditeurs ouverts"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:261
+msgid "Open in {0}"
+msgstr "Ouvrir dans {0}"
+
+#: src/index.tsx:273
+msgid "Open in Terminal"
+msgstr "Ouvrir dans le Terminal"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:268
+msgid "Opened in {0}"
+msgstr "Ouvert dans {0}"
+
+#: src/index.tsx:248
+msgid "Path"
+msgstr "Chemin"
+
+#: src/index.tsx:151
+msgid "Press Enter to automatically install and start the local background service."
+msgstr "Appuyez sur Entrée pour installer et démarrer automatiquement le service local."
+
+#: src/index.tsx:239
+msgid "Private"
+msgstr "Privé"
+
+#: src/index.tsx:193
+msgid "Private window"
+msgstr "Fenêtre privée"
+
+#: src/index.tsx:69
+msgid "Ready"
+msgstr "Prêt"
+
+#: src/PairBrowserForm.tsx:33
+msgid "Register Local Browser Extension ID"
+msgstr "Enregistrer un ID d'extension navigateur local"
+
+#: src/PairBrowserForm.tsx:17
+msgid "Registering extension..."
+msgstr "Enregistrement de l'extension..."
+
+#: src/index.tsx:219
+msgid "Repository"
+msgstr "Dépôt"
+
+#: src/PairBrowserForm.tsx:36
+msgid "Save and Reconnect"
+msgstr "Enregistrer et reconnecter"
+
+#: src/index.tsx:127
+msgid "Search a repo, branch, AI agent, or editor..."
+msgstr "Rechercher un dépôt, une branche, un agent ou un éditeur..."
+
+#: src/index.tsx:300
+msgid "Show Detail Pane"
+msgstr "Afficher le panneau détail"
+
+#: src/index.tsx:88
+msgid "Starting ContextBraid engine..."
+msgstr "Démarrage moteur ContextBraid..."
+
+#: src/index.tsx:235
+msgid "Status"
+msgstr "État"
+
+#: src/index.tsx:234
+msgid "Surface"
+msgstr "Surface"
+
+#. placeholder {0}: proj.repo_name
+#. placeholder {1}: role.name
+#: src/index.tsx:256
+msgid "Switch to {0} ({1})"
+msgstr "Basculer vers {0} ({1})"
+
+#: src/index.tsx:67
+msgid "Working"
+msgstr "En cours"
+
+#: src/index.tsx:65
+msgid "ZIP Ready"
+msgstr "ZIP Prêt"

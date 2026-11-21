@@ -10,9 +10,12 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "ray build -e dist",
+    "build": "node scripts/build-raycast.mjs",
     "dev": "ray develop",
-    "lint": "ray lint"
+    "lint": "ray lint",
+    "i18n:extract": "lingui extract",
+    "i18n:compile": "lingui compile --typescript",
+    "i18n:check": "lingui check missing"
   },
   "commands": [
     {
@@ -38,10 +41,16 @@
     }
   ],
   "dependencies": {
+    "@lingui/core": "^6.12.0",
     "@raycast/api": "^2.13.1",
     "@raycast/utils": "^2.3.0"
   },
   "devDependencies": {
+    "@lingui/cli": "^6.12.0",
+    "@lingui/macro": "^5.9.5",
+    "@lingui/swc-plugin": "^6.7.1",
+    "@swc/cli": "^0.8.2",
+    "@swc/core": "^1.16.22",
     "@types/node": "^22.15.0",
     "@types/react": "^19.0.0",
     "simple-icons": "^16.38.0",
