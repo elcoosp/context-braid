@@ -95,4 +95,17 @@ describe('ContextBraid Fast Extractor (Chromium & Firefox)', () => {
     const res = extractPageState(document);
     expect(res.status).toBe('working');
   });
+
+  test('ignore un captcha ou une erreur masquée (display: none) après résolution', () => {
+    document.title = 'Task: context-braid | Z.ai';
+    document.body.innerHTML = `
+      <div id="aliyunCaptcha-float-wrapper" style="display: none;"></div>
+      <main>
+        <div data-user-bubble="true">New conversation</div>
+        <div class="border-red-600/10" style="display: none;">Oops, something went wrong. Please refresh.</div>
+      </main>
+    `;
+
+    expect(extractPageState(document).status).toBe('idle');
+  });
 });

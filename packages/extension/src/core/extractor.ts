@@ -38,6 +38,15 @@ const GENERIC_TITLES = new Set(['z.ai', 'qwen', 'gemini', 'deepseek', 'new chat'
 function isVisible(el: Element | null): boolean {
   if (!el) return false;
   const htmlEl = el as HTMLElement;
+  if (htmlEl.hidden || htmlEl.closest('[hidden], [aria-hidden="true"]')) {
+    return false;
+  }
+  if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+    const style = window.getComputedStyle(htmlEl);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      return false;
+    }
+  }
   if (typeof htmlEl.offsetParent !== 'undefined') {
     return htmlEl.offsetParent !== null;
   }
@@ -64,6 +73,7 @@ function hasInlineRuntimeError(doc: Document): boolean {
   const alertBanners = doc.querySelectorAll('main [role="alert"], main [class*="border-red-"]');
   for (let i = alertBanners.length - 1; i >= 0; i--) {
     const el = alertBanners[i];
+    if (!isVisible(el)) continue;
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
     if (!isAfterLastUserBubble(el, lastUserBubble)) continue;
     const text = (el.textContent || '').trim();
@@ -75,6 +85,7 @@ function hasInlineRuntimeError(doc: Document): boolean {
   const candidates = doc.querySelectorAll('main div, main p, main span');
   for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 50; i--) {
     const el = candidates[i];
+    if (!isVisible(el)) continue;
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
     if (!isAfterLastUserBubble(el, lastUserBubble)) continue;
     const text = (el.textContent || '').trim();
@@ -93,8 +104,11 @@ export function extractPageState(
   const snippet = collectFastSnippet(doc, title, rules);
 
   for (const sel of rules.attentionSelectors) {
-    if (doc.querySelector(sel)) {
-      return { status: 'needs_attention', contextSnippet: snippet };
+    const nodes = doc.querySelectorAll(sel);
+    for (let i = 0; i < nodes.length; i++) {
+      if (isVisible(nodes.item(i))) {
+        return { status: 'needs_attention', contextSnippet: snippet };
+      }
     }
   }
   if (hasInlineRuntimeError(doc)) {

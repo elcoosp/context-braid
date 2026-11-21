@@ -641,23 +641,37 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
 
 pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id: i64, subtitle: &str, title: &str) {
     let repo = repo_name.to_string();
-    let sub = subtitle.to_string();
     let br = browser.to_string();
+    let sub = subtitle.to_string();
     let msg = if title.trim().is_empty() {
         "Agent needs attention".to_string()
     } else {
         title.trim().to_string()
     };
 
+    // Play crisp native macOS system sound immediately (guaranteed audible even if banner is DND-delayed)
+    let sound_file = if sub.to_lowercase().contains("zip") {
+        "/System/Library/Sounds/Glass.aiff"
+    } else {
+        "/System/Library/Sounds/Funk.aiff"
+    };
+    if Path::new(sound_file).exists() {
+        let _ = std::process::Command::new("afplay")
+            .arg(sound_file)
+            .spawn();
+    }
+
     std::thread::spawn(move || {
-        use mac_notification_sys::{Notification, NotificationResponse, Sound};
-        let _ = mac_notification_sys::set_application("com.contextbraid.app");
+        use mac_notification_sys::{Notification, NotificationResponse};
+        // Register ContextBraid bundle if available, otherwise fall back cleanly so macOS never drops the banner
+        if mac_notification_sys::set_application("com.contextbraid.app").is_err() {
+            let _ = mac_notification_sys::set_application("com.apple.Terminal");
+        }
 
         let resp = Notification::new()
             .title(&format!("ContextBraid • {}", repo))
             .subtitle(&sub)
             .message(&msg)
-            .sound(Sound::Default)
             .main_button(mac_notification_sys::MainButton::SingleAction("Ouvrir l’onglet"))
             .wait_for_click(true)
             .send();
