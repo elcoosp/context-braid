@@ -5,13 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-echo "1/3 Lancement de Raycast en mode dev..."
+echo "1/3 Compilation 100% SWC de l'extension Raycast & ouverture du cockpit..."
 cd "${ROOT_DIR}/packages/raycast"
-npx ray develop --non-interactive >/dev/null 2>&1 &
-DEV_PID=$!
-trap 'kill ${DEV_PID} 2>/dev/null || true' EXIT
-
-sleep 2.5
+pnpm build >/dev/null
 open "raycast://extensions/elcoosp/context-braid-raycast/index"
 sleep 1.6
 
