@@ -679,7 +679,16 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
         let full_title = format!("ContextBraid • {}", repo_name);
         let sub_owned = subtitle.to_string();
         let msg_owned = msg.to_string();
-        let req_id = format!("contextbraid-{}-{}-{}", _browser, _window_id, _tab_id);
+        let req_id = format!(
+            "contextbraid-{}-{}-{}-{}",
+            _browser,
+            _window_id,
+            _tab_id,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        );
 
         std::thread::spawn(move || {
             use block2::RcBlock;
@@ -702,7 +711,7 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
             let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
             center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
 
-            let granted = rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
+            let granted = rx.recv_timeout(Duration::from_secs(3)).unwrap_or(false);
             if granted {
                 let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
                 content.setTitle(&NSString::from_str(&full_title));
@@ -720,12 +729,12 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
                     let _ = done_tx.send(err.is_null());
                 });
                 center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
-                if done_rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false) {
+                if done_rx.recv_timeout(Duration::from_secs(3)).unwrap_or(false) {
                     return;
                 }
             }
 
-            // Fallback osascript uniquement si l'autorisation macOS n'est pas encore accordée
+            // Fallback osascript uniquement si l'autorisation macOS est refusée
             let script = format!(
                 "display notification {:?} with title {:?} subtitle {:?}",
                 msg_owned, full_title, sub_owned
