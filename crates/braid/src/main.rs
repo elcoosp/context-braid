@@ -299,22 +299,34 @@ IpcMessage::Ack
 IpcMessage::CycleProject { repo_name } => {
                 let mut st = state.write().await;
                 let projects = st.build_dashboard()?;
-                let (front_owner, front_win_title) = macos::frontmost_app_and_window();
+                let (front_owner, cg_win_title) = macos::frontmost_app_and_window();
                 let editor_spec = macos::resolve_editor_spec(&st.config.editor.favorite);
-                let is_editor_front = front_owner.to_lowercase().contains(&editor_spec.label.to_lowercase()) || front_owner.to_lowercase().contains(&editor_spec.cli_app.to_lowercase());
+                let owner_low = front_owner.to_lowercase();
+                let is_editor_front = owner_low.contains(&editor_spec.label.to_lowercase())
+                    || owner_low.contains(&editor_spec.cli_app.to_lowercase());
+
+                // Titre fenêtre : CoreGraphics si disponible, sinon Accessibility AXUIElement pour l'éditeur (< 2ms)
+                let front_win_title = if !cg_win_title.is_empty() {
+                    cg_win_title
+                } else if is_editor_front {
+                    macos::frontmost_ax_window_title(&editor_spec.cli_app).unwrap_or_default()
+                } else {
+                    String::new()
+                };
 
                 tracing::info!(
                     arg_repo_name = ?repo_name,
                     front_owner = %front_owner,
                     front_win_title = %front_win_title,
                     is_editor_front = is_editor_front,
+                    last_focused_tab = ?st.last_focused_tab,
                     stored_active_repo = ?st.active_repo,
                     "CYCLE_PROJECT_REQUEST"
                 );
 
-                // 1. Résout le dépôt depuis le titre exact de la fenêtre au premier plan (Zed ou Navigateur)
+                // 1. Si l'éditeur est au premier plan, résout le repo via le titre AX de la fenêtre éditeur
                 let win_lower = front_win_title.to_lowercase();
-                let by_window_title = if !win_lower.is_empty() {
+                let by_editor_title = if is_editor_front && !win_lower.is_empty() {
                     projects
                         .iter()
                         .filter(|p| {
@@ -327,17 +339,27 @@ IpcMessage::CycleProject { repo_name } => {
                     None
                 };
 
-                // 2. Sinon depuis le dernier onglet focalisé connu
-                let by_last_tab = st.last_focused_tab.as_ref().and_then(|(b, w, tid)| {
-                    projects
-                        .iter()
-                        .find(|p| p.tabs.iter().any(|t| &t.browser == b && t.window_id == *w && t.tab_id == *tid))
-                        .map(|p| p.repo_name.clone())
-                });
+                // 2. Si un navigateur est au premier plan, résout le repo via l'onglet actif réel (`last_focused_tab`)
+                let by_browser_active_tab = if !is_editor_front {
+                    st.last_focused_tab.as_ref().and_then(|(b, w, tid)| {
+                        projects
+                            .iter()
+                            .find(|p| {
+                                p.tabs.iter().any(|t| {
+                                    t.browser.eq_ignore_ascii_case(b)
+                                        && t.window_id == *w
+                                        && t.tab_id == *tid
+                                })
+                            })
+                            .map(|p| p.repo_name.clone())
+                    })
+                } else {
+                    None
+                };
 
                 let target_repo = repo_name
-                    .or(by_window_title)
-                    .or(by_last_tab)
+                    .or(by_editor_title)
+                    .or(by_browser_active_tab)
                     .or_else(|| st.active_repo.clone());
 
                 let proj = target_repo
@@ -351,8 +373,6 @@ IpcMessage::CycleProject { repo_name } => {
                         st.cycle_cursor = 0;
                     }
 
-                    // Si on est déjà dans l'éditeur et que cursor == 0 pointe sur l'entrée éditeur, avance d'un cran
-                    // pour basculer immédiatement vers l'onglet navigateur (et vice-versa) !
                     let len = p.tabs.len();
                     let mut idx = st.cycle_cursor % len;
                     let candidate = &p.tabs[idx];
@@ -360,13 +380,18 @@ IpcMessage::CycleProject { repo_name } => {
                         candidate.browser.as_str(),
                         "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor"
                     );
+
+                    // Saute la surface qui est déjà au premier plan
                     if len > 1 && is_editor_front && candidate_is_editor {
                         idx = (idx + 1) % len;
-                    } else if len > 1 && !is_editor_front && !candidate_is_editor && !win_lower.is_empty() {
-                        // Si l'onglet candidat est déjà l'onglet actif au premier plan, avance vers la surface suivante
-                        let cand_title = candidate.title.to_lowercase();
-                        if !cand_title.is_empty() && (win_lower.contains(&cand_title) || cand_title.contains(&win_lower)) {
-                            idx = (idx + 1) % len;
+                    } else if len > 1 && !is_editor_front && !candidate_is_editor {
+                        if let Some((fb, fw, ftid)) = &st.last_focused_tab {
+                            if candidate.browser.eq_ignore_ascii_case(fb)
+                                && candidate.window_id == *fw
+                                && candidate.tab_id == *ftid
+                            {
+                                idx = (idx + 1) % len;
+                            }
                         }
                     }
 

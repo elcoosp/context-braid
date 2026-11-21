@@ -913,3 +913,24 @@ pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::
         .spawn();
     Ok(())
 }
+
+pub fn frontmost_ax_window_title(app_name: &str) -> Option<String> {
+    let script = format!(
+        r#"tell application "System Events"
+            if exists process {:?} then
+                tell process {:?}
+                    if (count of windows) > 0 then
+                        return name of front window
+                    end if
+                end tell
+            end if
+        end tell"#,
+        app_name, app_name
+    );
+    let out = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .output()
+        .ok()?;
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
+}
