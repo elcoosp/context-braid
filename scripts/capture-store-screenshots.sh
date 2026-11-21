@@ -5,33 +5,33 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-echo "1/3 Activation de Raycast & ouverture de Open Project Cockpit..."
-open -a Raycast
-sleep 0.4
+echo "1/3 Ouverture de Open Project Cockpit..."
 open "raycast://extensions/elcoosp/context-braid-raycast/index"
 sleep 1.6
 
-# Récupère le CGWindowID de Raycast (tous layers, incluant les panneaux flottants NSPanel)
 RAYCAST_WIN_ID=$(swift -e '
+import AppKit
 import CoreGraphics
+
+guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.raycast.macos").first else {
+    exit(1)
+}
+let pid = app.processIdentifier
 let opts: CGWindowListOption = [.optionAll, .excludeDesktopElements]
 if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] {
     var bestId: Int?
     var bestArea: Double = 0
     for w in list {
-        let owner = (w[kCGWindowOwnerName as String] as? String) ?? ""
-        let onScreen = (w[kCGWindowIsOnscreen as String] as? Bool) ?? false
-        if onScreen && owner.localizedCaseInsensitiveContains("Raycast"),
-           let bounds = w[kCGWindowBounds as String] as? [String: Any],
-           let width = bounds["Width"] as? Double,
-           let height = bounds["Height"] as? Double,
-           width > 400 && height > 250,
-           let id = w[kCGWindowNumber as String] as? Int {
-            let area = width * height
-            if area > bestArea {
-                bestArea = area
-                bestId = id
-            }
+        guard let ownerPid = w[kCGWindowOwnerPID as String] as? pid_t, ownerPid == pid,
+              let bounds = w[kCGWindowBounds as String] as? [String: Any],
+              let width = bounds["Width"] as? Double,
+              let height = bounds["Height"] as? Double,
+              width > 400 && height > 250,
+              let id = w[kCGWindowNumber as String] as? Int else { continue }
+        let area = width * height
+        if area > bestArea {
+            bestArea = area
+            bestId = id
         }
     }
     if let id = bestId {
@@ -41,7 +41,7 @@ if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: An
 ')
 
 if [[ -z "${RAYCAST_WIN_ID}" ]]; then
-  echo "Erreur : Fenêtre Raycast introuvable à l'écran." >&2
+  echo "Erreur : Fenêtre Raycast introuvable (PID com.raycast.macos)." >&2
   exit 1
 fi
 
@@ -109,6 +109,5 @@ print(f"Saved {dst_path} ({W}x{H})")
 PY
 
 rm -f "${RAW_1}"
-rm -f "${OUT_DIR}/02-workspace-overview.png"
 cd "${ROOT_DIR}/packages/raycast"
 npx ray lint
