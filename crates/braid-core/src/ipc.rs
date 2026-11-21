@@ -105,9 +105,5 @@ pub enum IpcMessage {
     BrowserCommand {
         commands: Vec<BrowserCommand>,
     },
-    DiagEvent {
-        event: String,
-        detail: String,
-    },
     Ack,
 }

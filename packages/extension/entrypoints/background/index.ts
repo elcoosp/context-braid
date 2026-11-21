@@ -55,7 +55,6 @@ export default defineBackground(() => {
     };
     if (msg?.type === 'sync_config' && typeof msg.auto_download_zip === 'boolean') {
       autoDownloadZip = msg.auto_download_zip;
-      logZipDiag('SYNC_CONFIG_RX', `autoDownloadZip=${msg.auto_download_zip}`);
       browser.storage?.local?.set({ autoDownloadZip: msg.auto_download_zip }).catch(() => {});
       return;
     }
@@ -117,18 +116,11 @@ export default defineBackground(() => {
     }
   };
 
-  const logZipDiag = (event: string, detail: string) => {
-    try {
-      ensurePort().postMessage({ type: 'diag_event', event, detail });
-    } catch {}
-  };
-
   const triggerZipDownload = (tabId: number, zipUrl: string, dedupKey: string) => {
-    logZipDiag('TRIGGER_CALLED', `tab=${tabId} enabled=${autoDownloadZip} dup=${downloadedZips.has(dedupKey)} url=${zipUrl.slice(0, 80)}`);
     if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
     downloadedZips.add(dedupKey);
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
-      browser.downloads.download({ url: zipUrl, saveAs: false }).then((id) => logZipDiag('DOWNLOADS_API_OK', `id=${id}`)).catch((e) => logZipDiag('DOWNLOADS_API_ERR', String(e)));
+      browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
       return;
     }
     browser.scripting
@@ -163,8 +155,7 @@ export default defineBackground(() => {
             ?.click();
         },
       })
-      .then((res) => logZipDiag('DOM_CLICK_RES', JSON.stringify(res?.at(0)?.result ?? 'none')))
-      .catch((e) => logZipDiag('DOM_CLICK_ERR', String(e)));
+      .catch(() => {});
   };
 
   // Interroge l'API storage & subagents z.ai DANS le contexte de l'onglet (avec localStorage.token)
@@ -280,10 +271,6 @@ export default defineBackground(() => {
         }
 
         if (newlyCreatedZips.length > 0) {
-          logZipDiag(
-            'NEW_SERVER_ZIP',
-            `tab=${tabId} status=${existing.status} newlyCreated=${JSON.stringify(newlyCreatedZips)} signed=${signedZipUrl || 'none'}`,
-          );
           let zipDownloadUrl = signedZipUrl || '';
           const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
           if (urlMatch) {
@@ -361,7 +348,6 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
       if (msg.status === 'completed') {
-        logZipDiag('CONTENT_COMPLETED_RX', `tab=${sender.tab.id} zipUrl=${String(msg.zipDownloadUrl || '')}`);
         const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
         const dlKey = `${sender.tab.id}|${zipUrl || msg.title || msg.contextSnippet}`;
         triggerZipDownload(sender.tab.id, zipUrl, dlKey);

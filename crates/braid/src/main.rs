@@ -270,7 +270,8 @@ IpcMessage::SyncTabs { tabs, .. } => {
                             t.context_snippet.hash(&mut hasher);
                         }
                         let sig = hasher.finish();
-                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, sig);
+                        let dedup_kind = if kind == 3 { 2 } else { kind };
+                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, dedup_kind, sig);
                         if st.notified_alerts.insert(alert_key) && (!is_first_seen || kind == 3) {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
@@ -454,10 +455,6 @@ IpcMessage::CycleProject { repo_name } => {
                     );
                     st.focus_tab(&target)?;
                 }
-                IpcMessage::Ack
-            }
-            IpcMessage::DiagEvent { event, detail } => {
-                tracing::info!(event = %event, detail = %detail, "EXT_ZIP_EVENT");
                 IpcMessage::Ack
             }
             IpcMessage::SubscribeHost { .. } => unreachable!(),
