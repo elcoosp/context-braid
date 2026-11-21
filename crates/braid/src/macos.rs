@@ -681,84 +681,13 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
     }
 }
 
-pub fn deliver_gui_notification(repo_name: &str, subtitle: &str, message: &str, browser: &str, window_id: i64, tab_id: i64) {
-    use block2::RcBlock;
-    use objc2::rc::Retained;
-    use objc2::runtime::Bool;
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::NSApplication;
-    use objc2_foundation::{NSDate, NSError, NSRunLoop, NSString};
-    use objc2_user_notifications::{
-        UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
-        UNUserNotificationCenter,
-    };
-    use std::cell::Cell;
-    use std::rc::Rc;
-
+pub fn deliver_gui_notification(repo_name: &str, subtitle: &str, message: &str, _browser: &str, _window_id: i64, _tab_id: i64) {
     let full_title = format!("ContextBraid • {}", repo_name);
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let _app = NSApplication::sharedApplication(mtm);
-        let center = UNUserNotificationCenter::currentNotificationCenter();
-
-        let done = Rc::new(Cell::new(false));
-        let granted_flag = Rc::new(Cell::new(false));
-        let done_c = Rc::clone(&done);
-        let granted_c = Rc::clone(&granted_flag);
-
-        let auth_block = RcBlock::new(move |granted: Bool, _err: *mut NSError| {
-            granted_c.set(granted.as_bool());
-            done_c.set(true);
-        });
-
-        let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
-        center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
-
-        let run_loop = NSRunLoop::currentRunLoop();
-        for _ in 0..15 {
-            if done.get() {
-                break;
-            }
-            let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
-            run_loop.runUntilDate(&next);
-        }
-
-        if granted_flag.get() {
-            let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
-            content.setTitle(&NSString::from_str(&full_title));
-            content.setSubtitle(&NSString::from_str(subtitle));
-            content.setBody(&NSString::from_str(message));
-
-            let req_id = format!("contextbraid-{}-{}-{}", browser, window_id, tab_id);
-            let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
-                &NSString::from_str(&req_id),
-                &content,
-                None,
-            );
-
-            let sent = Rc::new(Cell::new(false));
-            let sent_c = Rc::clone(&sent);
-            let add_block = RcBlock::new(move |_err: *mut NSError| {
-                sent_c.set(true);
-            });
-            center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
-
-            for _ in 0..10 {
-                if sent.get() {
-                    return;
-                }
-                let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
-                run_loop.runUntilDate(&next);
-            }
-        }
-    }
-
-    // Fallback garanti : affiche la bannière visuelle via AppleEvents si usernoted n'a pas encore autorisé le bundle ad-hoc
     let script = format!(
         "display notification {:?} with title {:?} subtitle {:?}",
         message, full_title, subtitle
     );
     let _ = std::process::Command::new("osascript")
         .args(["-e", &script])
-        .spawn();
+        .output();
 }
