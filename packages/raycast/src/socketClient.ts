@@ -15,6 +15,12 @@ export interface TabContext {
   updated_at_ms: number;
 }
 
+export interface MergedPr {
+  number: number;
+  title: string;
+  url: string;
+}
+
 export interface ProjectWorkspace {
   repo_name: string;
   repo_path: string;
@@ -26,6 +32,7 @@ export interface ProjectWorkspace {
   last_commit_ts: number;
   commit_sparkline: number[];
   sparkline_png_path: string;
+  recent_prs: MergedPr[];
   tabs: TabContext[];
   has_alert: boolean;
 }

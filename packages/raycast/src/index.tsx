@@ -225,12 +225,24 @@ export default function Command() {
                   : '';
 
                 const chartImage = proj.sparkline_png_path ? `![](file://${proj.sparkline_png_path})` : '';
+                const prsBlock =
+                  proj.recent_prs && proj.recent_prs.length > 0
+                    ? [
+                        `**${t`Recently Merged PRs`}**`,
+                        ...proj.recent_prs.map((pr) =>
+                          pr.url
+                            ? `- [\`#${pr.number}\`](${pr.url}) ${pr.title}`
+                            : `- \`#${pr.number}\` ${pr.title}`
+                        ),
+                      ].join('\n')
+                    : '';
 
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   activeContextLine,
                   gitHeadline,
                   chartImage,
+                  prsBlock,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
