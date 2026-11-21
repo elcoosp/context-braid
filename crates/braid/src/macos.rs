@@ -682,36 +682,49 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
 
 pub fn deliver_gui_notification(repo_name: &str, subtitle: &str, message: &str, browser: &str, window_id: i64, tab_id: i64) {
     use mac_notification_sys::{Notification, NotificationResponse};
+
+    // Ensure Cocoa sharedApplication is initialized in this GUI process so Notification Center accepts banners
     let _ = mac_notification_sys::set_application("com.contextbraid.app");
 
+    let full_title = format!("ContextBraid • {}", repo_name);
     let resp = Notification::new()
-        .title(&format!("ContextBraid • {}", repo_name))
+        .title(&full_title)
         .subtitle(subtitle)
         .message(message)
         .main_button(mac_notification_sys::MainButton::SingleAction("Ouvrir l’onglet"))
         .wait_for_click(true)
         .send();
 
-    if matches!(
-        resp,
-        Ok(NotificationResponse::Click) | Ok(NotificationResponse::ActionButton(_))
-    ) {
-        activate_browser_app(browser);
-        if let Ok(config) = braid_core::BraidConfig::load_or_default() {
-            if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&config.daemon.socket_path) {
-                use std::io::Write;
-                let req = serde_json::json!({
-                    "type": "focus_target",
-                    "browser": browser,
-                    "window_id": window_id,
-                    "tab_id": tab_id,
-                });
-                if let Ok(line) = serde_json::to_string(&req) {
-                    let _ = stream.write_all(line.as_bytes());
-                    let _ = stream.write_all(b"\n");
-                    let _ = stream.flush();
+    match resp {
+        Ok(NotificationResponse::Click) | Ok(NotificationResponse::ActionButton(_)) => {
+            activate_browser_app(browser);
+            if let Ok(config) = braid_core::BraidConfig::load_or_default() {
+                if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&config.daemon.socket_path) {
+                    use std::io::Write;
+                    let req = serde_json::json!({
+                        "type": "focus_target",
+                        "browser": browser,
+                        "window_id": window_id,
+                        "tab_id": tab_id,
+                    });
+                    if let Ok(line) = serde_json::to_string(&req) {
+                        let _ = stream.write_all(line.as_bytes());
+                        let _ = stream.write_all(b"\n");
+                        let _ = stream.flush();
+                    }
                 }
             }
+        }
+        Ok(_) => {}
+        Err(_) => {
+            // Fallback guaranteed visual banner via osascript if Cocoa bundle permission is not yet granted
+            let script = format!(
+                "display notification {:?} with title {:?} subtitle {:?}",
+                message, full_title, subtitle
+            );
+            let _ = std::process::Command::new("osascript")
+                .args(["-e", &script])
+                .spawn();
         }
     }
 }

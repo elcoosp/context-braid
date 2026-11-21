@@ -119,8 +119,8 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     <string>braid</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
-    <key>LSUIElement</key>
-    <true/>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>banner</string>
 </dict>
 </plist>"#,
         dtd
