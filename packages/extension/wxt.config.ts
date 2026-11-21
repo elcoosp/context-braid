@@ -16,7 +16,7 @@ export default defineConfig({
       128: 'icon/128.png',
     },
     key: EXT_PUBLIC_KEY,
-    permissions: ['tabs', 'nativeMessaging', 'scripting'],
+    permissions: ['tabs', 'nativeMessaging', 'scripting', 'alarms', 'webRequest', 'downloads'],
     host_permissions: AI_MATCH_PATTERNS,
     browser_specific_settings: {
       gecko: {

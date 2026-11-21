@@ -1,3 +1,5 @@
+import { AI_MATCH_PATTERNS } from '../../src/core/origins';
+
 function detectRuntimeBrowser(): string {
   if (import.meta.env.BROWSER === 'firefox') return 'firefox';
   const ua = navigator.userAgent;
@@ -28,71 +30,11 @@ function isSupportedAiUrl(rawUrl?: string): boolean {
 
 export default defineBackground(() => {
   const HOST_NAME = 'com.contextbraid.host';
+  const ALARM_NAME = 'contextbraid-poll-bg-tabs';
   const browserName = detectRuntimeBrowser();
   let port: ReturnType<typeof browser.runtime.connectNative> | null = null;
   const tabCache = new Map<number, Record<string, unknown>>();
-
-  console.info('[ContextBraid][BG] Boot', {
-    extId: browser.runtime.id,
-    browserName,
-  });
-
-  const reinjectOpenTabs = async () => {
-    try {
-      const files =
-        browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
-      const tabs = await browser.tabs.query({});
-      const matching = tabs.filter((t) => t.id != null && isSupportedAiUrl(t.url));
-      console.info('[ContextBraid][BG] Open tabs scan', {
-        totalTabs: tabs.length,
-        matchingTabs: matching.map((t) => ({ id: t.id, incognito: t.incognito, url: t.url })),
-      });
-      for (const tab of matching) {
-        if (tab.id != null) {
-          browser.scripting
-            .executeScript({
-              target: { tabId: tab.id },
-              files,
-            })
-            .catch((err) => console.warn('[ContextBraid][BG] executeScript skip:', err));
-        }
-      }
-    } catch (err) {
-      console.warn('[ContextBraid][BG] reinjectOpenTabs error:', err);
-    }
-  };
-
-  browser.runtime.onInstalled.addListener(() => {
-    const notifyFocused = (browserNameArg: string, windowId?: number, tabId?: number) => {
-    if (windowId == null || tabId == null) return;
-    try {
-      ensurePort().postMessage({
-        type: 'notify_tab_focused',
-        browser: browserNameArg,
-        window_id: windowId,
-        tab_id: tabId,
-      });
-    } catch {
-      port = null;
-    }
-  };
-
-  browser.tabs.onActivated.addListener((activeInfo) => {
-    notifyFocused(browserName, activeInfo.windowId, activeInfo.tabId);
-  });
-
-  browser.windows.onFocusChanged.addListener(async (windowId) => {
-    if (windowId === browser.windows.WINDOW_ID_NONE) return;
-    try {
-      const [activeTab] = await browser.tabs.query({ active: true, windowId });
-      if (activeTab?.id != null) {
-        notifyFocused(browserName, windowId, activeTab.id);
-      }
-    } catch {}
-  });
-
-  reinjectOpenTabs();
-  });
+  const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
 
   const handleDaemonResponse = async (resp: unknown) => {
     const msg = resp as {
@@ -116,12 +58,9 @@ export default defineBackground(() => {
 
   const ensurePort = () => {
     if (!port) {
-      console.info('[ContextBraid][BG] Connecting native host:', HOST_NAME);
       port = browser.runtime.connectNative(HOST_NAME);
       port.onMessage.addListener(handleDaemonResponse);
       port.onDisconnect.addListener(() => {
-        const err = browser.runtime.lastError;
-        console.error('[ContextBraid][BG] Native host disconnected:', err?.message ?? 'unknown');
         port = null;
       });
     }
@@ -136,20 +75,78 @@ export default defineBackground(() => {
         browser: browserName,
         tabs: Array.from(tabCache.values()),
       });
-    } catch (err) {
-      console.error('[ContextBraid][BG] postMessage error:', err);
+    } catch {
       port = null;
     }
   };
 
+  const notifyFocused = (windowId?: number, tabId?: number) => {
+    if (windowId == null || tabId == null) return;
+    try {
+      ensurePort().postMessage({
+        type: 'notify_tab_focused',
+        browser: browserName,
+        window_id: windowId,
+        tab_id: tabId,
+      });
+    } catch {
+      port = null;
+    }
+  };
+
+  // Réinjecte le content script dans un onglet précis (fonctionne même fenêtre minimisée !)
+  const probeTab = async (tabId: number) => {
+    try {
+      const files =
+        browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
+      await browser.scripting.executeScript({
+        target: { tabId },
+        files,
+      });
+    } catch {}
+  };
+
+  const probeAllOpenAiTabs = async () => {
+    try {
+      const tabs = await browser.tabs.query({});
+      const openIds = new Set<number>();
+      for (const tab of tabs) {
+        if (tab.id != null && isSupportedAiUrl(tab.url)) {
+          openIds.add(tab.id);
+          void probeTab(tab.id);
+        }
+      }
+      for (const cachedId of tabCache.keys()) {
+        if (!openIds.has(cachedId)) {
+          tabCache.delete(cachedId);
+        }
+      }
+      flushTabs();
+    } catch {}
+  };
+
+  // Listeners globaux enregistrés à chaque réveil du Service Worker MV3
+  browser.tabs.onActivated.addListener((activeInfo) => {
+    notifyFocused(activeInfo.windowId, activeInfo.tabId);
+  });
+
+  browser.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === browser.windows.WINDOW_ID_NONE) return;
+    try {
+      const [activeTab] = await browser.tabs.query({ active: true, windowId });
+      if (activeTab?.id != null) {
+        notifyFocused(windowId, activeTab.id);
+      }
+    } catch {}
+  });
+
+  browser.tabs.onRemoved.addListener((tabId) => {
+    tabCache.delete(tabId);
+    flushTabs();
+  });
+
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
-      console.info('[ContextBraid][BG] RX content update', {
-        tabId: sender.tab.id,
-        incognito: sender.tab.incognito,
-        status: msg.status,
-        title: msg.title,
-      });
       tabCache.set(sender.tab.id, {
         browser: (msg.browserName as string) || browserName,
         window_id: sender.tab.windowId ?? -1,
@@ -166,11 +163,46 @@ export default defineBackground(() => {
     }
   });
 
-  browser.tabs.onRemoved.addListener((tabId) => {
-    tabCache.delete(tabId);
-    flushTabs();
+  // Événement réseau natif : réveille immédiatement la sonde dès qu'une requête API/SSE se termine
+  // sur un onglet IA en arrière-plan ou dans une fenêtre minimisée !
+  if (browser.webRequest?.onCompleted) {
+    browser.webRequest.onCompleted.addListener(
+      (details) => {
+        if (details.tabId <= 0) return;
+        const isApiOrStream =
+          details.type === 'xmlhttprequest' ||
+          details.url.includes('/api/') ||
+          details.url.includes('completions') ||
+          details.url.includes('sandbox');
+        if (!isApiOrStream) return;
+
+        const existing = pollDebounce.get(details.tabId);
+        if (existing) clearTimeout(existing);
+        pollDebounce.set(
+          details.tabId,
+          setTimeout(() => {
+            pollDebounce.delete(details.tabId);
+            void probeTab(details.tabId);
+          }, 350),
+        );
+      },
+      { urls: AI_MATCH_PATTERNS },
+    );
+  }
+
+  // Réveil garanti toutes les 6 secondes via chrome.alarms (jamais gelé par MV3 même fenêtre minimisée)
+  if (browser.alarms) {
+    browser.alarms.create(ALARM_NAME, { periodInMinutes: 0.1 });
+    browser.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === ALARM_NAME) {
+        void probeAllOpenAiTabs();
+      }
+    });
+  }
+
+  browser.runtime.onInstalled.addListener(() => {
+    void probeAllOpenAiTabs();
   });
 
-  reinjectOpenTabs();
-  setInterval(flushTabs, 1500);
+  void probeAllOpenAiTabs();
 });

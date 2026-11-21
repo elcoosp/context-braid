@@ -60,6 +60,8 @@ pub struct BraidConfig {
     pub daemon: DaemonConfig,
     #[serde(default)]
     pub editor: EditorConfig,
+    #[serde(default)]
+    pub auto_download_zip: bool,
 }
 
 impl Default for BraidConfig {
@@ -73,6 +75,7 @@ impl Default for BraidConfig {
                 socket_path: default_socket_path(),
             },
             editor: EditorConfig::default(),
+            auto_download_zip: false,
         }
     }
 }
