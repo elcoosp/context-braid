@@ -116,6 +116,7 @@ impl DaemonState {
                     last_commit_sha: git_meta.commit_sha,
                     last_commit_msg: git_meta.commit_msg,
                     last_commit_ts: git_meta.commit_ts,
+                    commit_sparkline: git_meta.sparkline,
                     tabs,
                     has_alert,
                 })

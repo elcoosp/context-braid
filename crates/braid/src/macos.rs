@@ -367,6 +367,7 @@ pub struct GitRepoMeta {
     pub commit_sha: String,
     pub commit_msg: String,
     pub commit_ts: i64,
+    pub sparkline: Vec<u32>,
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
@@ -377,6 +378,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             commit_sha: String::new(),
             commit_msg: String::new(),
             commit_ts: 0,
+            sparkline: vec![0; 14],
         };
     };
 
@@ -392,20 +394,40 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
                 .unwrap_or_default()
         });
 
-    let (commit_sha, commit_msg, commit_ts) = repo
-        .head_commit()
-        .ok()
-        .map(|c| {
-            let sha = c.id().to_hex_with_len(7).to_string();
-            let msg = c
-                .message()
-                .ok()
-                .map(|m| m.summary().to_string())
-                .unwrap_or_default();
-            let ts = c.time().map(|t| t.seconds).unwrap_or(0);
-            (sha, msg, ts)
-        })
-        .unwrap_or_default();
+    let mut commit_sha = String::new();
+    let mut commit_msg = String::new();
+    let mut commit_ts: i64 = 0;
+    let mut sparkline = vec![0u32; 14];
+
+    if let Ok(head_commit) = repo.head_commit() {
+        commit_sha = head_commit.id().to_hex_with_len(7).to_string();
+        commit_msg = head_commit
+            .message()
+            .ok()
+            .map(|m| m.summary().to_string())
+            .unwrap_or_default();
+        commit_ts = head_commit.time().map(|t| t.seconds).unwrap_or(0);
+
+        let now_sec = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(commit_ts);
+        let cutoff = now_sec - 14 * 86_400;
+
+        if let Ok(walk) = repo.rev_walk([head_commit.id()]).all() {
+            for info in walk.flatten().take(200) {
+                let Some(ts) = info.commit_time else { continue; };
+                if ts < cutoff {
+                    break;
+                }
+                let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
+                if age_days < 14 {
+                    let bucket = 13 - age_days;
+                    sparkline[bucket] = sparkline[bucket].saturating_add(1);
+                }
+            }
+        }
+    }
 
     let dirty = repo
         .status(gix::progress::Discard)
@@ -420,5 +442,6 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         commit_sha,
         commit_msg,
         commit_ts,
+        sparkline,
     }
 }
