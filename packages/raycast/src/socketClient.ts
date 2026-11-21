@@ -18,6 +18,9 @@ export interface TabContext {
 export interface ProjectWorkspace {
   repo_name: string;
   repo_path: string;
+  git_branch: string;
+  dirty_files: number;
+  favorite_editor: string;
   tabs: TabContext[];
   has_alert: boolean;
 }

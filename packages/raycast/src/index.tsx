@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { Action, ActionPanel, Color, Icon, Image, List, showToast, Toast } from '@raycast/api';
 import { usePromise } from '@raycast/utils';
 import { ensureBraidInstalledAndRunning } from './bootstrap';
-import { BRAND_ICONS, browserBadge } from './brandIcons';
+import { BRAND_ICONS, browserBadge, editorMeta } from './brandIcons';
 import { PairBrowserForm } from './PairBrowserForm';
 import { ProjectWorkspace, queryDaemon, TabContext } from './socketClient';
 
 type StatusFilter = 'all' | 'attention' | 'working' | 'editor';
 
-function detectRole(tab: TabContext): { name: string; icon: Image.ImageLike } {
+function detectRole(tab: TabContext, favoriteEditor: string): { name: string; icon: Image.ImageLike } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
-    return { name: tab.title.split(' — ').at(0) || 'Zed', icon: BRAND_ICONS.zed };
+    const ed = editorMeta(favoriteEditor);
+    return { name: ed.label, icon: ed.icon };
   }
   let host = '';
   let pathname = '';
@@ -41,15 +42,25 @@ function cleanTaskTitle(rawTitle: string, repoName: string): string {
   return !stripped || stripped.toLowerCase() === repoName.toLowerCase() ? '' : stripped;
 }
 
-function statusMeta(tab: TabContext): { label: string; color: Color; badgeIcon?: Image.ImageLike } {
+function formatRelativeAge(updatedAtMs: number): string {
+  if (!updatedAtMs || updatedAtMs <= 0) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - updatedAtMs) / 1000));
+  if (diffSec < 60) return 'à l’instant';
+  const mins = Math.floor(diffSec / 60);
+  if (mins < 60) return `il y a ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  return `il y a ${hrs}h`;
+}
+
+function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
     return { label: 'Actif', color: Color.Purple };
   }
   switch (tab.status) {
     case 'needs_attention':
-      return { label: 'Captcha', color: Color.Red, badgeIcon: BRAND_ICONS.alert };
+      return { label: 'Captcha', color: Color.Red };
     case 'completed':
-      return { label: 'ZIP Prêt', color: Color.Green, badgeIcon: BRAND_ICONS.completed };
+      return { label: 'ZIP Prêt', color: Color.Green };
     case 'working':
       return { label: 'En cours', color: Color.Blue };
     default:
@@ -59,7 +70,7 @@ function statusMeta(tab: TabContext): { label: string; color: Color; badgeIcon?:
 
 export default function Command() {
   const [filter, setFilter] = useState<StatusFilter>('all');
-  const [showDetail, setShowDetail] = useState<boolean>(false);
+  const [showDetail, setShowDetail] = useState<boolean>(true);
 
   const { data, isLoading, error, revalidate } = usePromise(async () => {
     const res = await queryDaemon<{ projects: ProjectWorkspace[] }>({ type: 'get_dashboard' });
@@ -111,7 +122,7 @@ export default function Command() {
     <List
       isLoading={isLoading}
       isShowingDetail={showDetail}
-      searchBarPlaceholder="Rechercher un dépôt, un agent (Qwen, z.ai, Gemini) ou un navigateur..."
+      searchBarPlaceholder="Rechercher un dépôt, une branche, un agent ou un éditeur..."
       searchBarAccessory={
         <List.Dropdown tooltip="Filtrer par état" value={filter} onChange={(v) => setFilter(v as StatusFilter)}>
           <List.Dropdown.Item title="Tous les contextes" value="all" icon={Icon.AppWindowGrid2x2} />
@@ -150,106 +161,154 @@ export default function Command() {
       )}
 
       {!error &&
-        filteredProjects.map((proj) => (
-          <List.Section
-            key={proj.repo_name}
-            title={proj.repo_name}
-            subtitle={`${proj.tabs.length} fenêtre${proj.tabs.length > 1 ? 's' : ''}`}
-          >
-            {proj.tabs.map((tab) => {
-              const role = detectRole(tab);
-              const meta = statusMeta(tab);
-              const bBadge = browserBadge(tab.browser);
-              const taskDetail = cleanTaskTitle(tab.title, proj.repo_name);
+        filteredProjects.map((proj) => {
+          const favEditor = editorMeta(proj.favorite_editor);
+          const sectionParts = [
+            proj.git_branch ? `⎇ ${proj.git_branch}` : '',
+            proj.dirty_files > 0 ? `${proj.dirty_files} modifié${proj.dirty_files > 1 ? 's' : ''}` : 'propre',
+            `${proj.tabs.length} fenêtre${proj.tabs.length > 1 ? 's' : ''}`,
+          ].filter(Boolean);
 
-              const accessories: List.Item.Accessory[] = [];
-              if (tab.incognito) {
-                accessories.push({
-                  icon: { source: Icon.EyeDisabled, tintColor: Color.SecondaryText },
-                  tooltip: 'Fenêtre privée',
-                });
-              }
-              accessories.push({ icon: bBadge.icon, tooltip: bBadge.label });
-              accessories.push({ tag: { value: meta.label, color: meta.color } });
+          return (
+            <List.Section key={proj.repo_name} title={proj.repo_name} subtitle={sectionParts.join('  •  ')}>
+              {proj.tabs.map((tab) => {
+                const role = detectRole(tab, proj.favorite_editor);
+                const meta = statusMeta(tab);
+                const bBadge = browserBadge(tab.browser, proj.favorite_editor);
+                const taskDetail = cleanTaskTitle(tab.title, proj.repo_name);
+                const age = formatRelativeAge(tab.updated_at_ms);
 
-              const detailMarkdown = [
-                `### ${proj.repo_name} — ${role.name}`,
-                taskDetail ? taskDetail : '',
-              ]
-                .filter(Boolean)
-                .join('\n\n');
+                const accessories: List.Item.Accessory[] = [];
+                if (age && !showDetail) {
+                  accessories.push({ text: age, tooltip: 'Dernière activité' });
+                }
+                if (tab.incognito) {
+                  accessories.push({
+                    icon: { source: Icon.EyeDisabled, tintColor: Color.SecondaryText },
+                    tooltip: 'Fenêtre privée',
+                  });
+                }
+                accessories.push({ icon: bBadge.icon, tooltip: bBadge.label });
+                accessories.push({ tag: { value: meta.label, color: meta.color } });
 
-              return (
-                <List.Item
-                  key={`${tab.browser}-${tab.window_id}-${tab.tab_id}`}
-                  icon={role.icon}
-                  title={role.name}
-                  subtitle={showDetail ? undefined : taskDetail}
-                  keywords={[proj.repo_name, role.name, tab.browser, taskDetail, meta.label]}
-                  accessories={accessories}
-                  detail={
-                    <List.Item.Detail
-                      markdown={detailMarkdown}
-                      metadata={
-                        <List.Item.Detail.Metadata>
-                          <List.Item.Detail.Metadata.Label title="Dépôt" text={proj.repo_name} icon={Icon.Folder} />
-                          <List.Item.Detail.Metadata.Label title="Chemin" text={proj.repo_path} />
-                          <List.Item.Detail.Metadata.Separator />
-                          <List.Item.Detail.Metadata.Label title="Surface" text={bBadge.label} icon={bBadge.icon} />
-                          <List.Item.Detail.Metadata.TagList title="État">
-                            <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
-                            {tab.incognito && (
-                              <List.Item.Detail.Metadata.TagList.Item text="Privé" color={Color.SecondaryText} />
+                const detailMarkdown = [
+                  `## ${proj.repo_name}`,
+                  taskDetail ? `**${role.name}** — ${taskDetail}` : `**${role.name}**`,
+                ]
+                  .filter(Boolean)
+                  .join('\n\n');
+
+                return (
+                  <List.Item
+                    key={`${tab.browser}-${tab.window_id}-${tab.tab_id}`}
+                    icon={role.icon}
+                    title={role.name}
+                    subtitle={showDetail ? undefined : taskDetail}
+                    keywords={[proj.repo_name, proj.git_branch, role.name, tab.browser, taskDetail, meta.label]}
+                    accessories={accessories}
+                    detail={
+                      <List.Item.Detail
+                        markdown={detailMarkdown}
+                        metadata={
+                          <List.Item.Detail.Metadata>
+                            <List.Item.Detail.Metadata.Label title="Dépôt" text={proj.repo_name} icon={Icon.Folder} />
+                            {proj.git_branch && (
+                              <List.Item.Detail.Metadata.TagList title="Git">
+                                <List.Item.Detail.Metadata.TagList.Item text={proj.git_branch} color={Color.Blue} />
+                                <List.Item.Detail.Metadata.TagList.Item
+                                  text={proj.dirty_files > 0 ? `${proj.dirty_files} modifié(s)` : 'Propre'}
+                                  color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
+                                />
+                              </List.Item.Detail.Metadata.TagList>
                             )}
-                          </List.Item.Detail.Metadata.TagList>
-                        </List.Item.Detail.Metadata>
-                      }
-                    />
-                  }
-                  actions={
-                    <ActionPanel>
-                      <Action
-                        title={`Ouvrir ${proj.repo_name} (${role.name})`}
-                        icon={Icon.ArrowRight}
-                        onAction={() => focusTab(proj.repo_name, role.name, tab)}
+                            <List.Item.Detail.Metadata.Separator />
+                            <List.Item.Detail.Metadata.Label title="Surface" text={bBadge.label} icon={bBadge.icon} />
+                            <List.Item.Detail.Metadata.TagList title="État">
+                              <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
+                              {age && <List.Item.Detail.Metadata.TagList.Item text={age} color={Color.SecondaryText} />}
+                              {tab.incognito && (
+                                <List.Item.Detail.Metadata.TagList.Item text="Privé" color={Color.SecondaryText} />
+                              )}
+                            </List.Item.Detail.Metadata.TagList>
+                            <List.Item.Detail.Metadata.Separator />
+                            <List.Item.Detail.Metadata.Label
+                              title="Éditeur favori"
+                              text={favEditor.label}
+                              icon={favEditor.icon}
+                            />
+                            <List.Item.Detail.Metadata.Label title="Chemin" text={proj.repo_path} />
+                          </List.Item.Detail.Metadata>
+                        }
                       />
-                      <Action
-                        title="Rotation fenêtres du projet"
-                        icon={Icon.Switch}
-                        shortcut={{ modifiers: ['opt'], key: 'tab' }}
-                        onAction={async () => {
-                          await queryDaemon({ type: 'cycle_project', repo_name: proj.repo_name });
-                          revalidate();
-                        }}
-                      />
-                      <Action
-                        title="Sauter vers la prochaine alerte"
-                        icon={Icon.Bolt}
-                        shortcut={{ modifiers: ['opt'], key: 'a' }}
-                        onAction={async () => {
-                          await queryDaemon({ type: 'jump_next_alert' });
-                          revalidate();
-                        }}
-                      />
-                      <Action
-                        title={showDetail ? 'Masquer le panneau détail' : 'Afficher le panneau détail'}
-                        icon={Icon.Sidebar}
-                        shortcut={{ modifiers: ['cmd'], key: 'i' }}
-                        onAction={() => setShowDetail((prev) => !prev)}
-                      />
-                      <Action.ShowInFinder path={proj.repo_path} />
-                      <Action.Push
-                        title="Connecter un ID d'extension navigateur"
-                        icon={Icon.Plug}
-                        target={<PairBrowserForm onDone={revalidate} />}
-                      />
-                    </ActionPanel>
-                  }
-                />
-              );
-            })}
-          </List.Section>
-        ))}
+                    }
+                    actions={
+                      <ActionPanel>
+                        <Action
+                          title={`Basculer vers ${proj.repo_name} (${role.name})`}
+                          icon={Icon.ArrowRight}
+                          onAction={() => focusTab(proj.repo_name, role.name, tab)}
+                        />
+                        <Action
+                          title={`Ouvrir dans ${favEditor.label}`}
+                          icon={favEditor.icon}
+                          shortcut={{ modifiers: ['cmd'], key: 'e' }}
+                          onAction={async () => {
+                            await queryDaemon({ type: 'open_editor', repo_path: proj.repo_path });
+                            await showToast({ style: Toast.Style.Success, title: `Ouvert dans ${favEditor.label}` });
+                          }}
+                        />
+                        <Action
+                          title="Ouvrir dans le Terminal"
+                          icon={Icon.Terminal}
+                          shortcut={{ modifiers: ['cmd'], key: 't' }}
+                          onAction={async () => {
+                            await queryDaemon({ type: 'open_terminal', repo_path: proj.repo_path });
+                            await showToast({ style: Toast.Style.Success, title: `Terminal • ${proj.repo_name}` });
+                          }}
+                        />
+                        <Action
+                          title="Rotation fenêtres du projet"
+                          icon={Icon.Switch}
+                          shortcut={{ modifiers: ['opt'], key: 'tab' }}
+                          onAction={async () => {
+                            await queryDaemon({ type: 'cycle_project', repo_name: proj.repo_name });
+                            revalidate();
+                          }}
+                        />
+                        <Action
+                          title="Sauter vers la prochaine alerte"
+                          icon={Icon.Bolt}
+                          shortcut={{ modifiers: ['opt'], key: 'a' }}
+                          onAction={async () => {
+                            await queryDaemon({ type: 'jump_next_alert' });
+                            revalidate();
+                          }}
+                        />
+                        <Action
+                          title={showDetail ? 'Masquer le panneau détail' : 'Afficher le panneau détail'}
+                          icon={Icon.Sidebar}
+                          shortcut={{ modifiers: ['cmd'], key: 'i' }}
+                          onAction={() => setShowDetail((prev) => !prev)}
+                        />
+                        <Action.CopyToClipboard
+                          title="Copier le chemin du dépôt"
+                          content={proj.repo_path}
+                          shortcut={{ modifiers: ['cmd', 'shift'], key: 'c' }}
+                        />
+                        <Action.ShowInFinder path={proj.repo_path} />
+                        <Action.Push
+                          title="Connecter un ID d'extension navigateur"
+                          icon={Icon.Plug}
+                          target={<PairBrowserForm onDone={revalidate} />}
+                        />
+                      </ActionPanel>
+                    }
+                  />
+                );
+              })}
+            </List.Section>
+          );
+        })}
     </List>
   );
 }
