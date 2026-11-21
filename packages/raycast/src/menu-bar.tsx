@@ -92,15 +92,8 @@ function getProjectIcon(proj: ProjectWorkspace): {
 }
 
 function formatSubmenuTitle(proj: ProjectWorkspace): string {
-  const badges: string[] = [];
-  if (proj.has_alert) badges.push("●");
-  else if (proj.tabs.some((tab: TabContext) => tab.status === "working"))
-    badges.push("⚡");
-  else if (proj.tabs.some((tab: TabContext) => tab.status === "completed"))
-    badges.push("✓");
-  if (proj.dirty_files > 0) badges.push(`~${proj.dirty_files}`);
-  return badges.length > 0
-    ? `${proj.repo_name}  (${badges.join(" ")})`
+  return proj.dirty_files > 0
+    ? `${proj.repo_name} (${proj.dirty_files})`
     : proj.repo_name;
 }
 
