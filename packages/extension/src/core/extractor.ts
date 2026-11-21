@@ -61,7 +61,6 @@ function hasInlineRuntimeError(doc: Document): boolean {
   const userBubbles = doc.querySelectorAll('main [data-user-bubble="true"]');
   const lastUserBubble = userBubbles.length > 0 ? userBubbles[userBubbles.length - 1] : null;
 
-  // 1. Semantic red alert banners inside <main> strictly AFTER the latest user message
   const alertBanners = doc.querySelectorAll('main [role="alert"], main [class*="border-red-"]');
   for (let i = alertBanners.length - 1; i >= 0; i--) {
     const el = alertBanners[i];
@@ -73,7 +72,6 @@ function hasInlineRuntimeError(doc: Document): boolean {
     }
   }
 
-  // 2. Fallback text scan strictly AFTER the latest user message
   const candidates = doc.querySelectorAll('main div, main p, main span');
   for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 50; i--) {
     const el = candidates[i];
