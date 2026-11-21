@@ -1,0 +1,317 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-21 21:56+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: de\n"
+
+#. placeholder {0}: proj.dirty_files
+#: src/index.tsx:334
+#: src/index.tsx:414
+msgid "{0, plural, one {# modified} other {# modified}}"
+msgstr "{0, plural, one {# geändert} other {# geändert}}"
+
+#. placeholder {0}: proj.tabs.length
+#: src/index.tsx:339
+msgid "{0, plural, one {# window} other {# windows}}"
+msgstr "{0, plural, one {# Fenster} other {# Fenster}}"
+
+#: src/index.tsx:134
+msgid "{days}d ago"
+msgstr "vor {days} T."
+
+#: src/index.tsx:122
+#: src/index.tsx:132
+msgid "{hrs}h ago"
+msgstr "vor {hrs} Std."
+
+#: src/index.tsx:120
+#: src/index.tsx:130
+msgid "{mins}m ago"
+msgstr "vor {mins} Min."
+
+#: src/PairBrowserForm.tsx:65
+msgid "1. Open chrome://extensions or brave://extensions\n"
+"2. Enable Developer Mode\n"
+"3. Copy the ID displayed under ContextBraid"
+msgstr "1. Öffne chrome://extensions oder brave://extensions
+"
+"2. Aktiviere den Entwicklermodus
+"
+"3. Kopiere die unter ContextBraid angezeigte ID"
+
+#: src/PairBrowserForm.tsx:58
+msgid "32-character Extension ID"
+msgstr "32-stellige Erweiterungs-ID"
+
+#: src/menu-bar.tsx:196
+msgid "Action"
+msgstr "Aktion"
+
+#: src/index.tsx:165
+#: src/menu-bar.tsx:274
+msgid "Active"
+msgstr "Aktiv"
+
+#: src/index.tsx:276
+msgid "Alerts & Ready ZIPs"
+msgstr "Warnungen & fertige ZIPs"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:222
+msgid "Alerts unmuted for {0}"
+msgstr "Benachrichtigungen für {0} wieder aktiviert"
+
+#: src/index.tsx:271
+msgid "All contexts"
+msgstr "Alle Kontexte"
+
+#: src/index.tsx:338
+msgid "clean"
+msgstr "sauber"
+
+#: src/index.tsx:418
+#: src/menu-bar.tsx:175
+msgid "Clean"
+msgstr "Sauber"
+
+#: src/index.tsx:320
+msgid "Configure Extension ID"
+msgstr "Erweiterungs-ID konfigurieren"
+
+#: src/index.tsx:300
+#: src/index.tsx:658
+msgid "Connect Browser Extension ID"
+msgstr "Browser-Erweiterungs-ID verbinden"
+
+#: src/menu-bar.tsx:245
+msgid "ContextBraid"
+msgstr "ContextBraid"
+
+#: src/index.tsx:203
+msgid "ContextBraid engine active"
+msgstr "ContextBraid-Engine aktiv"
+
+#: src/menu-bar.tsx:249
+msgid "ContextBraid Engine Offline"
+msgstr "ContextBraid-Engine offline"
+
+#: src/index.tsx:310
+msgid "ContextBraid local engine is not running"
+msgstr "Lokale ContextBraid-Engine läuft nicht"
+
+#. placeholder {0}: proj.last_commit_sha
+#: src/index.tsx:586
+msgid "Copy HEAD Commit SHA ({0})"
+msgstr "HEAD-Commit-SHA kopieren ({0})"
+
+#: src/index.tsx:652
+msgid "Copy Repository Path"
+msgstr "Repository-Pfad kopieren"
+
+#: src/index.tsx:477
+msgid "Current Step"
+msgstr "Aktueller Schritt"
+
+#: src/index.tsx:542
+msgid "Cycle Project Windows"
+msgstr "Projektfenster durchschalten"
+
+#: src/PairBrowserForm.tsx:39
+msgid "Error"
+msgstr "Fehler"
+
+#: src/PairBrowserForm.tsx:34
+msgid "Extension registered! Click Reload (↻) in your browser."
+msgstr "Erweiterung registriert! Klicke im Browser auf Neu laden (↻)."
+
+#: src/index.tsx:266
+msgid "Filter by status"
+msgstr "Nach Status filtern"
+
+#: src/index.tsx:281
+msgid "Generating"
+msgstr "Wird generiert"
+
+#: src/index.tsx:485
+msgid "Git"
+msgstr "Git"
+
+#: src/index.tsx:564
+msgid "Git & GitHub"
+msgstr "Git & GitHub"
+
+#: src/index.tsx:644
+msgid "Hide Detail Pane"
+msgstr "Detailbereich ausblenden"
+
+#: src/PairBrowserForm.tsx:64
+msgid "How to find it"
+msgstr "So findest du sie"
+
+#: src/index.tsx:295
+msgid "Install / Start Engine"
+msgstr "Engine installieren / starten"
+
+#: src/index.tsx:315
+msgid "Install and Start Now"
+msgstr "Jetzt installieren und starten"
+
+#: src/index.tsx:207
+msgid "Installation error"
+msgstr "Installationsfehler"
+
+#: src/PairBrowserForm.tsx:23
+msgid "Invalid ID (32 lowercase letters expected)"
+msgstr "Ungültige ID (32 Kleinbuchstaben erwartet)"
+
+#: src/index.tsx:554
+#: src/menu-bar.tsx:266
+msgid "Jump to Next Agent Alert"
+msgstr "Zur nächsten Agenten-Meldung springen"
+
+#: src/jump-alert.ts:8
+msgid "Jumped to next agent alert"
+msgstr "Zur nächsten Agenten-Meldung gesprungen"
+
+#: src/index.tsx:118
+#: src/index.tsx:128
+msgid "just now"
+msgstr "gerade eben"
+
+#: src/index.tsx:384
+msgid "Last activity"
+msgstr "Letzte Aktivität"
+
+#: src/index.tsx:616
+#: src/menu-bar.tsx:225
+msgid "Mute Repo Alerts (30m)"
+msgstr "Repo-Benachrichtigungen stummschalten (30 Min.)"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:223
+#: src/menu-bar.tsx:233
+msgid "Muted {0} for 30m"
+msgstr "{0} für 30 Min. stummgeschaltet"
+
+#: src/index.tsx:351
+msgid "Muted {mutedRemainingMin}m"
+msgstr "Stumm {mutedRemainingMin} Min."
+
+#: src/index.tsx:533
+msgid "Navigation"
+msgstr "Navigation"
+
+#: src/index.tsx:169
+msgid "Needs Help"
+msgstr "Hilfe benötigt"
+
+#: src/index.tsx:286
+msgid "Open editors"
+msgstr "Geöffnete Editoren"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:598
+msgid "Open in {0}"
+msgstr "In {0} öffnen"
+
+#: src/menu-bar.tsx:198
+msgid "Open in Editor"
+msgstr "Im Editor öffnen"
+
+#: src/menu-bar.tsx:212
+msgid "Open in Finder"
+msgstr "Im Finder öffnen"
+
+#: src/index.tsx:627
+#: src/menu-bar.tsx:205
+msgid "Open in Terminal"
+msgstr "Im Terminal öffnen"
+
+#. placeholder {0}: latestPr.number
+#: src/index.tsx:567
+msgid "Open Latest PR (#{0})"
+msgstr "Neuesten PR öffnen (#{0})"
+
+#: src/menu-bar.tsx:251
+#: src/menu-bar.tsx:287
+msgid "Open Project Cockpit"
+msgstr "Projekt-Cockpit öffnen"
+
+#: src/index.tsx:575
+#: src/menu-bar.tsx:218
+msgid "Open Repository on GitHub"
+msgstr "Repository auf GitHub öffnen"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:608
+msgid "Opened in {0}"
+msgstr "In {0} geöffnet"
+
+#: src/index.tsx:311
+msgid "Press Enter to automatically install and start the local background service."
+msgstr "Drücke die Eingabetaste, um den lokalen Hintergrunddienst automatisch zu installieren und zu starten."
+
+#: src/index.tsx:392
+msgid "Private window"
+msgstr "Privates Fenster"
+
+#: src/index.tsx:175
+msgid "Ready"
+msgstr "Bereit"
+
+#: src/PairBrowserForm.tsx:46
+msgid "Register Local Browser Extension ID"
+msgstr "Lokale Browser-Erweiterungs-ID registrieren"
+
+#: src/PairBrowserForm.tsx:29
+msgid "Registering extension..."
+msgstr "Erweiterung wird registriert..."
+
+#: src/menu-bar.tsx:280
+msgid "Repositories"
+msgstr "Repositories"
+
+#: src/PairBrowserForm.tsx:50
+msgid "Save and Reconnect"
+msgstr "Speichern und neu verbinden"
+
+#: src/index.tsx:263
+msgid "Search a repo, branch, AI agent, or editor..."
+msgstr "Repository, Branch, KI-Agent oder Editor suchen..."
+
+#: src/index.tsx:509
+msgid "Session"
+msgstr "Sitzung"
+
+#: src/index.tsx:645
+msgid "Show Detail Pane"
+msgstr "Detailbereich anzeigen"
+
+#: src/index.tsx:198
+msgid "Starting ContextBraid engine..."
+msgstr "ContextBraid-Engine wird gestartet..."
+
+#. placeholder {0}: proj.repo_name
+#. placeholder {1}: role.name
+#: src/index.tsx:535
+msgid "Switch to {0} ({1})"
+msgstr "Zu {0} ({1}) wechseln"
+
+#: src/index.tsx:615
+msgid "Unmute Repo Alerts"
+msgstr "Repo-Benachrichtigungen aktivieren"
+
+#: src/index.tsx:173
+msgid "Working"
+msgstr "Arbeitet"
+
+#: src/index.tsx:596
+msgid "Workspace"
+msgstr "Arbeitsbereich"
+
+#: src/index.tsx:171
+msgid "ZIP Ready"
+msgstr "ZIP bereit"

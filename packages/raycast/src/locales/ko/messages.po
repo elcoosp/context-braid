@@ -1,0 +1,317 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-21 22:29+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ko\n"
+
+#. placeholder {0}: proj.dirty_files
+#: src/index.tsx:334
+#: src/index.tsx:414
+msgid "{0, plural, one {# modified} other {# modified}}"
+msgstr "{0, plural, one {#개 수정됨} other {#개 수정됨}}"
+
+#. placeholder {0}: proj.tabs.length
+#: src/index.tsx:339
+msgid "{0, plural, one {# window} other {# windows}}"
+msgstr "{0, plural, one {#개 창} other {#개 창}}"
+
+#: src/index.tsx:134
+msgid "{days}d ago"
+msgstr "{days}일 전"
+
+#: src/index.tsx:122
+#: src/index.tsx:132
+msgid "{hrs}h ago"
+msgstr "{hrs}시간 전"
+
+#: src/index.tsx:120
+#: src/index.tsx:130
+msgid "{mins}m ago"
+msgstr "{mins}분 전"
+
+#: src/PairBrowserForm.tsx:65
+msgid "1. Open chrome://extensions or brave://extensions\n"
+"2. Enable Developer Mode\n"
+"3. Copy the ID displayed under ContextBraid"
+msgstr "1. chrome://extensions 또는 brave://extensions 열기
+"
+"2. 개발자 모드 활성화
+"
+"3. ContextBraid 아래에 표시된 ID 복사"
+
+#: src/PairBrowserForm.tsx:58
+msgid "32-character Extension ID"
+msgstr "32자 확장 프로그램 ID"
+
+#: src/menu-bar.tsx:196
+msgid "Action"
+msgstr "작업"
+
+#: src/index.tsx:165
+#: src/menu-bar.tsx:274
+msgid "Active"
+msgstr "활성"
+
+#: src/index.tsx:276
+msgid "Alerts & Ready ZIPs"
+msgstr "알림 및 준비된 ZIP"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:222
+msgid "Alerts unmuted for {0}"
+msgstr "{0} 알림 음소거 해제됨"
+
+#: src/index.tsx:271
+msgid "All contexts"
+msgstr "모든 컨텍스트"
+
+#: src/index.tsx:338
+msgid "clean"
+msgstr "깨끗함"
+
+#: src/index.tsx:418
+#: src/menu-bar.tsx:175
+msgid "Clean"
+msgstr "깨끗함"
+
+#: src/index.tsx:320
+msgid "Configure Extension ID"
+msgstr "확장 프로그램 ID 구성"
+
+#: src/index.tsx:300
+#: src/index.tsx:658
+msgid "Connect Browser Extension ID"
+msgstr "브라우저 확장 프로그램 ID 연결"
+
+#: src/menu-bar.tsx:245
+msgid "ContextBraid"
+msgstr "ContextBraid"
+
+#: src/index.tsx:203
+msgid "ContextBraid engine active"
+msgstr "ContextBraid 엔진 활성"
+
+#: src/menu-bar.tsx:249
+msgid "ContextBraid Engine Offline"
+msgstr "ContextBraid 엔진 오프라인"
+
+#: src/index.tsx:310
+msgid "ContextBraid local engine is not running"
+msgstr "ContextBraid 로컬 엔진이 실행되고 있지 않습니다"
+
+#. placeholder {0}: proj.last_commit_sha
+#: src/index.tsx:586
+msgid "Copy HEAD Commit SHA ({0})"
+msgstr "HEAD 커밋 SHA 복사 ({0})"
+
+#: src/index.tsx:652
+msgid "Copy Repository Path"
+msgstr "저장소 경로 복사"
+
+#: src/index.tsx:477
+msgid "Current Step"
+msgstr "현재 단계"
+
+#: src/index.tsx:542
+msgid "Cycle Project Windows"
+msgstr "프로젝트 창 전환"
+
+#: src/PairBrowserForm.tsx:39
+msgid "Error"
+msgstr "오류"
+
+#: src/PairBrowserForm.tsx:34
+msgid "Extension registered! Click Reload (↻) in your browser."
+msgstr "확장 프로그램이 등록되었습니다! 브라우저에서 새로고침(↻)을 클릭하세요."
+
+#: src/index.tsx:266
+msgid "Filter by status"
+msgstr "상태별 필터링"
+
+#: src/index.tsx:281
+msgid "Generating"
+msgstr "생성 중"
+
+#: src/index.tsx:485
+msgid "Git"
+msgstr "Git"
+
+#: src/index.tsx:564
+msgid "Git & GitHub"
+msgstr "Git 및 GitHub"
+
+#: src/index.tsx:644
+msgid "Hide Detail Pane"
+msgstr "상세 패널 숨기기"
+
+#: src/PairBrowserForm.tsx:64
+msgid "How to find it"
+msgstr "찾는 방법"
+
+#: src/index.tsx:295
+msgid "Install / Start Engine"
+msgstr "엔진 설치 / 시작"
+
+#: src/index.tsx:315
+msgid "Install and Start Now"
+msgstr "지금 설치 및 시작"
+
+#: src/index.tsx:207
+msgid "Installation error"
+msgstr "설치 오류"
+
+#: src/PairBrowserForm.tsx:23
+msgid "Invalid ID (32 lowercase letters expected)"
+msgstr "잘못된 ID입니다(소문자 32자 필요)"
+
+#: src/index.tsx:554
+#: src/menu-bar.tsx:266
+msgid "Jump to Next Agent Alert"
+msgstr "다음 에이전트 알림으로 이동"
+
+#: src/jump-alert.ts:8
+msgid "Jumped to next agent alert"
+msgstr "다음 에이전트 알림으로 이동했습니다"
+
+#: src/index.tsx:118
+#: src/index.tsx:128
+msgid "just now"
+msgstr "방금 전"
+
+#: src/index.tsx:384
+msgid "Last activity"
+msgstr "최근 활동"
+
+#: src/index.tsx:616
+#: src/menu-bar.tsx:225
+msgid "Mute Repo Alerts (30m)"
+msgstr "저장소 알림 음소거 (30분)"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:223
+#: src/menu-bar.tsx:233
+msgid "Muted {0} for 30m"
+msgstr "{0} 알림을 30분 동안 음소거했습니다"
+
+#: src/index.tsx:351
+msgid "Muted {mutedRemainingMin}m"
+msgstr "음소거 {mutedRemainingMin}분 남음"
+
+#: src/index.tsx:533
+msgid "Navigation"
+msgstr "탐색"
+
+#: src/index.tsx:169
+msgid "Needs Help"
+msgstr "도움 필요"
+
+#: src/index.tsx:286
+msgid "Open editors"
+msgstr "열린 편집기"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:598
+msgid "Open in {0}"
+msgstr "{0}에서 열기"
+
+#: src/menu-bar.tsx:198
+msgid "Open in Editor"
+msgstr "편집기에서 열기"
+
+#: src/menu-bar.tsx:212
+msgid "Open in Finder"
+msgstr "Finder에서 열기"
+
+#: src/index.tsx:627
+#: src/menu-bar.tsx:205
+msgid "Open in Terminal"
+msgstr "터미널에서 열기"
+
+#. placeholder {0}: latestPr.number
+#: src/index.tsx:567
+msgid "Open Latest PR (#{0})"
+msgstr "최신 PR 열기 (#{0})"
+
+#: src/menu-bar.tsx:251
+#: src/menu-bar.tsx:287
+msgid "Open Project Cockpit"
+msgstr "프로젝트 조종석 열기"
+
+#: src/index.tsx:575
+#: src/menu-bar.tsx:218
+msgid "Open Repository on GitHub"
+msgstr "GitHub에서 저장소 열기"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:608
+msgid "Opened in {0}"
+msgstr "{0}에서 열림"
+
+#: src/index.tsx:311
+msgid "Press Enter to automatically install and start the local background service."
+msgstr "Enter 키를 눌러 로컬 백그라운드 서비스를 자동으로 설치하고 시작합니다."
+
+#: src/index.tsx:392
+msgid "Private window"
+msgstr "시크릿 창"
+
+#: src/index.tsx:175
+msgid "Ready"
+msgstr "준비 완료"
+
+#: src/PairBrowserForm.tsx:46
+msgid "Register Local Browser Extension ID"
+msgstr "로컬 브라우저 확장 프로그램 ID 등록"
+
+#: src/PairBrowserForm.tsx:29
+msgid "Registering extension..."
+msgstr "확장 프로그램 등록 중..."
+
+#: src/menu-bar.tsx:280
+msgid "Repositories"
+msgstr "저장소"
+
+#: src/PairBrowserForm.tsx:50
+msgid "Save and Reconnect"
+msgstr "저장 및 다시 연결"
+
+#: src/index.tsx:263
+msgid "Search a repo, branch, AI agent, or editor..."
+msgstr "저장소, 브랜치, AI 에이전트 또는 편집기 검색..."
+
+#: src/index.tsx:509
+msgid "Session"
+msgstr "세션"
+
+#: src/index.tsx:645
+msgid "Show Detail Pane"
+msgstr "상세 패널 표시"
+
+#: src/index.tsx:198
+msgid "Starting ContextBraid engine..."
+msgstr "ContextBraid 엔진 시작 중..."
+
+#. placeholder {0}: proj.repo_name
+#. placeholder {1}: role.name
+#: src/index.tsx:535
+msgid "Switch to {0} ({1})"
+msgstr "{0}({1})로 전환"
+
+#: src/index.tsx:615
+msgid "Unmute Repo Alerts"
+msgstr "저장소 알림 음소거 해제"
+
+#: src/index.tsx:173
+msgid "Working"
+msgstr "작업 중"
+
+#: src/index.tsx:596
+msgid "Workspace"
+msgstr "작업 공간"
+
+#: src/index.tsx:171
+msgid "ZIP Ready"
+msgstr "ZIP 준비 완료"

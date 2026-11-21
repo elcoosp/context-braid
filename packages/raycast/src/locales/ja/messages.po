@@ -1,0 +1,317 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-21 21:56+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ja\n"
+
+#. placeholder {0}: proj.dirty_files
+#: src/index.tsx:334
+#: src/index.tsx:414
+msgid "{0, plural, one {# modified} other {# modified}}"
+msgstr "{0, plural, one {# 件変更} other {# 件変更}}"
+
+#. placeholder {0}: proj.tabs.length
+#: src/index.tsx:339
+msgid "{0, plural, one {# window} other {# windows}}"
+msgstr "{0, plural, one {# ウィンドウ} other {# ウィンドウ}}"
+
+#: src/index.tsx:134
+msgid "{days}d ago"
+msgstr "{days}日前"
+
+#: src/index.tsx:122
+#: src/index.tsx:132
+msgid "{hrs}h ago"
+msgstr "{hrs}時間前"
+
+#: src/index.tsx:120
+#: src/index.tsx:130
+msgid "{mins}m ago"
+msgstr "{mins}分前"
+
+#: src/PairBrowserForm.tsx:65
+msgid "1. Open chrome://extensions or brave://extensions\n"
+"2. Enable Developer Mode\n"
+"3. Copy the ID displayed under ContextBraid"
+msgstr "1. chrome://extensions または brave://extensions を開く
+"
+"2. デベロッパーモードを有効にする
+"
+"3. ContextBraid の下に表示される ID をコピーする"
+
+#: src/PairBrowserForm.tsx:58
+msgid "32-character Extension ID"
+msgstr "32文字の拡張機能 ID"
+
+#: src/menu-bar.tsx:196
+msgid "Action"
+msgstr "アクション"
+
+#: src/index.tsx:165
+#: src/menu-bar.tsx:274
+msgid "Active"
+msgstr "アクティブ"
+
+#: src/index.tsx:276
+msgid "Alerts & Ready ZIPs"
+msgstr "通知と準備完了 ZIP"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:222
+msgid "Alerts unmuted for {0}"
+msgstr "{0} の通知ミュートを解除しました"
+
+#: src/index.tsx:271
+msgid "All contexts"
+msgstr "すべてのコンテキスト"
+
+#: src/index.tsx:338
+msgid "clean"
+msgstr "クリーン"
+
+#: src/index.tsx:418
+#: src/menu-bar.tsx:175
+msgid "Clean"
+msgstr "クリーン"
+
+#: src/index.tsx:320
+msgid "Configure Extension ID"
+msgstr "拡張機能 ID を設定"
+
+#: src/index.tsx:300
+#: src/index.tsx:658
+msgid "Connect Browser Extension ID"
+msgstr "ブラウザ拡張機能 ID を接続"
+
+#: src/menu-bar.tsx:245
+msgid "ContextBraid"
+msgstr "ContextBraid"
+
+#: src/index.tsx:203
+msgid "ContextBraid engine active"
+msgstr "ContextBraid エンジン稼働中"
+
+#: src/menu-bar.tsx:249
+msgid "ContextBraid Engine Offline"
+msgstr "ContextBraid エンジンがオフラインです"
+
+#: src/index.tsx:310
+msgid "ContextBraid local engine is not running"
+msgstr "ContextBraid ローカルエンジンが起動していません"
+
+#. placeholder {0}: proj.last_commit_sha
+#: src/index.tsx:586
+msgid "Copy HEAD Commit SHA ({0})"
+msgstr "HEAD コミット SHA をコピー ({0})"
+
+#: src/index.tsx:652
+msgid "Copy Repository Path"
+msgstr "リポジトリパスをコピー"
+
+#: src/index.tsx:477
+msgid "Current Step"
+msgstr "現在のステップ"
+
+#: src/index.tsx:542
+msgid "Cycle Project Windows"
+msgstr "プロジェクトウィンドウを切り替え"
+
+#: src/PairBrowserForm.tsx:39
+msgid "Error"
+msgstr "エラー"
+
+#: src/PairBrowserForm.tsx:34
+msgid "Extension registered! Click Reload (↻) in your browser."
+msgstr "拡張機能を登録しました！ブラウザで再読み込み (↻) をクリックしてください。"
+
+#: src/index.tsx:266
+msgid "Filter by status"
+msgstr "ステータスで絞り込み"
+
+#: src/index.tsx:281
+msgid "Generating"
+msgstr "生成中"
+
+#: src/index.tsx:485
+msgid "Git"
+msgstr "Git"
+
+#: src/index.tsx:564
+msgid "Git & GitHub"
+msgstr "Git & GitHub"
+
+#: src/index.tsx:644
+msgid "Hide Detail Pane"
+msgstr "詳細ペインを非表示"
+
+#: src/PairBrowserForm.tsx:64
+msgid "How to find it"
+msgstr "確認方法"
+
+#: src/index.tsx:295
+msgid "Install / Start Engine"
+msgstr "エンジンをインストール / 起動"
+
+#: src/index.tsx:315
+msgid "Install and Start Now"
+msgstr "今すぐインストールして起動"
+
+#: src/index.tsx:207
+msgid "Installation error"
+msgstr "インストールエラー"
+
+#: src/PairBrowserForm.tsx:23
+msgid "Invalid ID (32 lowercase letters expected)"
+msgstr "無効な ID です（32文字の小文字英字が必要）"
+
+#: src/index.tsx:554
+#: src/menu-bar.tsx:266
+msgid "Jump to Next Agent Alert"
+msgstr "次のエージェント通知へ移動"
+
+#: src/jump-alert.ts:8
+msgid "Jumped to next agent alert"
+msgstr "次のエージェント通知へ移動しました"
+
+#: src/index.tsx:118
+#: src/index.tsx:128
+msgid "just now"
+msgstr "たった今"
+
+#: src/index.tsx:384
+msgid "Last activity"
+msgstr "最終アクティビティ"
+
+#: src/index.tsx:616
+#: src/menu-bar.tsx:225
+msgid "Mute Repo Alerts (30m)"
+msgstr "リポジトリ通知をミュート (30分)"
+
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:223
+#: src/menu-bar.tsx:233
+msgid "Muted {0} for 30m"
+msgstr "{0} を30分間ミュートしました"
+
+#: src/index.tsx:351
+msgid "Muted {mutedRemainingMin}m"
+msgstr "ミュート中 {mutedRemainingMin}分"
+
+#: src/index.tsx:533
+msgid "Navigation"
+msgstr "ナビゲーション"
+
+#: src/index.tsx:169
+msgid "Needs Help"
+msgstr "対応が必要"
+
+#: src/index.tsx:286
+msgid "Open editors"
+msgstr "開いているエディタ"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:598
+msgid "Open in {0}"
+msgstr "{0} で開く"
+
+#: src/menu-bar.tsx:198
+msgid "Open in Editor"
+msgstr "エディタで開く"
+
+#: src/menu-bar.tsx:212
+msgid "Open in Finder"
+msgstr "Finder で開く"
+
+#: src/index.tsx:627
+#: src/menu-bar.tsx:205
+msgid "Open in Terminal"
+msgstr "ターミナルで開く"
+
+#. placeholder {0}: latestPr.number
+#: src/index.tsx:567
+msgid "Open Latest PR (#{0})"
+msgstr "最新の PR を開く (#{0})"
+
+#: src/menu-bar.tsx:251
+#: src/menu-bar.tsx:287
+msgid "Open Project Cockpit"
+msgstr "プロジェクトコックピットを開く"
+
+#: src/index.tsx:575
+#: src/menu-bar.tsx:218
+msgid "Open Repository on GitHub"
+msgstr "GitHub でリポジトリを開く"
+
+#. placeholder {0}: favEditor.label
+#: src/index.tsx:608
+msgid "Opened in {0}"
+msgstr "{0} で開きました"
+
+#: src/index.tsx:311
+msgid "Press Enter to automatically install and start the local background service."
+msgstr "Enter キーを押してローカルバックグラウンドサービスを自動インストール・起動します。"
+
+#: src/index.tsx:392
+msgid "Private window"
+msgstr "プライベートウィンドウ"
+
+#: src/index.tsx:175
+msgid "Ready"
+msgstr "完了"
+
+#: src/PairBrowserForm.tsx:46
+msgid "Register Local Browser Extension ID"
+msgstr "ローカルブラウザ拡張機能 ID を登録"
+
+#: src/PairBrowserForm.tsx:29
+msgid "Registering extension..."
+msgstr "拡張機能を登録中..."
+
+#: src/menu-bar.tsx:280
+msgid "Repositories"
+msgstr "リポジトリ"
+
+#: src/PairBrowserForm.tsx:50
+msgid "Save and Reconnect"
+msgstr "保存して再接続"
+
+#: src/index.tsx:263
+msgid "Search a repo, branch, AI agent, or editor..."
+msgstr "リポジトリ、ブランチ、AI エージェント、エディタを検索..."
+
+#: src/index.tsx:509
+msgid "Session"
+msgstr "セッション"
+
+#: src/index.tsx:645
+msgid "Show Detail Pane"
+msgstr "詳細ペインを表示"
+
+#: src/index.tsx:198
+msgid "Starting ContextBraid engine..."
+msgstr "ContextBraid エンジンを起動中..."
+
+#. placeholder {0}: proj.repo_name
+#. placeholder {1}: role.name
+#: src/index.tsx:535
+msgid "Switch to {0} ({1})"
+msgstr "{0} ({1}) に切り替え"
+
+#: src/index.tsx:615
+msgid "Unmute Repo Alerts"
+msgstr "リポジトリ通知のミュート解除"
+
+#: src/index.tsx:173
+msgid "Working"
+msgstr "実行中"
+
+#: src/index.tsx:596
+msgid "Workspace"
+msgstr "ワークスペース"
+
+#: src/index.tsx:171
+msgid "ZIP Ready"
+msgstr "ZIP 準備完了"

@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "Verknüpfe KI-Browser-Tabs und Coding-Sitzungen direkt mit deinen lokalen Git-Repositories in Raycast."
+  }
+}

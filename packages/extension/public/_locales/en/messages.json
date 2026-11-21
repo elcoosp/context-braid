@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "Link AI browser tabs and coding sessions to your local Git repositories in Raycast."
+  }
+}

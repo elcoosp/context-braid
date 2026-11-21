@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "Vincula tus pestañas de IA y sesiones de código con tus repositorios Git locales en Raycast."
+  }
+}

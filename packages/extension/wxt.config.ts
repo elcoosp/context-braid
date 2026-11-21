@@ -6,7 +6,9 @@ const EXT_PUBLIC_KEY =
 
 export default defineConfig({
   manifest: {
-    name: 'ContextBraid',
+    name: '__MSG_extName__',
+    description: '__MSG_extDesc__',
+    default_locale: 'en',
     description: 'Auto-pair your local Git repos, editor windows, and AI browser tabs.',
     version: '0.1.0',
     icons: {

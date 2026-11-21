@@ -1,28 +1,39 @@
 import { i18n } from "@lingui/core";
-import { getPreferenceValues } from "@raycast/api";
-import { messages as messagesEn } from "./locales/en/messages";
-import { messages as messagesFr } from "./locales/fr/messages";
+import { messages as enMessages } from "./locales/en/messages";
+import { messages as frMessages } from "./locales/fr/messages";
+import { messages as zhCnMessages } from "./locales/zh-CN/messages";
+import { messages as jaMessages } from "./locales/ja/messages";
+import { messages as deMessages } from "./locales/de/messages";
+import { messages as esMessages } from "./locales/es/messages";
+import { messages as koMessages } from "./locales/ko/messages";
 
-export type SupportedLocale = "en" | "fr";
+const CATALOGS: Record<string, typeof enMessages> = {
+  en: enMessages,
+  fr: frMessages,
+  "zh-CN": zhCnMessages,
+  ja: jaMessages,
+  de: deMessages,
+  es: esMessages,
+  ko: koMessages,
+};
 
-i18n.load({
-  en: messagesEn,
-  fr: messagesFr,
-});
-
-export function detectLocale(): SupportedLocale {
+function resolveLocale(): string {
   try {
-    const prefs = getPreferenceValues<{ language?: string }>();
-    if (prefs.language === "fr" || prefs.language === "en") {
-      return prefs.language;
-    }
+    const raw = Intl.DateTimeFormat().resolvedOptions().locale || "en";
+    if (CATALOGS[raw]) return raw;
+    const lower = raw.toLowerCase();
+    if (lower.startsWith("zh")) return "zh-CN";
+    const base = lower.split("-")[0];
+    if (CATALOGS[base]) return base;
   } catch {
-    // fallback to English locale
+    // fallback to English
   }
-  const sys = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
-  return sys.startsWith("fr") ? "fr" : "en";
+  return "en";
 }
 
-i18n.activate(detectLocale());
-
-export { i18n };
+export function initI18n(): string {
+  const locale = resolveLocale();
+  i18n.load(locale, CATALOGS[locale] ?? enMessages);
+  i18n.activate(locale);
+  return locale;
+}

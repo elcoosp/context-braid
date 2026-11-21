@@ -1,6 +1,6 @@
 /** @type {import('@lingui/conf').LinguiConfig} */
 export default {
-  locales: ['en', 'fr'],
+  locales: ['en', 'fr', 'zh-CN', 'ja', 'de', 'es', 'ko'],
   sourceLocale: 'en',
   compileNamespace: 'ts',
   catalogs: [

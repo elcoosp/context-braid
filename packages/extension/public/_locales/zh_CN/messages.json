@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "在 Raycast 中将 AI 浏览器标签页和编程会话与本地 Git 仓库自动关联。"
+  }
+}

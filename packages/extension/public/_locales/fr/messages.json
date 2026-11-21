@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "Reliez vos onglets IA et sessions de code à vos dépôts Git locaux dans Raycast."
+  }
+}

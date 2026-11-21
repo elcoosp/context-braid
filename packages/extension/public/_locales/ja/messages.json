@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "ContextBraid"
+  },
+  "extDesc": {
+    "message": "AI ブラウザタブとコーディングセッションを Raycast のローカル Git リポジトリに自動連携。"
+  }
+}
