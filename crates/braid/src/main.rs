@@ -25,7 +25,7 @@ struct DaemonState {
     active_repo: Option<String>,
     last_focused_tab: Option<(String, i64, i64)>,
     cycle_cursor: usize,
-    notified_alerts: HashSet<(String, i64, i64)>,
+    notified_alerts: HashSet<(String, i64, i64, u8)>,
     push_tx: broadcast::Sender<String>,
 }
 
@@ -211,16 +211,22 @@ IpcMessage::SyncTabs { tabs, .. } => {
                 let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
                 for t in tabs {
                     let key = (t.browser.clone(), t.window_id, t.tab_id);
-                    let is_alert = matches!(t.status, AgentStatus::NeedsAttention);
-                    if is_alert {
-                        if st.notified_alerts.insert(key.clone()) {
+                    let alert_kind = match t.status {
+                        AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
+                        AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
+                        _ => None,
+                    };
+                    if let Some((kind, subtitle)) = alert_kind {
+                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind);
+                        if st.notified_alerts.insert(alert_key) {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                                 .unwrap_or_else(|| "Workspace".into());
-                            macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &t.title);
+                            macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
                         }
                     } else {
-                        st.notified_alerts.remove(&key);
+                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 1));
+                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 2));
                     }
                     st.tabs.insert(key, (t, now));
                 }
