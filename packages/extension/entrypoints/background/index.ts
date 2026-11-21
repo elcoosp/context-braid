@@ -201,13 +201,34 @@ export default defineBackground(() => {
     browser.webRequest.onCompleted.addListener(
       (details) => {
         if (details.tabId <= 0) return;
-        const isApiOrStream =
-          details.type === 'xmlhttprequest' ||
-          details.url.includes('/api/') ||
-          details.url.includes('completions') ||
-          details.url.includes('sandbox');
-        if (!isApiOrStream) return;
 
+        const isStorageDownloadList = details.url.includes('/files/by-message') && details.url.includes('prefix=download');
+        const isChatCompletionOrBatch =
+          details.url.includes('/messages/batch') ||
+          details.url.includes('/completions') ||
+          details.url.includes('/api/v1/chats/');
+
+        if (!isStorageDownloadList && !isChatCompletionOrBatch && details.type !== 'xmlhttprequest') {
+          return;
+        }
+
+        // Si une requête API retourne 403 (Captcha/WAF), 429 (Rate limit) ou 5xx, alerte immédiatement
+        if (
+          details.url.includes('/api/') &&
+          (details.statusCode === 403 || details.statusCode === 429 || details.statusCode >= 500)
+        ) {
+          const existingTab = tabCache.get(details.tabId);
+          if (existingTab) {
+            tabCache.set(details.tabId, {
+              ...existingTab,
+              status: 'needs_attention',
+              updated_at_ms: Date.now(),
+            });
+            flushTabs();
+          }
+        }
+
+        const delayMs = isStorageDownloadList ? 150 : 350;
         const existing = pollDebounce.get(details.tabId);
         if (existing) clearTimeout(existing);
         pollDebounce.set(
@@ -215,7 +236,7 @@ export default defineBackground(() => {
           setTimeout(() => {
             pollDebounce.delete(details.tabId);
             void probeTab(details.tabId);
-          }, 350),
+          }, delayMs),
         );
       },
       { urls: AI_MATCH_PATTERNS },
