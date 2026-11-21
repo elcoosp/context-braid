@@ -1,6 +1,12 @@
 import { extractPageState } from '../../src/core/extractor';
 import { AI_MATCH_PATTERNS } from '../../src/core/origins';
 
+declare global {
+  interface Window {
+    __contextBraidCleanup?: () => void;
+  }
+}
+
 function detectBrowserName(): string {
   if (import.meta.env.BROWSER === 'firefox') return 'firefox';
   if ('brave' in navigator) return 'brave';
@@ -20,18 +26,15 @@ export default defineContentScript({
   matches: AI_MATCH_PATTERNS,
   runAt: 'document_idle',
   main() {
+    // Garantit un seul observer et un seul timer par onglet, même en cas de ré-injection
+    window.__contextBraidCleanup?.();
+
     let lastSignature = '';
     let lastSentAt = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const browserName = detectBrowserName();
 
     const observer = new MutationObserver(() => scheduleCheck());
-
-    const teardown = () => {
-      observer.disconnect();
-      if (timer) clearTimeout(timer);
-      clearInterval(keepaliveId);
-    };
 
     const evaluateAndSend = (force = false) => {
       if (!isContextValid()) {
@@ -60,6 +63,35 @@ export default defineContentScript({
       }
     };
 
+    const onVisibilityChange = () => {
+      if (!document.hidden) evaluateAndSend(true);
+    };
+
+    const onRuntimeMessage = (msg: { type?: string }) => {
+      if (msg?.type === 'PING_EXTRACT') {
+        evaluateAndSend(true);
+      }
+    };
+
+    const keepaliveId = setInterval(() => evaluateAndSend(true), 12000);
+    const bootTimerId = setTimeout(() => evaluateAndSend(true), 2500);
+
+    const teardown = () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+      clearInterval(keepaliveId);
+      clearTimeout(bootTimerId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      try {
+        browser.runtime.onMessage.removeListener(onRuntimeMessage);
+      } catch {}
+      if (window.__contextBraidCleanup === teardown) {
+        delete window.__contextBraidCleanup;
+      }
+    };
+
+    window.__contextBraidCleanup = teardown;
+
     const scheduleCheck = () => {
       if (!isContextValid()) {
         teardown();
@@ -73,20 +105,18 @@ export default defineContentScript({
         } else {
           evaluateAndSend(false);
         }
-      }, 800);
+      }, 900);
     };
 
-    const keepaliveId = setInterval(() => evaluateAndSend(true), 10000);
-
     evaluateAndSend(true);
-    setTimeout(() => evaluateAndSend(true), 2500);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) evaluateAndSend(true);
-    });
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    browser.runtime.onMessage.addListener(onRuntimeMessage);
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    if (document.body) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
   },
 });

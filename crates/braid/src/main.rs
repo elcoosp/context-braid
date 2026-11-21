@@ -467,6 +467,19 @@ writer.flush().await?;
 Ok(())
 }
 async fn run_daemon() -> Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let lock_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open("/tmp/braid.daemon.lock")?;
+    let rc = unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+    if rc != 0 {
+        tracing::info!("Un autre daemon braid est déjà actif — arrêt propre de ce doublon.");
+        return Ok(());
+    }
+    let _daemon_lock = lock_file;
+
 tracing_subscriber::fmt::init();
 let config = BraidConfig::load_or_default()?;
 let sock_path = Path::new(&config.daemon.socket_path);

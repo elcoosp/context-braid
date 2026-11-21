@@ -280,13 +280,17 @@ export default defineBackground(() => {
 
   const probeTab = async (tabId: number, tabUrl?: string) => {
     try {
-      const files =
-        browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
-      await browser.scripting.executeScript({
-        target: { tabId },
-        files,
-      });
-    } catch {}
+      await browser.tabs.sendMessage(tabId, { type: 'PING_EXTRACT' });
+    } catch {
+      try {
+        const files =
+          browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
+        await browser.scripting.executeScript({
+          target: { tabId },
+          files,
+        });
+      } catch {}
+    }
     await probeZaiServerStorage(tabId, tabUrl);
   };
 
