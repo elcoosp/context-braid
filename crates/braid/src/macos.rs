@@ -677,12 +677,62 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
         }
 
         let full_title = format!("ContextBraid • {}", repo_name);
-        let script = format!(
-            "display notification {:?} with title {:?} subtitle {:?}",
-            msg, full_title, subtitle
-        );
-        let _ = std::process::Command::new("/usr/bin/osascript")
-            .args(["-e", &script])
-            .spawn();
+        let sub_owned = subtitle.to_string();
+        let msg_owned = msg.to_string();
+        let req_id = format!("contextbraid-{}-{}-{}", _browser, _window_id, _tab_id);
+
+        std::thread::spawn(move || {
+            use block2::RcBlock;
+            use objc2::rc::Retained;
+            use objc2::runtime::Bool;
+            use objc2_foundation::{NSError, NSString};
+            use objc2_user_notifications::{
+                UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
+                UNUserNotificationCenter,
+            };
+            use std::sync::mpsc;
+            use std::time::Duration;
+
+            let center = UNUserNotificationCenter::currentNotificationCenter();
+
+            let (tx, rx) = mpsc::channel::<bool>();
+            let auth_block = RcBlock::new(move |granted: Bool, _err: *mut NSError| {
+                let _ = tx.send(granted.as_bool());
+            });
+            let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
+            center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+
+            let granted = rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
+            if granted {
+                let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
+                content.setTitle(&NSString::from_str(&full_title));
+                content.setSubtitle(&NSString::from_str(&sub_owned));
+                content.setBody(&NSString::from_str(&msg_owned));
+
+                let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+                    &NSString::from_str(&req_id),
+                    &content,
+                    None,
+                );
+
+                let (done_tx, done_rx) = mpsc::channel::<bool>();
+                let add_block = RcBlock::new(move |err: *mut NSError| {
+                    let _ = done_tx.send(err.is_null());
+                });
+                center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
+                if done_rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false) {
+                    return;
+                }
+            }
+
+            // Fallback osascript uniquement si l'autorisation macOS n'est pas encore accordée
+            let script = format!(
+                "display notification {:?} with title {:?} subtitle {:?}",
+                msg_owned, full_title, sub_owned
+            );
+            let _ = std::process::Command::new("/usr/bin/osascript")
+                .args(["-e", &script])
+                .spawn();
+        });
     }
 }

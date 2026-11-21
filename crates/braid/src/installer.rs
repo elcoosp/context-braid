@@ -65,7 +65,10 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
 
     let app_exec = app_macos.join("braid");
     let _ = fs::remove_file(&app_exec);
-    std::os::unix::fs::symlink(&target_bin, &app_exec)?;
+    fs::copy(&target_bin, &app_exec)?;
+    let mut bperms = fs::metadata(&app_exec)?.permissions();
+    bperms.set_mode(0o755);
+    fs::set_permissions(&app_exec, bperms)?;
 
     let icon_png = base_dir.join("icon.png");
     fs::write(&icon_png, APP_ICON_PNG)?;
@@ -184,6 +187,16 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     )?;
 
     let home = dirs::home_dir().context("HOME introuvable")?;
+    let _ = std::process::Command::new("codesign")
+        .args(["--force", "--deep", "--sign", "-", &app_dir.to_string_lossy()])
+        .status();
+    let lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+    if Path::new(lsreg).exists() {
+        let _ = std::process::Command::new(lsreg)
+            .args(["-f", &app_dir.to_string_lossy()])
+            .status();
+    }
+
     let launch_agents = home.join("Library/LaunchAgents");
     fs::create_dir_all(&launch_agents)?;
     let plist_path = launch_agents.join("com.contextbraid.daemon.plist");
@@ -212,7 +225,7 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
 </dict>
 </plist>
 "#,
-        target_bin.display()
+        app_exec.display()
     );
     fs::write(&plist_path, plist)?;
 
