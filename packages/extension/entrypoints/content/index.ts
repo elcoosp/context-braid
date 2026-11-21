@@ -51,15 +51,37 @@ export default defineContentScript({
       }
     };
 
+    const emitAutoDownloadLog = (
+      event: string,
+      details: Record<string, unknown> = {},
+    ) => {
+      const entry = {
+        ts: new Date().toISOString(),
+        source: "content",
+        event,
+        hidden: document.hidden,
+        pageUrl: window.location.href,
+        ...details,
+      };
+      console.info("[ContextBraid:AutoDownload]", entry);
+      browser.runtime.sendMessage({
+        type: "AUTO_DOWNLOAD_LOG",
+        entry,
+      }).catch(() => {});
+    };
+
     const checkAndAutoDownloadZips = () => {
       const targets = findZipDownloadTargets(document);
       if (!baselineCaptured) {
-        // Au premier scan (2.6s après montage), ignore les anciens ZIP déjà présents dans l'historique
         for (const t of targets) {
           downloadedKeys.add(t.key);
         }
         baselineCaptured = true;
         persistKeys();
+        emitAutoDownloadLog("baseline_captured", {
+          ignoredCount: targets.length,
+          keys: targets.map((t) => t.key),
+        });
         return;
       }
 
@@ -67,15 +89,26 @@ export default defineContentScript({
         if (downloadedKeys.has(t.key)) continue;
         downloadedKeys.add(t.key);
         persistKeys();
+        emitAutoDownloadLog("target_detected", {
+          key: t.key,
+          targetUrl: t.url || "(dom-button)",
+        });
 
         if (t.url.startsWith("http://") || t.url.startsWith("https://")) {
           browser.runtime.sendMessage({
             type: "AUTO_DOWNLOAD_ZIP",
             url: t.url,
-          }).catch(() => {
+            pageUrl: window.location.href,
+            hidden: document.hidden,
+          }).catch((err: unknown) => {
+            emitAutoDownloadLog("send_message_failed_dom_fallback", {
+              key: t.key,
+              error: String(err),
+            });
             t.element.click();
           });
         } else {
+          emitAutoDownloadLog("dom_click_triggered", { key: t.key });
           t.element.click();
         }
       }
@@ -109,12 +142,12 @@ export default defineContentScript({
     };
 
     const onVisibilityChange = () => {
-      if (!document.hidden) evaluateAndSend(true);
+      if (!document.hidden) safeEvaluate(true);
     };
 
     const onRuntimeMessage = (msg: { type?: string }) => {
       if (msg?.type === 'PING_EXTRACT') {
-        evaluateAndSend(true);
+        safeEvaluate(true);
       }
     };
 

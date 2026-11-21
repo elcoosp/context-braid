@@ -386,25 +386,88 @@ export default defineBackground(() => {
 
   
 const recentDownloadUrls = new Map<string, number>();
+const LOG_STORAGE_KEY = "cb_autodownload_logs";
 
-function triggerBackgroundZipDownload(url: string) {
-  const now = Date.now();
-  const prev = recentDownloadUrls.get(url);
-  if (prev && now - prev < 60_000) return;
-  recentDownloadUrls.set(url, now);
-
-  if (browser.downloads?.download) {
-    void browser.downloads.download({
-      url,
-      conflictAction: "uniquify",
-      saveAs: false,
-    }).catch(() => {});
+async function appendAutoDownloadLog(entry: Record<string, unknown>) {
+  console.info("[ContextBraid:AutoDownload:BG]", entry);
+  try {
+    if (!browser.storage?.local) return;
+    const data = await browser.storage.local.get(LOG_STORAGE_KEY);
+    const list = Array.isArray(data?.[LOG_STORAGE_KEY]) ? data[LOG_STORAGE_KEY] : [];
+    list.push(entry);
+    await browser.storage.local.set({ [LOG_STORAGE_KEY]: list.slice(-50) });
+  } catch {
+    // ignore storage errors
   }
 }
 
+function triggerBackgroundZipDownload(
+  url: string,
+  meta: { pageUrl?: string; hidden?: boolean } = {},
+) {
+  const now = Date.now();
+  const prev = recentDownloadUrls.get(url);
+  if (prev && now - prev < 60_000) {
+    void appendAutoDownloadLog({
+      ts: new Date().toISOString(),
+      source: "background",
+      event: "duplicate_skipped",
+      url,
+      ...meta,
+    });
+    return;
+  }
+  recentDownloadUrls.set(url, now);
+
+  if (!browser.downloads?.download) {
+    void appendAutoDownloadLog({
+      ts: new Date().toISOString(),
+      source: "background",
+      event: "downloads_api_unavailable",
+      url,
+      ...meta,
+    });
+    return;
+  }
+
+  void browser.downloads
+    .download({
+      url,
+      conflictAction: "uniquify",
+      saveAs: false,
+    })
+    .then((downloadId) => {
+      void appendAutoDownloadLog({
+        ts: new Date().toISOString(),
+        source: "background",
+        event: "download_started",
+        downloadId,
+        url,
+        ...meta,
+      });
+    })
+    .catch((err: unknown) => {
+      void appendAutoDownloadLog({
+        ts: new Date().toISOString(),
+        source: "background",
+        event: "download_failed",
+        error: String(err),
+        url,
+        ...meta,
+      });
+    });
+}
+
 browser.runtime.onMessage.addListener((msg, sender) => {
-    if (msg?.type === 'AUTO_DOWNLOAD_ZIP' && typeof msg.url === 'string') {
-    triggerBackgroundZipDownload(msg.url);
+    if (msg?.type === 'AUTO_DOWNLOAD_LOG' && msg.entry) {
+    void appendAutoDownloadLog(msg.entry);
+    return;
+  }
+  if (msg?.type === 'AUTO_DOWNLOAD_ZIP' && typeof msg.url === 'string') {
+    triggerBackgroundZipDownload(msg.url, {
+      pageUrl: typeof msg.pageUrl === 'string' ? msg.pageUrl : undefined,
+      hidden: typeof msg.hidden === 'boolean' ? msg.hidden : undefined,
+    });
     return;
   }
   if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
