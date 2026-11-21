@@ -171,6 +171,18 @@ fn write_rgba_png(path: &PathBuf, w: u32, h: u32, rgba: &[u8]) -> Result<()> {
 pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u8, u8)) -> Option<String> {
     let dir = PathBuf::from("/tmp/contextbraid-charts");
     fs::create_dir_all(&dir).ok()?;
+    if let Ok(entries) = fs::read_dir(&dir) {
+        let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(86_400);
+        for entry in entries.flatten() {
+            if let Ok(meta) = entry.metadata() {
+                if let Ok(modified) = meta.modified() {
+                    if modified < cutoff {
+                        let _ = fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+    }
 
     let safe_name: String = repo_name
         .chars()

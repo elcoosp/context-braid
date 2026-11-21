@@ -53,6 +53,7 @@ function sanitizeMarkdownText(raw: string, maxLen = 64): string {
 function extractCleanIntent(rawTitle: string, repoName: string, isGoogleAi: boolean): string {
   if (!rawTitle) return '';
   let s = rawTitle
+    .replace(/^(Zed|Cursor|Visual Studio Code|Code|Windsurf|Neovim)\s*[—–-]\s*/i, '')
     .replace(/\s*\|\s*Z\.ai.*$/i, '')
     .replace(/\s*-\s*Qwen.*$/i, '')
     .replace(/\s*-\s*Google Gemini.*$/i, '')
