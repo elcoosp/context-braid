@@ -250,13 +250,30 @@ export default function Command() {
                 const commits30d = (proj.commit_sparkline ?? []).reduce((a, b) => a + b, 0);
                 const chartImage = proj.sparkline_png_path ? `![](file://${proj.sparkline_png_path})` : '';
                 const latestPr = proj.recent_prs && proj.recent_prs.length > 0 ? proj.recent_prs[0] : null;
+
+                const gitStatusLabel =
+                  proj.dirty_files > 0
+                    ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
+                    : t`Clean`;
+
+                const summaryPillLine = [
+                  proj.git_branch ? `\`⎇ ${proj.git_branch}\`` : '',
+                  gitStatusLabel,
+                  commits30d > 0 ? t`${commits30d} commits / 30d` : '',
+                  bBadge.label,
+                  `**${meta.label}**${age ? ` *(${age})*` : ''}`,
+                  tab.incognito ? `_${t`Private`}_` : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+
                 const prsBlock =
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
                         `**${t`Recently Merged PRs`}**`,
                         ...proj.recent_prs.slice(0, 2).map((pr) => {
-                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 46);
-                          const display = pr.title.length > 46 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
+                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 50);
+                          const display = pr.title.length > 50 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
                           return pr.url ? `- [#${pr.number}](${pr.url}) ${display}` : `- \`#${pr.number}\` ${display}`;
                         }),
                       ].join('\n')
@@ -264,6 +281,7 @@ export default function Command() {
 
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
+                  summaryPillLine,
                   activeContextLine,
                   gitHeadline,
                   prsBlock,
@@ -289,60 +307,7 @@ export default function Command() {
                       meta.label,
                     ]}
                     accessories={accessories}
-                    detail={
-                      <List.Item.Detail
-                        markdown={detailMarkdown}
-                        metadata={
-                          <List.Item.Detail.Metadata>
-                            {proj.git_branch && (
-                              <List.Item.Detail.Metadata.TagList title={t`Git`}>
-                                <List.Item.Detail.Metadata.TagList.Item text={`⎇ ${proj.git_branch}`} color={Color.SecondaryText} />
-                                <List.Item.Detail.Metadata.TagList.Item
-                                  text={
-                                    proj.dirty_files > 0
-                                      ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
-                                      : t`Clean`
-                                  }
-                                  color={proj.dirty_files > 0 ? Color.Orange : Color.SecondaryText}
-                                />
-                                {commits30d > 0 && (
-                                  <List.Item.Detail.Metadata.TagList.Item
-                                    text={t`${commits30d} commits / 30d`}
-                                    color={Color.SecondaryText}
-                                  />
-                                )}
-                              </List.Item.Detail.Metadata.TagList>
-                            )}
-                            <List.Item.Detail.Metadata.TagList title={t`Workspace`}>
-                              {proj.tabs.map((itemTab) => {
-                                const itemRole = detectRole(itemTab, proj.favorite_editor);
-                                const itemStatus = statusMeta(itemTab);
-                                return (
-                                  <List.Item.Detail.Metadata.TagList.Item
-                                    key={`${itemTab.browser}-${itemTab.window_id}-${itemTab.tab_id}`}
-                                    text={itemRole.name}
-                                    icon={itemRole.icon}
-                                    color={itemStatus.color}
-                                  />
-                                );
-                              })}
-                            </List.Item.Detail.Metadata.TagList>
-                            <List.Item.Detail.Metadata.TagList title={t`Session`}>
-                              <List.Item.Detail.Metadata.TagList.Item
-                                text={bBadge.label}
-                                icon={bBadge.icon}
-                                color={Color.SecondaryText}
-                              />
-                              <List.Item.Detail.Metadata.TagList.Item text={meta.label} color={meta.color} />
-                              {age && <List.Item.Detail.Metadata.TagList.Item text={age} color={Color.SecondaryText} />}
-                              {tab.incognito && (
-                                <List.Item.Detail.Metadata.TagList.Item text={t`Private`} color={Color.SecondaryText} />
-                              )}
-                            </List.Item.Detail.Metadata.TagList>
-                          </List.Item.Detail.Metadata>
-                        }
-                      />
-                    }
+                    detail={<List.Item.Detail markdown={detailMarkdown} />}
                     actions={
                       <ActionPanel>
                         <ActionPanel.Section title={t`Navigation`}>

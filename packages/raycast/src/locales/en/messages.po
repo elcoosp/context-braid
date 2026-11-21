@@ -9,7 +9,7 @@ msgstr ""
 
 #. placeholder {0}: proj.dirty_files
 #: src/index.tsx:209
-#: src/index.tsx:303
+#: src/index.tsx:256
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {# modified} other {# modified}}"
 
@@ -18,7 +18,7 @@ msgstr "{0, plural, one {# modified} other {# modified}}"
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# window} other {# windows}}"
 
-#: src/index.tsx:310
+#: src/index.tsx:262
 msgid "{commits30d} commits / 30d"
 msgstr "{commits30d} commits / 30d"
 
@@ -64,7 +64,7 @@ msgstr "All contexts"
 msgid "clean"
 msgstr "clean"
 
-#: src/index.tsx:304
+#: src/index.tsx:257
 msgid "Clean"
 msgstr "Clean"
 
@@ -73,7 +73,7 @@ msgid "Configure Extension ID"
 msgstr "Configure Extension ID"
 
 #: src/index.tsx:179
-#: src/index.tsx:435
+#: src/index.tsx:400
 msgid "Connect Browser Extension ID"
 msgstr "Connect Browser Extension ID"
 
@@ -86,15 +86,15 @@ msgid "ContextBraid local engine is not running"
 msgstr "ContextBraid local engine is not running"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:393
+#: src/index.tsx:358
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "Copy HEAD Commit SHA ({0})"
 
-#: src/index.tsx:429
+#: src/index.tsx:394
 msgid "Copy Repository Path"
 msgstr "Copy Repository Path"
 
-#: src/index.tsx:355
+#: src/index.tsx:320
 msgid "Cycle Project Windows"
 msgstr "Cycle Project Windows"
 
@@ -118,15 +118,11 @@ msgstr "Filter by status"
 msgid "Generating"
 msgstr "Generating"
 
-#: src/index.tsx:298
-msgid "Git"
-msgstr "Git"
-
-#: src/index.tsx:374
+#: src/index.tsx:339
 msgid "Git & GitHub"
 msgstr "Git & GitHub"
 
-#: src/index.tsx:423
+#: src/index.tsx:388
 msgid "Hide Detail Pane"
 msgstr "Hide Detail Pane"
 
@@ -150,7 +146,7 @@ msgstr "Installation error"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "Invalid ID (32 lowercase letters expected)"
 
-#: src/index.tsx:364
+#: src/index.tsx:329
 msgid "Jump to Next Agent Alert"
 msgstr "Jump to Next Agent Alert"
 
@@ -167,7 +163,7 @@ msgstr "just now"
 msgid "Last activity"
 msgstr "Last activity"
 
-#: src/index.tsx:348
+#: src/index.tsx:313
 msgid "Navigation"
 msgstr "Navigation"
 
@@ -180,25 +176,25 @@ msgid "Open editors"
 msgstr "Open editors"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:402
+#: src/index.tsx:367
 msgid "Open in {0}"
 msgstr "Open in {0}"
 
-#: src/index.tsx:414
+#: src/index.tsx:379
 msgid "Open in Terminal"
 msgstr "Open in Terminal"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:377
+#: src/index.tsx:342
 msgid "Open Latest PR (#{0})"
 msgstr "Open Latest PR (#{0})"
 
-#: src/index.tsx:385
+#: src/index.tsx:350
 msgid "Open Repository on GitHub"
 msgstr "Open Repository on GitHub"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:409
+#: src/index.tsx:374
 msgid "Opened in {0}"
 msgstr "Opened in {0}"
 
@@ -206,7 +202,7 @@ msgstr "Opened in {0}"
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Press Enter to automatically install and start the local background service."
 
-#: src/index.tsx:339
+#: src/index.tsx:265
 msgid "Private"
 msgstr "Private"
 
@@ -218,7 +214,7 @@ msgstr "Private window"
 msgid "Ready"
 msgstr "Ready"
 
-#: src/index.tsx:256
+#: src/index.tsx:273
 msgid "Recently Merged PRs"
 msgstr "Recently Merged PRs"
 
@@ -238,11 +234,7 @@ msgstr "Save and Reconnect"
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Search a repo, branch, AI agent, or editor..."
 
-#: src/index.tsx:330
-msgid "Session"
-msgstr "Session"
-
-#: src/index.tsx:423
+#: src/index.tsx:388
 msgid "Show Detail Pane"
 msgstr "Show Detail Pane"
 
@@ -252,7 +244,7 @@ msgstr "Starting ContextBraid engine..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:350
+#: src/index.tsx:315
 msgid "Switch to {0} ({1})"
 msgstr "Switch to {0} ({1})"
 
@@ -260,8 +252,7 @@ msgstr "Switch to {0} ({1})"
 msgid "Working"
 msgstr "Working"
 
-#: src/index.tsx:316
-#: src/index.tsx:400
+#: src/index.tsx:365
 msgid "Workspace"
 msgstr "Workspace"
 
