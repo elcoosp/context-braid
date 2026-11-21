@@ -456,6 +456,10 @@ IpcMessage::CycleProject { repo_name } => {
                 }
                 IpcMessage::Ack
             }
+            IpcMessage::DiagEvent { event, detail } => {
+                tracing::info!(event = %event, detail = %detail, "EXT_ZIP_EVENT");
+                IpcMessage::Ack
+            }
             IpcMessage::SubscribeHost { .. } => unreachable!(),
 _ => IpcMessage::Ack,
 };

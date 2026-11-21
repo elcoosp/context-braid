@@ -115,11 +115,18 @@ export default defineBackground(() => {
     }
   };
 
+  const logZipDiag = (event: string, detail: string) => {
+    try {
+      ensurePort().postMessage({ type: 'diag_event', event, detail });
+    } catch {}
+  };
+
   const triggerZipDownload = (tabId: number, zipUrl: string, dedupKey: string) => {
+    logZipDiag('TRIGGER_CALLED', `tab=${tabId} enabled=${autoDownloadZip} dup=${downloadedZips.has(dedupKey)} url=${zipUrl.slice(0, 80)}`);
     if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
     downloadedZips.add(dedupKey);
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
-      browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
+      browser.downloads.download({ url: zipUrl, saveAs: false }).then((id) => logZipDiag('DOWNLOADS_API_OK', `id=${id}`)).catch((e) => logZipDiag('DOWNLOADS_API_ERR', String(e)));
       return;
     }
     browser.scripting
@@ -135,7 +142,7 @@ export default defineBackground(() => {
             const dlBtn = latestLi?.querySelector<HTMLElement>('button[title="Download file"]');
             if (dlBtn) {
               dlBtn.click();
-              return;
+              return 'clicked_download_button';
             }
           }
 
@@ -145,7 +152,7 @@ export default defineBackground(() => {
           );
           if (sandboxLinks.length > 0) {
             sandboxLinks.item(sandboxLinks.length - 1)?.click();
-            return;
+            return 'clicked_sandbox_link';
           }
 
           // 3. Fallback générique
@@ -154,7 +161,8 @@ export default defineBackground(() => {
             ?.click();
         },
       })
-      .catch(() => {});
+      .then((res) => logZipDiag('DOM_CLICK_RES', JSON.stringify(res?.at(0)?.result ?? 'none')))
+      .catch((e) => logZipDiag('DOM_CLICK_ERR', String(e)));
   };
 
   // Interroge l'API storage & subagents z.ai DANS le contexte de l'onglet (avec localStorage.token)
