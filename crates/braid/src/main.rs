@@ -53,7 +53,8 @@ impl DaemonState {
 
         let root = self.config.resolved_repos_root();
         let repos = scan_repos(&root, &self.config.repos.ignore)?;
-        let zed_wins = macos::list_zed_windows(&root);
+        let editor_spec = macos::resolve_editor_spec(&self.config.editor.favorite);
+        let editor_wins = macos::list_editor_windows(&root, &self.config.editor.favorite);
 
         let mut grouped: HashMap<String, Vec<TabContextPayload>> = HashMap::new();
         for (tab, _) in self.tabs.values() {
@@ -75,23 +76,23 @@ impl DaemonState {
                         .then(a.tab_id.cmp(&b.tab_id))
                 });
 
-                let has_zed = zed_wins
+                let has_editor = editor_wins
                     .iter()
                     .any(|w| w == &repo_path || w.starts_with(&repo_path));
-                if tabs.is_empty() && !has_zed {
+                if tabs.is_empty() && !has_editor {
                     return None;
                 }
-                if has_zed {
+                if has_editor {
                     tabs.insert(
                         0,
                         TabContextPayload {
-                            browser: "zed".into(),
+                            browser: editor_spec.id.into(),
                             window_id: 0,
                             tab_id: 0,
                             opener_tab_id: None,
                             incognito: false,
                             url: format!("file://{}", repo_path.display()),
-                            title: format!("Zed — {}", repo_name),
+                            title: format!("{} — {}", editor_spec.label, repo_name),
                             context_snippet: repo_name.clone(),
                             status: AgentStatus::Idle,
                             updated_at_ms: 0,
@@ -105,9 +106,13 @@ impl DaemonState {
                         AgentStatus::NeedsAttention | AgentStatus::Completed
                     )
                 });
+                let (git_branch, dirty_files) = macos::git_repo_stats(&repo_path);
                 Some(ProjectWorkspace {
                     repo_name,
                     repo_path: repo_path.to_string_lossy().into_owned(),
+                    git_branch,
+                    dirty_files,
+                    favorite_editor: editor_spec.id.into(),
                     tabs,
                     has_alert,
                 })
@@ -123,8 +128,8 @@ impl DaemonState {
     }
 
     fn focus_tab(&mut self, tab: &TabContextPayload) -> Result<()> {
-        if tab.browser == "zed" || tab.browser == "editor" {
-            macos::focus_zed_repo(&tab.url)?;
+        if matches!(tab.browser.as_str(), "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor") {
+            macos::focus_editor_app(&self.config.editor.favorite)?;
         } else {
             macos::activate_browser_app(&tab.browser);
             let cmd = serde_json::json!({
@@ -226,6 +231,15 @@ break;
 }
 IpcMessage::Ack
 }
+IpcMessage::OpenEditor { repo_path } => {
+                let fav = state.read().await.config.editor.favorite.clone();
+                macos::open_in_favorite_editor(&fav, &repo_path)?;
+                IpcMessage::Ack
+            }
+            IpcMessage::OpenTerminal { repo_path } => {
+                macos::open_in_terminal(&repo_path)?;
+                IpcMessage::Ack
+            }
 IpcMessage::JumpNextAlert => {
 let mut st = state.write().await;
 let projects = st.build_dashboard()?;
@@ -251,10 +265,10 @@ let projects = st.build_dashboard()?;
 let front_bundle = macos::frontmost_bundle_id().unwrap_or_default();
 let front_repo = if front_bundle.contains("raycast") {
 None
-} else if front_bundle.contains("zed") {
+} else if front_bundle == macos::resolve_editor_spec(&st.config.editor.favorite).bundle_id {
 let zed_projs: Vec<_> = projects
 .iter()
-.filter(|p| p.tabs.iter().any(|t| t.browser == "zed"))
+.filter(|p| p.tabs.iter().any(|t| t.window_id == 0 && t.tab_id == 0))
 .collect();
 if zed_projs.len() == 1 {
 Some(zed_projs[0].repo_name.clone())
