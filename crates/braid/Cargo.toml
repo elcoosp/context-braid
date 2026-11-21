@@ -14,4 +14,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 gix = { version = "0.70", default-features = false, features = ["status", "dirwalk"] }
 rusqlite = { version = "0.34", features = ["bundled"] }
-mac-notification-sys = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSError", "NSArray", "NSDictionary", "NSRunLoop", "NSDate"] }
+objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNNotificationSettings", "UNNotificationResponse", "UNNotificationAction", "UNNotificationCategory", "block2"] }
+block2 = "0.6"

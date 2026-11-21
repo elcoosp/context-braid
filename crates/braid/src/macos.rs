@@ -663,6 +663,7 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
         let _ = std::process::Command::new("open")
             .args([
                 "-n",
+                "-g",
                 "-a",
                 &app_bundle.to_string_lossy(),
                 "--args",
@@ -681,50 +682,59 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
 }
 
 pub fn deliver_gui_notification(repo_name: &str, subtitle: &str, message: &str, browser: &str, window_id: i64, tab_id: i64) {
-    use mac_notification_sys::{Notification, NotificationResponse};
-
-    // Ensure Cocoa sharedApplication is initialized in this GUI process so Notification Center accepts banners
-    let _ = mac_notification_sys::set_application("com.contextbraid.app");
+    use block2::RcBlock;
+    use objc2::rc::Retained;
+    use objc2::runtime::Bool;
+    use objc2_foundation::{NSError, NSString};
+    use objc2_user_notifications::{
+        UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
+        UNUserNotificationCenter,
+    };
+    use std::sync::mpsc;
+    use std::time::Duration;
 
     let full_title = format!("ContextBraid • {}", repo_name);
-    let resp = Notification::new()
-        .title(&full_title)
-        .subtitle(subtitle)
-        .message(message)
-        .main_button(mac_notification_sys::MainButton::SingleAction("Ouvrir l’onglet"))
-        .wait_for_click(true)
-        .send();
+    let center = UNUserNotificationCenter::currentNotificationCenter();
 
-    match resp {
-        Ok(NotificationResponse::Click) | Ok(NotificationResponse::ActionButton(_)) => {
-            activate_browser_app(browser);
-            if let Ok(config) = braid_core::BraidConfig::load_or_default() {
-                if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&config.daemon.socket_path) {
-                    use std::io::Write;
-                    let req = serde_json::json!({
-                        "type": "focus_target",
-                        "browser": browser,
-                        "window_id": window_id,
-                        "tab_id": tab_id,
-                    });
-                    if let Ok(line) = serde_json::to_string(&req) {
-                        let _ = stream.write_all(line.as_bytes());
-                        let _ = stream.write_all(b"\n");
-                        let _ = stream.flush();
-                    }
-                }
-            }
-        }
-        Ok(_) => {}
-        Err(_) => {
-            // Fallback guaranteed visual banner via osascript if Cocoa bundle permission is not yet granted
-            let script = format!(
-                "display notification {:?} with title {:?} subtitle {:?}",
-                message, full_title, subtitle
-            );
-            let _ = std::process::Command::new("osascript")
-                .args(["-e", &script])
-                .spawn();
+    let (tx, rx) = mpsc::channel::<bool>();
+    let auth_block = RcBlock::new(move |granted: Bool, _err: *mut NSError| {
+        let _ = tx.send(granted.as_bool());
+    });
+
+    let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
+    center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+
+    let granted = rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
+    if granted {
+        let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
+        content.setTitle(&NSString::from_str(&full_title));
+        content.setSubtitle(&NSString::from_str(subtitle));
+        content.setBody(&NSString::from_str(message));
+
+        let req_id = format!("contextbraid-{}-{}-{}", browser, window_id, tab_id);
+        let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+            &NSString::from_str(&req_id),
+            &content,
+            None,
+        );
+
+        let (done_tx, done_rx) = mpsc::channel::<bool>();
+        let add_block = RcBlock::new(move |err: *mut NSError| {
+            let _ = done_tx.send(err.is_null());
+        });
+        center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
+        let ok = done_rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
+        if ok {
+            return;
         }
     }
+
+    // Fallback instantané si l'autorisation UNUserNotificationCenter n'est pas encore accordée
+    let script = format!(
+        "display notification {:?} with title {:?} subtitle {:?}",
+        message, full_title, subtitle
+    );
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .spawn();
 }
