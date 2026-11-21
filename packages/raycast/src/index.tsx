@@ -182,7 +182,7 @@ export default function Command() {
               return (
                 <List.Item
                   key={`${tab.browser}-${tab.window_id}-${tab.tab_id}`}
-                  icon={meta.badgeIcon ?? role.icon}
+                  icon={role.icon}
                   title={role.name}
                   subtitle={showDetail ? undefined : taskDetail}
                   keywords={[proj.repo_name, role.name, tab.browser, taskDetail, meta.label]}
