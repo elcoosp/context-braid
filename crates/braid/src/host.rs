@@ -1,20 +1,10 @@
 use anyhow::Result;
 use braid_core::BraidConfig;
-use std::fs::OpenOptions;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-
-fn log_err(msg: &str) {
-    if let Ok(mut f) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/braid-host.err.log")
-    {
-        let _ = writeln!(f, "[pid={}] {}", std::process::id(), msg);
-    }
-}
 
 pub fn read_frame<R: Read>(r: &mut R) -> Result<Option<String>> {
     let mut len_buf = [0u8; 4];
@@ -51,53 +41,66 @@ fn connect_with_retry(sock_path: &str) -> Result<UnixStream> {
     Err(anyhow::anyhow!("Socket inaccessible ({}): {:?}", sock_path, last_err))
 }
 
-fn exchange_with_daemon(
-    sock: &mut UnixStream,
-    reader: &mut BufReader<UnixStream>,
-    sock_path: &str,
-    payload: &str,
-) -> Result<String> {
-    for _ in 0..3 {
-        if writeln!(sock, "{}", payload).is_ok() && sock.flush().is_ok() {
-            let mut resp = String::new();
-            if let Ok(n) = reader.read_line(&mut resp) {
-                if n > 0 && !resp.trim().is_empty() {
-                    return Ok(resp);
-                }
-            }
-        }
-        *sock = connect_with_retry(sock_path)?;
-        *reader = BufReader::new(sock.try_clone()?);
-    }
-    Ok(r#"{"type":"ack"}"#.to_string())
-}
-
-fn trace_host(msg: &str) {
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open("/tmp/braid-host.trace.log") {
-        let _ = writeln!(f, "[pid={}] {}", std::process::id(), msg);
-    }
-}
-
 pub fn run_host() -> Result<()> {
-    trace_host("HOST_SPAWNED by browser");
     let cfg = BraidConfig::load_or_default()?;
     let sock_path = cfg.daemon.socket_path.clone();
+    let stdout_lock = Arc::new(Mutex::new(io::stdout()));
+
+    // Dedicated push subscription stream for instant (< 1ms) focus_tab commands
+    let push_sock_path = sock_path.clone();
+    let push_stdout = Arc::clone(&stdout_lock);
+    thread::spawn(move || loop {
+        if let Ok(mut sub) = connect_with_retry(&push_sock_path) {
+            let _ = writeln!(sub, r#"{{"type":"subscribe_host","browser":"all"}}"#);
+            let _ = sub.flush();
+            let mut reader = BufReader::new(sub);
+            let mut line = String::new();
+            while let Ok(n) = reader.read_line(&mut line) {
+                if n == 0 {
+                    break;
+                }
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    if let Ok(mut out) = push_stdout.lock() {
+                        let _ = write_frame(&mut *out, trimmed);
+                    }
+                }
+                line.clear();
+            }
+        }
+        thread::sleep(Duration::from_millis(200));
+    });
+
     let mut sock = connect_with_retry(&sock_path)?;
     let mut reader = BufReader::new(sock.try_clone()?);
-    let (stdin, stdout) = (io::stdin(), io::stdout());
-    let (mut in_l, mut out_l) = (stdin.lock(), stdout.lock());
+    let stdin = io::stdin();
+    let mut in_l = stdin.lock();
 
     while let Some(msg) = read_frame(&mut in_l)? {
-        trace_host(&format!("RX_FRAME len={}", msg.len()));
-        let resp = exchange_with_daemon(&mut sock, &mut reader, &sock_path, msg.trim())?;
-        write_frame(&mut out_l, resp.trim())?;
+        let mut resp = r#"{"type":"ack"}"#.to_string();
+        for _ in 0..3 {
+            if writeln!(sock, "{}", msg.trim()).is_ok() && sock.flush().is_ok() {
+                let mut line = String::new();
+                if let Ok(n) = reader.read_line(&mut line) {
+                    if n > 0 && !line.trim().is_empty() {
+                        resp = line.trim().to_string();
+                        break;
+                    }
+                }
+            }
+            sock = connect_with_retry(&sock_path)?;
+            reader = BufReader::new(sock.try_clone()?);
+        }
+        if let Ok(mut out) = stdout_lock.lock() {
+            write_frame(&mut *out, &resp)?;
+        }
     }
     Ok(())
 }
 
 pub fn run_host_entry() {
     if let Err(e) = run_host() {
-        log_err(&format!("ERREUR FATALE: {:?}", e));
+        eprintln!("[braid-host] fatal: {:?}", e);
         std::process::exit(1);
     }
 }

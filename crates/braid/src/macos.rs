@@ -1,8 +1,88 @@
 use anyhow::Result;
+use std::ffi::{c_void, CStr, CString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Detects open project directories under `repos_root` held by Zed in < 5 ms via lsof
+#[link(name = "AppKit", kind = "framework")]
+unsafe extern "C" {
+    fn objc_getClass(name: *const i8) -> *const c_void;
+    fn sel_registerName(name: *const i8) -> *const c_void;
+    fn objc_msgSend();
+}
+
+unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
+    let cls_ns_running = unsafe { objc_getClass(c"NSRunningApplication".as_ptr()) };
+    let cls_ns_str = unsafe { objc_getClass(c"NSString".as_ptr()) };
+    if cls_ns_running.is_null() || cls_ns_str.is_null() {
+        return false;
+    }
+
+    let sel_str_utf8 = unsafe { sel_registerName(c"stringWithUTF8String:".as_ptr()) };
+    let sel_running_by_id = unsafe { sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr()) };
+    let sel_count = unsafe { sel_registerName(c"count".as_ptr()) };
+    let sel_obj_at = unsafe { sel_registerName(c"objectAtIndex:".as_ptr()) };
+    let sel_activate = unsafe { sel_registerName(c"activateWithOptions:".as_ptr()) };
+
+    let c_bundle = CString::new(bundle_id).unwrap();
+
+    type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
+    type MsgArr = unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
+    type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
+    type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
+    type MsgAct = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> bool;
+
+    let fn_str: MsgStr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_arr: MsgArr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_count: MsgCount = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_at: MsgAt = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_act: MsgAct = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+
+    let ns_bundle = unsafe { fn_str(cls_ns_str, sel_str_utf8, c_bundle.as_ptr()) };
+    let apps = unsafe { fn_arr(cls_ns_running, sel_running_by_id, ns_bundle) };
+    if apps.is_null() {
+        return false;
+    }
+    let count = unsafe { fn_count(apps, sel_count) };
+    if count == 0 {
+        return false;
+    }
+    let app = unsafe { fn_at(apps, sel_obj_at, 0) };
+    // NSApplicationActivateIgnoringOtherApps = 1 << 1 = 2
+    unsafe { fn_act(app, sel_activate, 2) }
+}
+
+pub fn frontmost_bundle_id() -> Option<String> {
+    let cls_ws = unsafe { objc_getClass(c"NSWorkspace".as_ptr()) };
+    if cls_ws.is_null() {
+        return None;
+    }
+    let sel_shared = unsafe { sel_registerName(c"sharedWorkspace".as_ptr()) };
+    let sel_front = unsafe { sel_registerName(c"frontmostApplication".as_ptr()) };
+    let sel_bundle = unsafe { sel_registerName(c"bundleIdentifier".as_ptr()) };
+    let sel_utf8 = unsafe { sel_registerName(c"UTF8String".as_ptr()) };
+
+    type MsgObj = unsafe extern "C" fn(*const c_void, *const c_void) -> *const c_void;
+    type MsgCStr = unsafe extern "C" fn(*const c_void, *const c_void) -> *const i8;
+
+    let fn_obj: MsgObj = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_cstr: MsgCStr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+
+    let ws = unsafe { fn_obj(cls_ws, sel_shared) };
+    let app = unsafe { fn_obj(ws, sel_front) };
+    if app.is_null() {
+        return None;
+    }
+    let ns_id = unsafe { fn_obj(app, sel_bundle) };
+    if ns_id.is_null() {
+        return None;
+    }
+    let c_ptr = unsafe { fn_cstr(ns_id, sel_utf8) };
+    if c_ptr.is_null() {
+        return None;
+    }
+    Some(unsafe { CStr::from_ptr(c_ptr) }.to_string_lossy().into_owned())
+}
+
 pub fn list_zed_windows(repos_root: &Path) -> Vec<PathBuf> {
     let mut open_paths = Vec::new();
     let pids_out = match Command::new("pgrep").args(["-x", "zed"]).output() {
@@ -38,91 +118,24 @@ pub fn list_zed_windows(repos_root: &Path) -> Vec<PathBuf> {
     open_paths
 }
 
-pub fn get_frontmost_window() -> Option<(String, String)> {
-    let script = r#"
-    tell application "System Events"
-        set frontApp to first application process whose frontmost is true
-        set appName to name of frontApp
-        set winTitle to ""
-        try
-            set winTitle to name of front window of frontApp
-        end try
-        return appName & "|||" & winTitle
-    end tell
-    "#;
-    let out = run_osascript(script).ok()?;
-    let (app, title) = out.split_once("|||")?;
-    Some((app.trim().to_lowercase(), title.trim().to_string()))
-}
-
-pub fn activate_app_window(browser: &str, title_hint: Option<&str>) -> Result<()> {
-    let app_name = match browser {
-        "zed" => "Zed",
-        "brave" => "Brave Browser",
-        "chrome" => "Google Chrome",
-        "edge" => "Microsoft Edge",
-        "firefox" => "Firefox",
-        other => other,
-    };
-
-    let hint = title_hint.unwrap_or("").replace('"', "\\\"");
-    let script = if hint.is_empty() {
-        format!(
-            r#"
-            tell application "{app}" to activate
-            tell application "System Events"
-                tell process "{app}"
-                    repeat with w in windows
-                        try
-                            if value of attribute "AXMinimized" of w is true then
-                                set value of attribute "AXMinimized" of w to false
-                            end if
-                        end try
-                    end repeat
-                end tell
-            end tell
-            "#,
-            app = app_name
-        )
-    } else {
-        format!(
-            r#"
-            tell application "{app}" to activate
-            tell application "System Events"
-                tell process "{app}"
-                    set targetWin to missing value
-                    repeat with w in windows
-                        try
-                            if (name of w) contains "{hint}" then
-                                set targetWin to w
-                                exit repeat
-                            end if
-                        end try
-                    end repeat
-                    if targetWin is missing value and (count of windows) > 0 then
-                        set targetWin to front window
-                    end if
-                    if targetWin is not missing value then
-                        try
-                            if value of attribute "AXMinimized" of targetWin is true then
-                                set value of attribute "AXMinimized" of targetWin to false
-                            end if
-                        end try
-                        perform action "AXRaise" of targetWin
-                    end if
-                end tell
-            end tell
-            "#,
-            app = app_name,
-            hint = hint
-        )
-    };
-
-    let _ = run_osascript(&script);
+pub fn focus_zed_repo(repo_path: &str) -> Result<()> {
+    let clean = repo_path.strip_prefix("file://").unwrap_or(repo_path);
+    let _ = Command::new("open").args(["-a", "Zed", clean]).output();
+    unsafe {
+        activate_bundle_id("dev.zed.Zed");
+    }
     Ok(())
 }
 
-fn run_osascript(script: &str) -> Result<String> {
-    let out = Command::new("osascript").arg("-e").arg(script).output()?;
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+pub fn activate_browser_app(browser: &str) {
+    let bundle = match browser {
+        "brave" => "com.brave.Browser",
+        "chrome" => "com.google.Chrome",
+        "edge" => "com.microsoft.edgemac",
+        "firefox" => "org.mozilla.firefox",
+        _ => return,
+    };
+    unsafe {
+        activate_bundle_id(bundle);
+    }
 }
