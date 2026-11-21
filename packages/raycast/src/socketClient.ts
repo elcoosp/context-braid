@@ -37,6 +37,7 @@ export interface ProjectWorkspace {
   main_ci_status: string;
   tabs: TabContext[];
   has_alert: boolean;
+  muted_until_ms?: number;
 }
 
 function sendOnce<T>(payload: Record<string, unknown>): Promise<T> {

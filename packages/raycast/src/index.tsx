@@ -209,6 +209,22 @@ export default function Command() {
     }
   };
 
+  const toggleRepoMute = async (proj: ProjectWorkspace) => {
+    const isMuted = (proj.muted_until_ms ?? 0) > Date.now();
+    await queryDaemon({
+      type: "toggle_repo_mute",
+      repo_name: proj.repo_name,
+      duration_ms: 30 * 60 * 1000,
+    });
+    await showToast({
+      style: Toast.Style.Success,
+      title: isMuted
+        ? t`Alerts unmuted for ${proj.repo_name}`
+        : t`Muted ${proj.repo_name} for 30m`,
+    });
+    revalidate();
+  };
+
   const focusTab = async (
     projName: string,
     roleName: string,
@@ -324,10 +340,20 @@ export default function Command() {
             one: "# window",
             other: "# windows",
           });
+          const mutedRemainingMin =
+            (proj.muted_until_ms ?? 0) > Date.now()
+              ? Math.max(
+                  1,
+                  Math.ceil(((proj.muted_until_ms ?? 0) - Date.now()) / 60000),
+                )
+              : 0;
+          const mutedLabel =
+            mutedRemainingMin > 0 ? t`Muted ${mutedRemainingMin}m` : "";
           const sectionParts = [
             proj.git_branch ? `⎇ ${proj.git_branch}` : "",
             dirtyLabel,
             windowsLabel,
+            mutedLabel,
           ].filter(Boolean);
 
           return (
@@ -582,6 +608,20 @@ export default function Command() {
                                 title: t`Opened in ${favEditor.label}`,
                               });
                             }}
+                          />
+                          <Action
+                            title={
+                              (proj.muted_until_ms ?? 0) > Date.now()
+                                ? t`Unmute Repo Alerts`
+                                : t`Mute Repo Alerts (30m)`
+                            }
+                            icon={
+                              (proj.muted_until_ms ?? 0) > Date.now()
+                                ? Icon.Bell
+                                : Icon.BellDisabled
+                            }
+                            shortcut={{ modifiers: ["cmd"], key: "m" }}
+                            onAction={() => toggleRepoMute(proj)}
                           />
                           <Action
                             title={t`Open in Terminal`}

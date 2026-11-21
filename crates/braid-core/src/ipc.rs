@@ -59,6 +59,8 @@ pub struct ProjectWorkspace {
     pub main_ci_status: String,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,
+    #[serde(default)]
+    pub muted_until_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +101,10 @@ pub enum IpcMessage {
         repo_path: String,
     },
     JumpNextAlert,
+    ToggleRepoMute {
+        repo_name: String,
+        duration_ms: u64,
+    },
     CycleProject {
         repo_name: Option<String>,
     },

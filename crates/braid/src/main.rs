@@ -27,6 +27,7 @@ struct DaemonState {
     cycle_cursor: usize,
     notified_alerts: HashSet<(String, i64, i64, u8, u64)>,
     confirmed_working: HashSet<(String, i64, i64)>,
+    muted_until_ms: HashMap<String, u64>,
     seen_tabs: HashSet<(String, i64, i64)>,
     push_tx: broadcast::Sender<String>,
 }
@@ -49,6 +50,7 @@ impl DaemonState {
             cycle_cursor: 0,
             notified_alerts: HashSet::new(),
             confirmed_working: HashSet::new(),
+            muted_until_ms: HashMap::new(),
             seen_tabs: HashSet::new(),
             push_tx,
         }
@@ -114,6 +116,12 @@ impl DaemonState {
                     )
                 });
                 let git_meta = macos::git_repo_stats(&repo_path);
+                let muted_until = self
+                    .muted_until_ms
+                    .get(&repo_name)
+                    .copied()
+                    .filter(|&until| until > now_ms())
+                    .unwrap_or(0);
                 Some(ProjectWorkspace {
                     repo_name,
                     repo_path: repo_path.to_string_lossy().into_owned(),
@@ -129,7 +137,8 @@ impl DaemonState {
                     recent_prs: git_meta.recent_prs,
                     main_ci_status: git_meta.main_ci_status,
                     tabs,
-                    has_alert,
+                    has_alert: has_alert && muted_until == 0,
+                    muted_until_ms: muted_until,
                 })
             })
             .collect();
@@ -285,7 +294,15 @@ IpcMessage::SyncTabs { tabs, .. } => {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                                 .unwrap_or_else(|| "Workspace".into());
-                            macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
+                            let is_muted = st
+                                .muted_until_ms
+                                .get(&repo_label)
+                                .copied()
+                                .map(|until| until > now)
+                                .unwrap_or(false);
+                            if !is_muted {
+                                macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
+                            }
                         }
                     } else if t.status == AgentStatus::Working && was_confirmed_working {
                         st.notified_alerts.retain(|(b, w, tid, k, _)| {
@@ -333,10 +350,26 @@ IpcMessage::OpenEditor { repo_path } => {
                 macos::open_in_terminal(&repo_path)?;
                 IpcMessage::Ack
             }
-IpcMessage::JumpNextAlert => {
+IpcMessage::ToggleRepoMute { repo_name, duration_ms } => {
+                let mut st = state.write().await;
+                let now = now_ms();
+                let currently_muted = st
+                    .muted_until_ms
+                    .get(&repo_name)
+                    .copied()
+                    .map(|until| until > now)
+                    .unwrap_or(false);
+                if currently_muted {
+                    st.muted_until_ms.remove(&repo_name);
+                } else {
+                    st.muted_until_ms.insert(repo_name, now.saturating_add(duration_ms));
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::JumpNextAlert => {
 let mut st = state.write().await;
 let projects = st.build_dashboard()?;
-if let Some((proj_name, tab)) = projects.iter().find_map(|p| {
+if let Some((proj_name, tab)) = projects.iter().filter(|p| p.muted_until_ms == 0).find_map(|p| {
 p.tabs
 .iter()
 .find(|t| {
