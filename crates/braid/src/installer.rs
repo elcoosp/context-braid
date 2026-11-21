@@ -243,6 +243,6 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
             .output();
     }
 
-    println!("ContextBraid installé et démarré depuis {}", target_bin.display());
+    println!("ContextBraid installé et démarré depuis {}", app_exec.display());
     Ok(())
 }
