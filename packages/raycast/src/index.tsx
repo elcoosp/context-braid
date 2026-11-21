@@ -95,7 +95,7 @@ function shortenHomePath(fullPath: string): string {
 
 function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === 'editor' || tab.browser === 'zed') {
-    return { label: t`Active`, color: Color.Purple };
+    return { label: t`Active`, color: Color.Blue };
   }
   switch (tab.status) {
     case 'needs_attention':
@@ -254,9 +254,9 @@ export default function Command() {
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
                         `**${t`Recently Merged PRs`}**`,
-                        ...proj.recent_prs.slice(0, 3).map((pr) => {
-                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 52);
-                          const display = pr.title.length > 52 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
+                        ...proj.recent_prs.slice(0, 2).map((pr) => {
+                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 46);
+                          const display = pr.title.length > 46 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
                           return pr.url ? `- [#${pr.number}](${pr.url}) ${display}` : `- \`#${pr.number}\` ${display}`;
                         }),
                       ].join('\n')
@@ -296,14 +296,14 @@ export default function Command() {
                           <List.Item.Detail.Metadata>
                             {proj.git_branch && (
                               <List.Item.Detail.Metadata.TagList title={t`Git`}>
-                                <List.Item.Detail.Metadata.TagList.Item text={`⎇ ${proj.git_branch}`} color={Color.Blue} />
+                                <List.Item.Detail.Metadata.TagList.Item text={`⎇ ${proj.git_branch}`} color={Color.SecondaryText} />
                                 <List.Item.Detail.Metadata.TagList.Item
                                   text={
                                     proj.dirty_files > 0
                                       ? plural(proj.dirty_files, { one: '# modified', other: '# modified' })
                                       : t`Clean`
                                   }
-                                  color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
+                                  color={proj.dirty_files > 0 ? Color.Orange : Color.SecondaryText}
                                 />
                                 {commits30d > 0 && (
                                   <List.Item.Detail.Metadata.TagList.Item

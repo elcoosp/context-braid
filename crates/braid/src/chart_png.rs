@@ -204,7 +204,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     }
 
     let w: usize = 720;
-    let h: usize = 104;
+    let h: usize = 84;
     let mut buf = vec![0u8; w * h * 4];
 
     let data: Vec<f32> = if counts.is_empty() {
@@ -215,8 +215,8 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     let max_val = data.iter().cloned().fold(1.0_f32, f32::max);
 
     let pad_x = 12.0_f32;
-    let pad_top = 10.0_f32;
-    let pad_bot = 10.0_f32;
+    let pad_top = 8.0_f32;
+    let pad_bot = 8.0_f32;
     let plot_w = w as f32 - pad_x * 2.0;
     let plot_h = h as f32 - pad_top - pad_bot;
     let base_y = h as f32 - pad_bot;

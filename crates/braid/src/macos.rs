@@ -575,6 +575,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             let cutoff = now_sec - 30 * 86_400;
             if let Ok(walk) = repo
                 .rev_walk([head_commit.id()])
+                .first_parent_only()
                 .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
                 .all()
             {
