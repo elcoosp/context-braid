@@ -37,6 +37,7 @@ export default defineBackground(() => {
   const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
   const downloadedZips = new Set<string>();
   const knownChatZips = new Map<string, Set<string>>();
+  const lastServerProbeAt = new Map<number, number>();
   let autoDownloadZip = false;
   if (browser.storage?.local) {
     browser.storage.local.get('autoDownloadZip').then((res) => {
@@ -54,6 +55,7 @@ export default defineBackground(() => {
     };
     if (msg?.type === 'sync_config' && typeof msg.auto_download_zip === 'boolean') {
       autoDownloadZip = msg.auto_download_zip;
+      logZipDiag('SYNC_CONFIG_RX', `autoDownloadZip=${msg.auto_download_zip}`);
       browser.storage?.local?.set({ autoDownloadZip: msg.auto_download_zip }).catch(() => {});
       return;
     }
@@ -170,6 +172,9 @@ export default defineBackground(() => {
   const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
     const resolvedUrl = tabUrl || (tabCache.get(tabId)?.url as string | undefined) || '';
     if (!resolvedUrl.includes('chat.z.ai/c/')) return;
+    const now = Date.now();
+    if (now - (lastServerProbeAt.get(tabId) ?? 0) < 6000) return;
+    lastServerProbeAt.set(tabId, now);
     const chatId = new URL(resolvedUrl).pathname.match(/^\/c\/([^/?#]+)/)?.at(1);
     if (!chatId || chatId.length < 8) return;
 
@@ -224,8 +229,17 @@ export default defineBackground(() => {
       if (!payload) return;
 
       const { subRes, storageRes, signedZipUrl } = payload;
-      const existing = tabCache.get(tabId);
-      if (!existing) return;
+      const existing = tabCache.get(tabId) ?? {
+        browser: detectBrowserName(),
+        window_id: 0,
+        tab_id: tabId,
+        url: resolvedUrl,
+        title: '',
+        status: 'idle',
+        context_snippet: '',
+        incognito: false,
+        updated_at_ms: Date.now(),
+      };
 
       if (existing.status === 'working' && Array.isArray(subRes?.data) && subRes.data.length > 0) {
         const latestSub = subRes.data.at(-1);
@@ -266,6 +280,10 @@ export default defineBackground(() => {
         }
 
         if (newlyCreatedZips.length > 0) {
+          logZipDiag(
+            'NEW_SERVER_ZIP',
+            `tab=${tabId} status=${existing.status} newlyCreated=${JSON.stringify(newlyCreatedZips)} signed=${signedZipUrl || 'none'}`,
+          );
           let zipDownloadUrl = signedZipUrl || '';
           const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
           if (urlMatch) {
@@ -343,6 +361,7 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
       if (msg.status === 'completed') {
+        logZipDiag('CONTENT_COMPLETED_RX', `tab=${sender.tab.id} zipUrl=${String(msg.zipDownloadUrl || '')}`);
         const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
         const dlKey = `${sender.tab.id}|${zipUrl || msg.title || msg.contextSnippet}`;
         triggerZipDownload(sender.tab.id, zipUrl, dlKey);
