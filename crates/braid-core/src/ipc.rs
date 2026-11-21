@@ -24,6 +24,13 @@ pub struct TabContextPayload {
     pub updated_at_ms: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MergedPr {
+    pub number: u64,
+    pub title: String,
+    pub url: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectWorkspace {
     pub repo_name: String,
@@ -44,6 +51,8 @@ pub struct ProjectWorkspace {
     pub commit_sparkline: Vec<u32>,
     #[serde(default)]
     pub sparkline_png_path: String,
+    #[serde(default)]
+    pub recent_prs: Vec<MergedPr>,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,
 }

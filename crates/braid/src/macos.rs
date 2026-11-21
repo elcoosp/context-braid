@@ -361,6 +361,10 @@ pub fn activate_browser_app(browser: &str) {
     }
 }
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+#[derive(Clone)]
 pub struct GitRepoMeta {
     pub branch: String,
     pub dirty: usize,
@@ -369,6 +373,48 @@ pub struct GitRepoMeta {
     pub commit_ts: i64,
     pub sparkline: Vec<u32>,
     pub sparkline_png_path: String,
+    pub recent_prs: Vec<braid_core::ipc::MergedPr>,
+}
+
+fn github_base_url_from_remote(raw: &str) -> Option<String> {
+    let trimmed = raw.trim().trim_end_matches(".git");
+    if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
+        return Some(format!("https://github.com{}", rest));
+    }
+    if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
+        return Some(format!("https://github.com{}", rest));
+    }
+    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://://github.com") {
+        return Some(trimmed.replace("http://", "https://"));
+    }
+    None
+}
+
+fn parse_pr_from_summary(summary: &str) -> Option<(u64, String)> {
+    if let Some(rest) = summary.strip_prefix("Merge pull request #") {
+        let num_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(num) = num_str.parse::<u64>() {
+            return Some((num, format!("Merge PR #{}", num)));
+        }
+    }
+    if let Some(open_idx) = summary.rfind("(#") {
+        let after = &summary[open_idx + 2..];
+        if let Some(close_idx) = after.find(')') {
+            let num_str = &after[..close_idx];
+            if !num_str.is_empty() && num_str.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(num) = num_str.parse::<u64>() {
+                    let clean_title = summary[..open_idx].trim().to_string();
+                    return Some((num, if clean_title.is_empty() { format!("PR #{}", num) } else { clean_title }));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn git_history_cache() -> &'static Mutex<HashMap<String, (String, i64, Vec<u32>, Vec<braid_core::ipc::MergedPr>)>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, (String, i64, Vec<u32>, Vec<braid_core::ipc::MergedPr>)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
@@ -381,6 +427,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             commit_ts: 0,
             sparkline: vec![0; 30],
             sparkline_png_path: String::new(),
+            recent_prs: Vec::new(),
         };
     };
 
@@ -400,6 +447,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     let mut commit_msg = String::new();
     let mut commit_ts: i64 = 0;
     let mut sparkline = vec![0u32; 30];
+    let mut recent_prs = Vec::new();
 
     if let Ok(head_commit) = repo.head_commit() {
         commit_sha = head_commit.id().to_hex_with_len(7).to_string();
@@ -414,23 +462,81 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(commit_ts);
-        let cutoff = now_sec - 30 * 86_400;
+        let today_bucket = now_sec / 86_400;
+        let cache_key = repo_path.to_string_lossy().into_owned();
 
-        if let Ok(walk) = repo
-            .rev_walk([head_commit.id()])
-            .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
-            .all()
-        {
-            for info in walk.flatten().take(3000) {
-                let Some(ts) = info.commit_time else { continue; };
-                if ts < cutoff {
-                    break;
+        let cached = git_history_cache()
+            .lock()
+            .ok()
+            .and_then(|g| g.get(&cache_key).cloned())
+            .filter(|(sha, day, _, _)| sha == &commit_sha && *day == today_bucket);
+
+        if let Some((_, _, cached_spark, cached_prs)) = cached {
+            sparkline = cached_spark;
+            recent_prs = cached_prs;
+        } else {
+            let gh_base = repo
+                .config_snapshot()
+                .string("remote.origin.url")
+                .and_then(|raw| github_base_url_from_remote(&raw.to_string()));
+
+            let cutoff = now_sec - 30 * 86_400;
+            let mut seen_pr_nums = Vec::new();
+
+            if let Ok(walk) = repo
+                .rev_walk([head_commit.id()])
+                .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
+                .all()
+            {
+                for info in walk.flatten().take(3000) {
+                    let Some(ts) = info.commit_time else { continue; };
+                    if ts >= cutoff {
+                        let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
+                        if age_days < 30 {
+                            let bucket = 29 - age_days;
+                            sparkline[bucket] = sparkline[bucket].saturating_add(1);
+                        }
+                    } else if recent_prs.len() >= 3 {
+                        break;
+                    }
+
+                    if recent_prs.len() < 3 {
+                        if let Ok(obj) = info.object() {
+                            if let Ok(msg) = obj.message() {
+                                let summary = msg.summary().to_string();
+                                if let Some((pr_num, mut pr_title)) = parse_pr_from_summary(&summary) {
+                                    if !seen_pr_nums.contains(&pr_num) {
+                                        seen_pr_nums.push(pr_num);
+                                        if pr_title.starts_with("Merge PR #") {
+                                            if let Some(body_line) = msg.body.and_then(|b| {
+                                                b.to_string()
+                                                    .lines()
+                                                    .map(str::trim)
+                                                    .find(|l| !l.is_empty())
+                                                    .map(str::to_string)
+                                            }) {
+                                                pr_title = body_line;
+                                            }
+                                        }
+                                        let url = gh_base
+                                            .as_ref()
+                                            .map(|base| format!("{}/pull/{}", base, pr_num))
+                                            .unwrap_or_default();
+                                        recent_prs.push(braid_core::ipc::MergedPr {
+                                            number: pr_num,
+                                            title: pr_title,
+                                            url,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
-                if age_days < 30 {
-                    let bucket = 29 - age_days;
-                    sparkline[bucket] = sparkline[bucket].saturating_add(1);
-                }
+            }
+
+            if let Ok(mut g) = git_history_cache().lock() {
+                g.insert(cache_key, (commit_sha.clone(), today_bucket, sparkline.clone(), recent_prs.clone()));
             }
         }
     }
@@ -453,5 +559,6 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         commit_ts,
         sparkline,
         sparkline_png_path,
+        recent_prs,
     }
 }
