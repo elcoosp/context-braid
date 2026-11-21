@@ -1,0 +1,50 @@
+{
+  "name": "context-braid-raycast",
+  "title": "ContextBraid",
+  "description": "Auto-pair your local Git repos, editor windows, and AI browser tabs.",
+  "icon": "icon.png",
+  "author": "you",
+  "categories": [
+    "Developer Tools",
+    "Productivity"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint"
+  },
+  "commands": [
+    {
+      "name": "index",
+      "title": "Open Project Cockpit",
+      "description": "View and jump to your braided repos and AI agents",
+      "icon": "cockpit.png",
+      "mode": "view"
+    },
+    {
+      "name": "cycle-project",
+      "title": "Cycle Active Project Windows",
+      "description": "Rotate between Zed and AI tabs for the active repository",
+      "icon": "cycle.png",
+      "mode": "no-view"
+    },
+    {
+      "name": "jump-alert",
+      "title": "Jump to Next Agent Alert",
+      "description": "Focus the next AI tab waiting on a captcha or finished archive",
+      "icon": "alert.png",
+      "mode": "no-view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.13.1",
+    "@raycast/utils": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.0.0",
+    "simple-icons": "^16.38.0",
+    "typescript": "^5.8.0"
+  }
+}
