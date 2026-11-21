@@ -639,6 +639,16 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     }
 }
 
+#[cfg(test)]
+static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<(String, String, String)>>> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+pub fn take_test_notifications() -> Vec<(String, String, String)> {
+    let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
+    let mut guard = lock.lock().unwrap();
+    std::mem::take(&mut *guard)
+}
+
 pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab_id: i64, subtitle: &str, title: &str) {
     let msg = if title.trim().is_empty() {
         "Agent needs attention"
@@ -646,23 +656,33 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
         title.trim()
     };
 
-    let sound_file = if subtitle.to_lowercase().contains("zip") {
-        "/System/Library/Sounds/Glass.aiff"
-    } else {
-        "/System/Library/Sounds/Funk.aiff"
-    };
-    if Path::new(sound_file).exists() {
-        let _ = std::process::Command::new("afplay")
-            .arg(sound_file)
-            .spawn();
+    #[cfg(test)]
+    {
+        let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
+        lock.lock().unwrap().push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
+        return;
     }
 
-    let full_title = format!("ContextBraid • {}", repo_name);
-    let script = format!(
-        "display notification {:?} with title {:?} subtitle {:?}",
-        msg, full_title, subtitle
-    );
-    let _ = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
-        .spawn();
+    #[cfg(not(test))]
+    {
+        let sound_file = if subtitle.to_lowercase().contains("zip") {
+            "/System/Library/Sounds/Glass.aiff"
+        } else {
+            "/System/Library/Sounds/Funk.aiff"
+        };
+        if Path::new(sound_file).exists() {
+            let _ = std::process::Command::new("afplay")
+                .arg(sound_file)
+                .spawn();
+        }
+
+        let full_title = format!("ContextBraid • {}", repo_name);
+        let script = format!(
+            "display notification {:?} with title {:?} subtitle {:?}",
+            msg, full_title, subtitle
+        );
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .args(["-e", &script])
+            .spawn();
+    }
 }

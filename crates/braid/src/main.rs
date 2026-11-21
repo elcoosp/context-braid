@@ -405,6 +405,7 @@ std::process::exit(2);
 }
 #[cfg(test)]
 mod tests {
+    use super::*;
 use super::host::{read_frame, write_frame};
 use std::io::Cursor;
 #[test]
@@ -416,4 +417,87 @@ let mut cur = Cursor::new(buf);
 let decoded = read_frame(&mut cur).unwrap().unwrap();
 assert_eq!(decoded, sample);
 }
+
+    #[test]
+    fn test_alert_transition_dedup_and_rearm() {
+        let _ = crate::macos::take_test_notifications();
+        let (push_tx, _) = broadcast::channel(8);
+        let mut st = DaemonState::new(BraidConfig::default(), push_tx);
+
+        let make_tab = |status: AgentStatus| TabContextPayload {
+            browser: "Brave".into(),
+            window_id: 101,
+            tab_id: 202,
+            opener_tab_id: None,
+            incognito: false,
+            url: "https://z.ai".into(),
+            title: "Task: context-braid".into(),
+            context_snippet: "Running task".into(),
+            status,
+            updated_at_ms: now_ms(),
+        };
+
+        let apply_tab = |st: &mut DaemonState, tab: TabContextPayload| {
+            let raw = serde_json::json!({
+                "type": "sync_tabs",
+                "browser": tab.browser,
+                "tabs": [tab]
+            })
+            .to_string();
+            let parsed: IpcMessage = serde_json::from_str(&raw).expect("valid sync_tabs JSON");
+            if let IpcMessage::SyncTabs { tabs, .. } = parsed {
+                let now = now_ms();
+                for t in tabs {
+                    let key = (t.browser.clone(), t.window_id, t.tab_id);
+                    let alert_kind = match t.status {
+                        AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
+                        AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
+                        _ => None,
+                    };
+                    if let Some((kind, subtitle)) = alert_kind {
+                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind);
+                        if st.notified_alerts.insert(alert_key) {
+                            crate::macos::notify_agent_alert("context-braid", &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
+                        }
+                    } else {
+                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 1));
+                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 2));
+                    }
+                    st.tabs.insert(key, (t, now));
+                }
+            }
+        };
+
+        // 1. Working -> aucune notification
+        apply_tab(&mut st, make_tab(AgentStatus::Working));
+        assert!(crate::macos::take_test_notifications().is_empty());
+
+        // 2. Transition vers NeedsAttention -> 1 notification déclenchée
+        apply_tab(&mut st, make_tab(AgentStatus::NeedsAttention));
+        let first = crate::macos::take_test_notifications();
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].1, "Alerte sur Brave");
+
+        // 3. Poll suivant toujours en NeedsAttention -> dédupliqué (0 nouvelle notif)
+        apply_tab(&mut st, make_tab(AgentStatus::NeedsAttention));
+        assert!(crate::macos::take_test_notifications().is_empty());
+
+        // 4. Reprise de la conversation (Working) -> réarme les alertes
+        apply_tab(&mut st, make_tab(AgentStatus::Working));
+        assert!(crate::macos::take_test_notifications().is_empty());
+
+        // 5. Transition vers Completed (ZIP Ready) -> 1 notification ZIP déclenchée
+        apply_tab(&mut st, make_tab(AgentStatus::Completed));
+        let second = crate::macos::take_test_notifications();
+        assert_eq!(second.len(), 1);
+        assert_eq!(second[0].1, "ZIP prêt sur Brave");
+    }
+
+    #[test]
+    fn test_aqua_session_and_lsui_element_in_installer() {
+        let installer_src = include_str!("installer.rs");
+        assert!(installer_src.contains("LimitLoadToSessionType"));
+        assert!(installer_src.contains("<string>Aqua</string>"));
+        assert!(installer_src.contains("<key>LSUIElement</key>"));
+    }
 }
