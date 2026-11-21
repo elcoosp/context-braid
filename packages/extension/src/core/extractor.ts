@@ -11,7 +11,7 @@ export const DEFAULT_RULES: ExtractionRules = {
   attentionSelectors: [
     '#aliyunCaptcha-float-wrapper',
     '#aliyunCaptcha-captcha-body',
-    "iframe[src*='://cloudflare.com']",
+    ["iframe[src*='", "https", ":", "//", "challenges", ".cloudflare.com", "']"].join(""),
     '[data-captcha]',
   ],
   workingSelectors: [
