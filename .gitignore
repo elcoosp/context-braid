@@ -22,3 +22,5 @@ src/locales/**/*.ts
 packages/raycast/src/locales/**/*.ts
 .swc/
 packages/raycast/src/locales/**/*.ts
+.swc/
+packages/raycast/src/locales/**/*.ts
