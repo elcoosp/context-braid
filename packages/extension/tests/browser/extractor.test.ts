@@ -63,4 +63,21 @@ describe('ContextBraid Fast Extractor (Chromium & Firefox)', () => {
     expect(res.status).toBe('needs_attention');
     expect(res.contextSnippet).toContain('Glyim');
   });
+
+  test('détecte la bannière d’interruption service z.ai ("The service was updated while this task was running")', () => {
+    document.title = 'Oxide';
+    document.body.innerHTML = `
+      <main>
+        <div data-user-bubble="true">Audit workspace crate</div>
+        <div class="flex my-2 gap-2.5 border px-4 py-3 border-red-600/10 bg-red-600/10 rounded-lg">
+          <div class="self-start mt-0.5"><svg class="remixicon size-5 text-red-700"></svg></div>
+          <div class="self-center text-sm">The service was updated while this task was running, so it was interrupted. Please send your request again.</div>
+        </div>
+      </main>
+    `;
+
+    const res = extractPageState(document);
+    expect(res.status).toBe('needs_attention');
+    expect(res.contextSnippet).toContain('Oxide');
+  });
 });

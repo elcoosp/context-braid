@@ -44,18 +44,29 @@ function isVisible(el: Element | null): boolean {
   return true;
 }
 
+const INLINE_ERROR_PATTERNS: RegExp[] = [
+  /oops,\s*something went wrong\.?\s*please refresh/i,
+  /the service was updated while this task was running/i,
+  /please send your request again/i,
+];
+
 function hasInlineRuntimeError(doc: Document): boolean {
-  const candidates = doc.querySelectorAll('main [role="alert"], main .text-red-500, main div, main p');
-  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 40; i--) {
-    const el = candidates[i];
-    // Ignore user prompt bubbles or code blocks
+  const alertBanners = doc.querySelectorAll('main [role="alert"], main [class*="border-red-"]');
+  for (let i = alertBanners.length - 1; i >= 0; i--) {
+    const el = alertBanners[i];
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
     const text = (el.textContent || '').trim();
-    if (
-      text.length > 0 &&
-      text.length < 220 &&
-      /oops,\s*something went wrong\.?\s*please refresh/i.test(text)
-    ) {
+    if (text.length > 0 && text.length < 280) {
+      return true;
+    }
+  }
+
+  const candidates = doc.querySelectorAll('main div, main p, main span');
+  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 50; i--) {
+    const el = candidates[i];
+    if (el.closest('[data-user-bubble="true"], pre, code')) continue;
+    const text = (el.textContent || '').trim();
+    if (text.length > 0 && text.length < 280 && INLINE_ERROR_PATTERNS.some((re) => re.test(text))) {
       return true;
     }
   }
