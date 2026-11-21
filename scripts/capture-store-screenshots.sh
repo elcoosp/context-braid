@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-# 1. Si tu as pris une capture native Raycast (Cmd + Shift + M -> "Save Screenshot for Store")
-#    dans les 10 dernières minutes sur ~/Desktop, on l'importe directement !
-RECENT_NATIVE=$(find "${HOME}/Desktop" -maxdepth 1 -name "Raycast*.png" -mmin -10 2>/dev/null | sort | tail -n 1 || true)
-if [[ -n "${RECENT_NATIVE}" ]]; then
-  echo "Importation de la capture native Raycast Store : ${RECENT_NATIVE}"
-  cp -f "${RECENT_NATIVE}" "${OUT_DIR}/01-project-cockpit.png"
-  cd "${ROOT_DIR}/packages/raycast"
-  npx ray lint
-  exit 0
-fi
+echo "1/4 Lancement de Raycast en mode dev pour ouvrir Open Project Cockpit..."
+cd "${ROOT_DIR}/packages/raycast"
+npx ray develop --non-interactive >/dev/null 2>&1 &
+DEV_PID=$!
+trap 'kill ${DEV_PID} 2>/dev/null || true' EXIT
 
-# 2. Sinon, ouvre directement le deeplink de Open Project Cockpit et vérifie que la fenêtre est visible (alpha > 0.5)
+sleep 2.5
+open -a Raycast
+sleep 0.5
 open "raycast://extensions/elcoosp/context-braid-raycast/index"
-sleep 1.6
+sleep 1.5
 
+# Récupère le CGWindowID visible de Raycast (alpha > 0.5, largeur > 500)
 RAYCAST_WIN_ID=$(swift -e '
 import AppKit
 import CoreGraphics
@@ -53,13 +51,15 @@ if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: An
 ')
 
 if [[ -z "${RAYCAST_WIN_ID}" ]]; then
-  echo "Astuce : Ouvre 'Open Project Cockpit' dans Raycast, appuie sur Cmd + Shift + M (Save Screenshot for Store), puis relance 'just screenshots' !" >&2
+  echo "❌ Fenêtre Raycast introuvable." >&2
   exit 1
 fi
 
 RAW_1="/tmp/cb_raycast_raw_1.png"
+echo "2/4 Capture de la fenêtre Raycast (ID=${RAYCAST_WIN_ID})..."
 screencapture -l "${RAYCAST_WIN_ID}" -o -x "${RAW_1}"
 
+echo "3/4 Composition 2000x1250 px..."
 python3 - "${RAW_1}" "${OUT_DIR}/01-project-cockpit.png" << 'PY'
 import sys
 from PIL import Image, ImageDraw, ImageFilter
@@ -115,9 +115,9 @@ ImageDraw.Draw(border).rounded_rectangle(
 )
 bg = Image.alpha_composite(bg, border)
 bg.convert("RGB").save(dst_path, "PNG", optimize=True)
-print(f"Saved {dst_path} ({W}x{H})")
+print(f"✅ Sauvegardé : {dst_path} ({W}x{H})")
 PY
 
 rm -f "${RAW_1}"
-cd "${ROOT_DIR}/packages/raycast"
+echo "4/4 Validation npx ray lint..."
 npx ray lint
