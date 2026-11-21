@@ -20,6 +20,7 @@ jobs:
 
       - name: Build Universal Binary macOS (arm64 + x86_64)
         run: |
+          cargo test --workspace
           cargo build --release --target aarch64-apple-darwin -p braid
           cargo build --release --target x86_64-apple-darwin -p braid
           mkdir -p dist
@@ -39,6 +40,8 @@ jobs:
       - name: Package Browser Extensions (Chromium & Firefox)
         run: |
           pnpm install --frozen-lockfile
+          pnpm --filter @context-braid/extension build
+          pnpm --filter @context-braid/extension build:firefox
           pnpm --filter @context-braid/extension zip
           pnpm --filter @context-braid/extension zip:firefox
           cp packages/extension/.output/*.zip dist/
