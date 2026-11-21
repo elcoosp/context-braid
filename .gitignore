@@ -12,3 +12,5 @@ node_modules/
 .vscode/
 *.swp
 *.log
+.vitest/
+test-results/
