@@ -1,5 +1,6 @@
 mod host;
 mod installer;
+mod chart_png;
 mod macos;
 
 use anyhow::Result;
@@ -117,6 +118,7 @@ impl DaemonState {
                     last_commit_msg: git_meta.commit_msg,
                     last_commit_ts: git_meta.commit_ts,
                     commit_sparkline: git_meta.sparkline,
+                    sparkline_png_path: git_meta.sparkline_png_path,
                     tabs,
                     has_alert,
                 })

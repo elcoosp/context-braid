@@ -368,6 +368,7 @@ pub struct GitRepoMeta {
     pub commit_msg: String,
     pub commit_ts: i64,
     pub sparkline: Vec<u32>,
+    pub sparkline_png_path: String,
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
@@ -379,6 +380,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             commit_msg: String::new(),
             commit_ts: 0,
             sparkline: vec![0; 14],
+            sparkline_png_path: String::new(),
         };
     };
 
@@ -415,10 +417,10 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         let cutoff = now_sec - 14 * 86_400;
 
         if let Ok(walk) = repo.rev_walk([head_commit.id()]).all() {
-            for info in walk.flatten().take(200) {
+            for info in walk.flatten().take(300) {
                 let Some(ts) = info.commit_time else { continue; };
                 if ts < cutoff {
-                    break;
+                    continue;
                 }
                 let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
                 if age_days < 14 {
@@ -436,6 +438,9 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         .map(|iter| iter.filter_map(Result::ok).count())
         .unwrap_or(0);
 
+    let repo_label = repo_path.file_name().and_then(|s| s.to_str()).unwrap_or("repo");
+    let accent = if dirty > 0 { (245, 158, 11) } else { (59, 130, 246) };
+    let sparkline_png_path = crate::chart_png::render_velocity_chart_png(repo_label, &sparkline, accent).unwrap_or_default();
     GitRepoMeta {
         branch,
         dirty,
@@ -443,5 +448,6 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         commit_msg,
         commit_ts,
         sparkline,
+        sparkline_png_path,
     }
 }

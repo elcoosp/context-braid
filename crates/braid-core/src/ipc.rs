@@ -42,6 +42,8 @@ pub struct ProjectWorkspace {
     pub last_commit_ts: i64,
     #[serde(default)]
     pub commit_sparkline: Vec<u32>,
+    #[serde(default)]
+    pub sparkline_png_path: String,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,
 }

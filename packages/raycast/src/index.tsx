@@ -7,7 +7,6 @@ import { BRAND_ICONS, browserBadge, editorMeta } from './brandIcons';
 import './i18n';
 import { PairBrowserForm } from './PairBrowserForm';
 import { ProjectWorkspace, queryDaemon, TabContext } from './socketClient';
-import { buildGitVelocityBar } from './sparklineChart';
 
 type StatusFilter = 'all' | 'attention' | 'working' | 'editor';
 
@@ -214,7 +213,6 @@ export default function Command() {
                 accessories.push({ tag: { value: meta.label, color: meta.color } });
 
                 const commitAge = formatCommitAge(proj.last_commit_ts);
-                const vel = buildGitVelocityBar(proj.commit_sparkline);
                 const activeContextLine =
                   tab.browser === 'editor' || tab.browser === 'zed'
                     ? `> **${favEditor.label}** — ${shortenHomePath(proj.repo_path)}`
@@ -226,17 +224,13 @@ export default function Command() {
                   ? `**HEAD** \`${proj.last_commit_sha}\` · ${proj.last_commit_msg}${commitAge ? ` *(${commitAge})*` : ''}`
                   : '';
 
-                const velocityTable = [
-                  `| ${t`14d Git Velocity`} | ${t`Commits`} |`,
-                  `| :--- | ---: |`,
-                  `| \`${vel.spark}\` | **${vel.total}** |`,
-                ].join('\n');
+                const chartImage = proj.sparkline_png_path ? `![](file://${proj.sparkline_png_path})` : '';
 
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   activeContextLine,
                   gitHeadline,
-                  velocityTable,
+                  chartImage,
                 ]
                   .filter(Boolean)
                   .join('\n\n');

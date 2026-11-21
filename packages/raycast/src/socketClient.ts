@@ -25,6 +25,7 @@ export interface ProjectWorkspace {
   last_commit_msg: string;
   last_commit_ts: number;
   commit_sparkline: number[];
+  sparkline_png_path: string;
   tabs: TabContext[];
   has_alert: boolean;
 }
