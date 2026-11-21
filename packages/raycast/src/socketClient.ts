@@ -21,6 +21,10 @@ export interface ProjectWorkspace {
   git_branch: string;
   dirty_files: number;
   favorite_editor: string;
+  last_commit_sha: string;
+  last_commit_msg: string;
+  last_commit_ts: number;
+  commit_sparkline: number[];
   tabs: TabContext[];
   has_alert: boolean;
 }

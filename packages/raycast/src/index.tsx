@@ -7,6 +7,7 @@ import { BRAND_ICONS, browserBadge, editorMeta } from './brandIcons';
 import './i18n';
 import { PairBrowserForm } from './PairBrowserForm';
 import { ProjectWorkspace, queryDaemon, TabContext } from './socketClient';
+import { buildGitVelocitySvg } from './sparklineSvg';
 
 type StatusFilter = 'all' | 'attention' | 'working' | 'editor';
 
@@ -52,6 +53,22 @@ function formatRelativeAge(updatedAtMs: number): string {
   if (mins < 60) return t`${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   return t`${hrs}h ago`;
+}
+
+function formatCommitAge(unixSec: number): string {
+  if (!unixSec || unixSec <= 0) return '';
+  const diffSec = Math.max(0, Math.floor(Date.now() / 1000 - unixSec));
+  if (diffSec < 60) return t`just now`;
+  const mins = Math.floor(diffSec / 60);
+  if (mins < 60) return t`${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return t`${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return t`${days}d ago`;
+}
+
+function shortenHomePath(fullPath: string): string {
+  return fullPath.replace(/^\/Users\/[^/]+/, '~');
 }
 
 function statusMeta(tab: TabContext): { label: string; color: Color } {
@@ -196,9 +213,20 @@ export default function Command() {
                 accessories.push({ icon: bBadge.icon, tooltip: bBadge.label });
                 accessories.push({ tag: { value: meta.label, color: meta.color } });
 
+                const commitAge = formatCommitAge(proj.last_commit_ts);
+                const chartAccent = proj.has_alert ? '#EF4444' : proj.dirty_files > 0 ? '#F59E0B' : '#3B82F6';
+                const chartUri = buildGitVelocitySvg(proj.commit_sparkline, chartAccent, t`14d Git Velocity`);
+                const headline =
+                  tab.browser === 'editor' || tab.browser === 'zed'
+                    ? proj.last_commit_msg
+                      ? `\`${proj.last_commit_sha}\` ${proj.last_commit_msg}`
+                      : shortenHomePath(proj.repo_path)
+                    : taskDetail || proj.last_commit_msg || role.name;
+
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
-                  taskDetail ? `**${role.name}** — ${taskDetail}` : `**${role.name}**`,
+                  headline,
+                  `![](${chartUri})`,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
@@ -209,17 +237,24 @@ export default function Command() {
                     icon={role.icon}
                     title={role.name}
                     subtitle={showDetail ? undefined : taskDetail}
-                    keywords={[proj.repo_name, proj.git_branch, role.name, tab.browser, taskDetail, meta.label]}
+                    keywords={[
+                      proj.repo_name,
+                      proj.git_branch,
+                      proj.last_commit_msg,
+                      role.name,
+                      tab.browser,
+                      taskDetail,
+                      meta.label,
+                    ]}
                     accessories={accessories}
                     detail={
                       <List.Item.Detail
                         markdown={detailMarkdown}
                         metadata={
                           <List.Item.Detail.Metadata>
-                            <List.Item.Detail.Metadata.Label title={t`Repository`} text={proj.repo_name} icon={Icon.Folder} />
                             {proj.git_branch && (
                               <List.Item.Detail.Metadata.TagList title={t`Git`}>
-                                <List.Item.Detail.Metadata.TagList.Item text={proj.git_branch} color={Color.Blue} />
+                                <List.Item.Detail.Metadata.TagList.Item text={`⎇ ${proj.git_branch}`} color={Color.Blue} />
                                 <List.Item.Detail.Metadata.TagList.Item
                                   text={
                                     proj.dirty_files > 0
@@ -228,8 +263,28 @@ export default function Command() {
                                   }
                                   color={proj.dirty_files > 0 ? Color.Orange : Color.Green}
                                 />
+                                {proj.last_commit_sha && (
+                                  <List.Item.Detail.Metadata.TagList.Item
+                                    text={commitAge ? `${proj.last_commit_sha} • ${commitAge}` : proj.last_commit_sha}
+                                    color={Color.SecondaryText}
+                                  />
+                                )}
                               </List.Item.Detail.Metadata.TagList>
                             )}
+                            <List.Item.Detail.Metadata.TagList title={t`Workspace Windows`}>
+                              {proj.tabs.map((itemTab) => {
+                                const itemRole = detectRole(itemTab, proj.favorite_editor);
+                                const itemStatus = statusMeta(itemTab);
+                                return (
+                                  <List.Item.Detail.Metadata.TagList.Item
+                                    key={`${itemTab.browser}-${itemTab.window_id}-${itemTab.tab_id}`}
+                                    text={itemRole.name}
+                                    icon={itemRole.icon}
+                                    color={itemStatus.color}
+                                  />
+                                );
+                              })}
+                            </List.Item.Detail.Metadata.TagList>
                             <List.Item.Detail.Metadata.Separator />
                             <List.Item.Detail.Metadata.Label title={t`Surface`} text={bBadge.label} icon={bBadge.icon} />
                             <List.Item.Detail.Metadata.TagList title={t`Status`}>
@@ -239,13 +294,7 @@ export default function Command() {
                                 <List.Item.Detail.Metadata.TagList.Item text={t`Private`} color={Color.SecondaryText} />
                               )}
                             </List.Item.Detail.Metadata.TagList>
-                            <List.Item.Detail.Metadata.Separator />
-                            <List.Item.Detail.Metadata.Label
-                              title={t`Favorite Editor`}
-                              text={favEditor.label}
-                              icon={favEditor.icon}
-                            />
-                            <List.Item.Detail.Metadata.Label title={t`Path`} text={proj.repo_path} />
+                            <List.Item.Detail.Metadata.Label title={t`Path`} text={shortenHomePath(proj.repo_path)} />
                           </List.Item.Detail.Metadata>
                         }
                       />
