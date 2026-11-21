@@ -639,7 +639,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     }
 }
 
-pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id: i64, subtitle: &str, title: &str) {
+pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab_id: i64, subtitle: &str, title: &str) {
     let msg = if title.trim().is_empty() {
         "Agent needs attention"
     } else {
@@ -657,37 +657,30 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
             .spawn();
     }
 
-    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-    let app_bundle = home.join("Library/Application Support/ContextBraid/ContextBraid.app");
-    if app_bundle.exists() {
-        let _ = std::process::Command::new("open")
-            .args([
-                "-n",
-                "-g",
-                "-a",
-                &app_bundle.to_string_lossy(),
-                "--args",
-                "notify",
-                repo_name,
-                subtitle,
-                msg,
-                browser,
-                &window_id.to_string(),
-                &tab_id.to_string(),
-            ])
-            .spawn();
-    } else {
-        deliver_gui_notification(repo_name, subtitle, msg, browser, window_id, tab_id);
-    }
-}
-
-pub fn deliver_gui_notification(repo_name: &str, subtitle: &str, message: &str, _browser: &str, _window_id: i64, _tab_id: i64) {
     let full_title = format!("ContextBraid • {}", repo_name);
     let script = format!(
         "display notification {:?} with title {:?} subtitle {:?}",
-        message, full_title, subtitle
+        msg, full_title, subtitle
     );
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", &script])
-        .output();
+
+    let uid = std::process::Command::new("id")
+        .arg("-u")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let launched = if !uid.is_empty() {
+        std::process::Command::new("launchctl")
+            .args(["asuser", &uid, "/usr/bin/osascript", "-e", &script])
+            .spawn()
+            .is_ok()
+    } else {
+        false
+    };
+
+    if !launched {
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .args(["-e", &script])
+            .spawn();
+    }
 }
