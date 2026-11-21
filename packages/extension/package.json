@@ -12,7 +12,9 @@
     "typecheck": "wxt prepare && tsgo --noEmit",
     "test:browser": "wxt prepare && vitest run --config vitest.browser.config.ts",
     "test:unit": "wxt prepare && vitest run --config vitest.unit.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox"
   },
   "dependencies": {
     "wxt": "^0.21.0"
