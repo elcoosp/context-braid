@@ -121,6 +121,7 @@ impl DaemonState {
                     last_commit_ts: git_meta.commit_ts,
                     commit_sparkline: git_meta.sparkline,
                     sparkline_png_path: git_meta.sparkline_png_path,
+                    repo_url: git_meta.repo_url,
                     recent_prs: git_meta.recent_prs,
                     tabs,
                     has_alert,

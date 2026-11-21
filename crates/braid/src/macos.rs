@@ -440,6 +440,7 @@ pub struct GitRepoMeta {
     pub commit_ts: i64,
     pub sparkline: Vec<u32>,
     pub sparkline_png_path: String,
+    pub repo_url: String,
     pub recent_prs: Vec<braid_core::ipc::MergedPr>,
 }
 
@@ -498,6 +499,20 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
     });
 }
 
+fn remote_to_github_url(raw: &str) -> String {
+    let trimmed = raw.trim().trim_end_matches(".git");
+    if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
+        return format!("https://github.com{}", rest);
+    }
+    if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
+        return format!("https://github.com{}", rest);
+    }
+    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://://github.com") {
+        return trimmed.replace("http://", "https://");
+    }
+    String::new()
+}
+
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     let Ok(repo) = gix::open(repo_path) else {
         return GitRepoMeta {
@@ -508,6 +523,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             commit_ts: 0,
             sparkline: vec![0; 30],
             sparkline_png_path: String::new(),
+            repo_url: String::new(),
             recent_prs: Vec::new(),
         };
     };
@@ -539,10 +555,11 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             .unwrap_or_default();
         commit_ts = head_commit.time().map(|t| t.seconds).unwrap_or(0);
 
-        let now_sec = std::time::SystemTime::now()
+        let sys_now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(commit_ts);
+        let now_sec = sys_now.max(commit_ts);
         let today_bucket = now_sec / 86_400;
         let cache_key = repo_path.to_string_lossy().into_owned();
 
@@ -596,8 +613,18 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         .map(|iter| iter.filter_map(Result::ok).count())
         .unwrap_or(0);
 
+    let repo_url = std::fs::read_to_string(repo_path.join(".git/config"))
+        .ok()
+        .and_then(|cfg| {
+            cfg.lines()
+                .find(|l| l.trim_start().starts_with("url ="))
+                .and_then(|l| l.split_once('='))
+                .map(|(_, u)| remote_to_github_url(u))
+        })
+        .unwrap_or_default();
+
     let repo_label = repo_path.file_name().and_then(|s| s.to_str()).unwrap_or("repo");
-    let accent = if dirty > 0 { (245, 158, 11) } else { (59, 130, 246) };
+    let accent = if dirty > 0 { (255, 159, 10) } else { (10, 132, 255) };
     let sparkline_png_path = crate::chart_png::render_velocity_chart_png(repo_label, &sparkline, accent).unwrap_or_default();
     GitRepoMeta {
         branch,
@@ -607,6 +634,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         commit_ts,
         sparkline,
         sparkline_png_path,
+        repo_url,
         recent_prs,
     }
 }

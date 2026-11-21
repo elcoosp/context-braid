@@ -52,6 +52,8 @@ pub struct ProjectWorkspace {
     #[serde(default)]
     pub sparkline_png_path: String,
     #[serde(default)]
+    pub repo_url: String,
+    #[serde(default)]
     pub recent_prs: Vec<MergedPr>,
     pub tabs: Vec<TabContextPayload>,
     pub has_alert: bool,

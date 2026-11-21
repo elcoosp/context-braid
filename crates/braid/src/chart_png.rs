@@ -184,7 +184,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         sig = sig.wrapping_mul(0x100000001b3);
     }
     sig ^= ((accent.0 as u64) << 16) | ((accent.1 as u64) << 8) | (accent.2 as u64);
-    let file_name = format!("{}_v2_{:08x}.png", safe_name, (sig & 0xffff_ffff) as u32);
+    let file_name = format!("{}_v3_{:08x}.png", safe_name, (sig & 0xffff_ffff) as u32);
     let out_path = dir.join(&file_name);
 
     if out_path.exists() {
@@ -204,7 +204,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     }
 
     let w: usize = 720;
-    let h: usize = 152;
+    let h: usize = 104;
     let mut buf = vec![0u8; w * h * 4];
 
     let data: Vec<f32> = if counts.is_empty() {
@@ -215,8 +215,8 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     let max_val = data.iter().cloned().fold(1.0_f32, f32::max);
 
     let pad_x = 12.0_f32;
-    let pad_top = 18.0_f32;
-    let pad_bot = 16.0_f32;
+    let pad_top = 10.0_f32;
+    let pad_bot = 10.0_f32;
     let plot_w = w as f32 - pad_x * 2.0;
     let plot_h = h as f32 - pad_top - pad_bot;
     let base_y = h as f32 - pad_bot;
@@ -225,7 +225,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         let gy = (base_y - ratio * plot_h).round() as i32;
         for gx in (pad_x as i32)..((w as f32 - pad_x) as i32) {
             if (gx / 6) % 2 == 0 {
-                blend_pixel(&mut buf, w, h, gx, gy, 142, 142, 147, 0.16);
+                blend_pixel(&mut buf, w, h, gx, gy, 142, 142, 147, 0.09);
             }
         }
     }
@@ -279,7 +279,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
             let span = (end_y - start_y).max(1) as f32;
             for py in start_y..=end_y {
                 let rel: f32 = 1.0 - ((py - start_y) as f32 / span);
-                let fill_alpha = 0.22 * rel.powf(1.6);
+                let fill_alpha = 0.14 * rel.powf(1.7);
                 blend_pixel(&mut buf, w, h, px, py, ar, ag, ab, fill_alpha);
             }
         }
@@ -288,12 +288,12 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     for idx in 0..curve.len().saturating_sub(1) {
         let (x0, y0) = curve[idx];
         let (x1, y1) = curve[idx + 1];
-        draw_segment_aa(&mut buf, w, h, x0, y0, x1, y1, 2.2, ar, ag, ab, 0.92);
+        draw_segment_aa(&mut buf, w, h, x0, y0, x1, y1, 1.85, ar, ag, ab, 0.88);
     }
 
     if let Some(&(lx, ly)) = anchors.last() {
-        draw_disc_aa(&mut buf, w, h, lx, ly, 7.5, ar, ag, ab, 0.16);
-        draw_disc_aa(&mut buf, w, h, lx, ly, 3.2, ar, ag, ab, 1.0);
+        draw_disc_aa(&mut buf, w, h, lx, ly, 6.0, ar, ag, ab, 0.14);
+        draw_disc_aa(&mut buf, w, h, lx, ly, 2.6, ar, ag, ab, 0.95);
     }
 
 write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
