@@ -150,23 +150,43 @@ export default defineBackground(() => {
       .catch(() => {});
   };
 
-  // Interroge directement l'API storage z.ai (`/api/v1/storage/chats/<id>/files/by-message?prefix=download`)
-  // pour détecter tout `.zip` dès sa création serveur, même si la fenêtre est minimisée et que React n'a pas encore repeint le DOM !
+  // Interroge l'API storage & subagents z.ai DANS le contexte de l'onglet (avec localStorage.token)
+  // pour détecter tout `.zip` dès sa création serveur même lorsque la fenêtre est minimisée !
   const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
     const resolvedUrl = tabUrl || (tabCache.get(tabId)?.url as string | undefined) || '';
     if (!resolvedUrl.includes('chat.z.ai/c/')) return;
     const chatId = new URL(resolvedUrl).pathname.match(/^\/c\/([^/?#]+)/)?.at(1);
     if (!chatId || chatId.length < 8) return;
 
-    const subApiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/chats/subagents?chat_id=', chatId].join('');
-    const storageApiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/storage/chats/', chatId, '/files/by-message', '?prefix=download&limit=20'].join('');
-
     try {
-      const [subRes, storageRes] = await Promise.all([
-        fetch(subApiUrl, { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(storageApiUrl, { credentials: 'include' }).then((r) => (r.ok ? r.text() : '')).catch(() => ''),
-      ]);
+      const execResults = await browser.scripting.executeScript({
+        target: { tabId },
+        func: async (cid: string) => {
+          const token = localStorage.getItem('token') || '';
+          const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+          const [subRes, storageRes] = await Promise.all([
+            fetch(`/api/v1/chats/subagents?chat_id=${cid}`, { credentials: 'include', headers })
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+            fetch(`/api/v1/storage/chats/${cid}/files/by-message?prefix=download&limit=20`, {
+              credentials: 'include',
+              headers,
+            })
+              .then((r) => (r.ok ? r.text() : ''))
+              .catch(() => ''),
+          ]);
+          return { subRes, storageRes };
+        },
+        args: [chatId],
+      });
 
+      const payload = execResults?.at(0)?.result as
+
+        | { subRes: { data?: Array<{ description?: string; subagent_type?: string }> } | null; storageRes: string }
+        | undefined;
+      if (!payload) return;
+
+      const { subRes, storageRes } = payload;
       const existing = tabCache.get(tabId);
       if (!existing) return;
 
@@ -186,39 +206,44 @@ export default defineBackground(() => {
       }
 
       if (storageRes && storageRes.toLowerCase().includes('.zip')) {
-        // Extrait toutes les clés/noms de fichiers `.zip` retournés par le serveur pour cette conversation
         const zipKeys = Array.from(
           new Set(
             (storageRes.match(/[A-Za-z0-9_./-]+\.zip/gi) ?? []).map((k) => k.toLowerCase()),
           ),
         );
         let seenForChat = knownChatZips.get(chatId);
+        let newlyCreatedZips: string[] = [];
+
         if (!seenForChat) {
-          // Premier scan de cette conversation : enregistre les anciens .zip existants sans re-notifier
           seenForChat = new Set(zipKeys);
           knownChatZips.set(chatId, seenForChat);
+          // Si l'onglet est déjà `working` lors du premier scan, le `.zip` vient d'être produit par la tâche en cours !
+          if (existing.status === 'working') {
+            newlyCreatedZips = zipKeys;
+          }
         } else {
-          const newlyCreatedZips = zipKeys.filter((k) => !seenForChat!.has(k));
+          newlyCreatedZips = zipKeys.filter((k) => !seenForChat!.has(k));
           for (const k of newlyCreatedZips) {
             seenForChat.add(k);
           }
-          if (newlyCreatedZips.length > 0) {
-            let zipDownloadUrl = '';
-            const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
-            if (urlMatch) {
-              zipDownloadUrl = urlMatch.at(0) ?? '';
-            }
-            const latestZipKey = newlyCreatedZips.at(-1) ?? chatId;
-            const dedupKey = `${tabId}|${zipDownloadUrl || latestZipKey}`;
-            triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
-            const latestCached = tabCache.get(tabId) ?? existing;
-            tabCache.set(tabId, {
-              ...latestCached,
-              status: 'completed',
-              updated_at_ms: Date.now(),
-            });
-            flushTabs();
+        }
+
+        if (newlyCreatedZips.length > 0) {
+          let zipDownloadUrl = '';
+          const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
+          if (urlMatch) {
+            zipDownloadUrl = urlMatch.at(0) ?? '';
           }
+          const latestZipKey = newlyCreatedZips.at(-1) ?? chatId;
+          const dedupKey = `${tabId}|${zipDownloadUrl || latestZipKey}`;
+          triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+          const latestCached = tabCache.get(tabId) ?? existing;
+          tabCache.set(tabId, {
+            ...latestCached,
+            status: 'completed',
+            updated_at_ms: Date.now(),
+          });
+          flushTabs();
         }
       }
     } catch {}
