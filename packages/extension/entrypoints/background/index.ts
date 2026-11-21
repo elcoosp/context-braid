@@ -110,7 +110,7 @@ export default defineBackground(() => {
     if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
     downloadedZips.add(dedupKey);
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
-      browser.downloads.download({ url: zipUrl }).catch(() => {});
+      browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
       return;
     }
     browser.scripting
