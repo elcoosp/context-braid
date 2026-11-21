@@ -34,14 +34,31 @@ function detectRole(tab: TabContext, favoriteEditor: string): { name: string; ic
   return { name: 'Web', icon: BRAND_ICONS.browser };
 }
 
-function cleanTaskTitle(rawTitle: string, repoName: string): string {
-  const stripped = rawTitle
+function extractCleanIntent(rawTitle: string, repoName: string, isGoogleAi: boolean): string {
+  if (!rawTitle) return '';
+  let s = rawTitle
     .replace(/\s*\|\s*Z\.ai.*$/i, '')
     .replace(/\s*-\s*Qwen.*$/i, '')
     .replace(/\s*-\s*Google Gemini.*$/i, '')
-    .replace(/\s*-\s*Recherche Google.*$/i, '')
+    .replace(/\s*-\s*(Recherche Google|Google Search).*$/i, '')
     .trim();
-  return !stripped || stripped.toLowerCase() === repoName.toLowerCase() ? '' : stripped;
+
+  if (isGoogleAi) {
+    // Google AI embeds the entire pasted prompt + error log in document.title:
+    // keep only the first human instruction before pasted logs, brackets, or separators
+    s = s.split(/\r?\n|[|×•]|\[\[/)[0].trim();
+    s = s.replace(/\s*\[[^\]]+\]\s*$/g, '').trim();
+  }
+
+  s = s
+    .replace(/\r?\n+/g, ' ')
+    .replace(/[`*_~<>|]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!s || s.toLowerCase() === repoName.toLowerCase()) return '';
+  const maxLen = isGoogleAi ? 64 : 88;
+  return s.length <= maxLen ? s : `${s.slice(0, maxLen - 1).trimEnd()}…`;
 }
 
 function formatRelativeAge(updatedAtMs: number): string {
@@ -196,7 +213,7 @@ export default function Command() {
                 const role = detectRole(tab, proj.favorite_editor);
                 const meta = statusMeta(tab);
                 const bBadge = browserBadge(tab.browser, proj.favorite_editor);
-                const taskDetail = cleanTaskTitle(tab.title, proj.repo_name);
+                const taskDetail = extractCleanIntent(tab.title, proj.repo_name, role.name === 'Google AI');
                 const age = formatRelativeAge(tab.updated_at_ms);
 
                 const accessories: List.Item.Accessory[] = [];
