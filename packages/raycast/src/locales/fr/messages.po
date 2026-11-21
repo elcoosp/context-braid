@@ -9,7 +9,7 @@ msgstr ""
 
 #. placeholder {0}: proj.dirty_files
 #: src/index.tsx:209
-#: src/index.tsx:256
+#: src/index.tsx:257
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {# modifié} other {# modifiés}}"
 
@@ -18,13 +18,13 @@ msgstr "{0, plural, one {# modifié} other {# modifiés}}"
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# fenêtre} other {# fenêtres}}"
 
-#: src/index.tsx:262
-msgid "{commits30d} commits / 30d"
-msgstr "{commits30d} commits / 30j"
-
 #: src/index.tsx:89
 msgid "{days}d ago"
 msgstr "il y a {days}j"
+
+#: src/index.tsx:285
+msgid "{formattedCommits} commits"
+msgstr "{formattedCommits} commits"
 
 #: src/index.tsx:77
 #: src/index.tsx:87
@@ -43,6 +43,11 @@ msgid "1. Open chrome://extensions or brave://extensions\n"
 msgstr "1. Ouvrez chrome://extensions ou brave://extensions\n"
 "2. Activez le Mode développeur\n"
 "3. Copiez l’ID affiché sous ContextBraid"
+
+#: src/index.tsx:285
+#: src/index.tsx:286
+msgid "30-Day Activity"
+msgstr "Activité sur 30 jours"
 
 #: src/PairBrowserForm.tsx:42
 msgid "32-character Extension ID"
@@ -64,7 +69,7 @@ msgstr "Tous les contextes"
 msgid "clean"
 msgstr "propre"
 
-#: src/index.tsx:257
+#: src/index.tsx:258
 msgid "Clean"
 msgstr "Propre"
 
@@ -73,7 +78,7 @@ msgid "Configure Extension ID"
 msgstr "Configurer un ID d'extension"
 
 #: src/index.tsx:179
-#: src/index.tsx:400
+#: src/index.tsx:410
 msgid "Connect Browser Extension ID"
 msgstr "Connecter un ID d'extension navigateur"
 
@@ -86,15 +91,15 @@ msgid "ContextBraid local engine is not running"
 msgstr "Moteur local ContextBraid non démarré"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:358
+#: src/index.tsx:368
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "Copier le SHA HEAD ({0})"
 
-#: src/index.tsx:394
+#: src/index.tsx:404
 msgid "Copy Repository Path"
 msgstr "Copier le chemin du dépôt"
 
-#: src/index.tsx:320
+#: src/index.tsx:330
 msgid "Cycle Project Windows"
 msgstr "Rotation fenêtres du projet"
 
@@ -118,11 +123,11 @@ msgstr "Filtrer par état"
 msgid "Generating"
 msgstr "En cours de génération"
 
-#: src/index.tsx:339
+#: src/index.tsx:349
 msgid "Git & GitHub"
 msgstr "Git & GitHub"
 
-#: src/index.tsx:388
+#: src/index.tsx:398
 msgid "Hide Detail Pane"
 msgstr "Masquer le panneau détail"
 
@@ -146,7 +151,7 @@ msgstr "Erreur d'installation"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "ID invalide (32 lettres minuscules attendues)"
 
-#: src/index.tsx:329
+#: src/index.tsx:339
 msgid "Jump to Next Agent Alert"
 msgstr "Sauter vers la prochaine alerte"
 
@@ -163,7 +168,7 @@ msgstr "à l’instant"
 msgid "Last activity"
 msgstr "Dernière activité"
 
-#: src/index.tsx:313
+#: src/index.tsx:323
 msgid "Navigation"
 msgstr "Navigation"
 
@@ -176,25 +181,25 @@ msgid "Open editors"
 msgstr "Éditeurs ouverts"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:367
+#: src/index.tsx:377
 msgid "Open in {0}"
 msgstr "Ouvrir dans {0}"
 
-#: src/index.tsx:379
+#: src/index.tsx:389
 msgid "Open in Terminal"
 msgstr "Ouvrir dans le Terminal"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:342
+#: src/index.tsx:352
 msgid "Open Latest PR (#{0})"
 msgstr "Ouvrir la dernière PR (#{0})"
 
-#: src/index.tsx:350
+#: src/index.tsx:360
 msgid "Open Repository on GitHub"
 msgstr "Ouvrir le dépôt sur GitHub"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:374
+#: src/index.tsx:384
 msgid "Opened in {0}"
 msgstr "Ouvert dans {0}"
 
@@ -234,7 +239,7 @@ msgstr "Enregistrer et reconnecter"
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Rechercher un dépôt, une branche, un agent ou un éditeur..."
 
-#: src/index.tsx:388
+#: src/index.tsx:398
 msgid "Show Detail Pane"
 msgstr "Afficher le panneau détail"
 
@@ -244,7 +249,7 @@ msgstr "Démarrage moteur ContextBraid..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:315
+#: src/index.tsx:325
 msgid "Switch to {0} ({1})"
 msgstr "Basculer vers {0} ({1})"
 
@@ -252,7 +257,7 @@ msgstr "Basculer vers {0} ({1})"
 msgid "Working"
 msgstr "En cours"
 
-#: src/index.tsx:365
+#: src/index.tsx:375
 msgid "Workspace"
 msgstr "Espace de travail"
 

@@ -248,8 +248,9 @@ export default function Command() {
                   : '';
 
                 const commits30d = (proj.commit_sparkline ?? []).reduce((a, b) => a + b, 0);
+                const formattedCommits = commits30d.toLocaleString('en-US');
                 const chartImage = proj.sparkline_png_path ? `![](file://${proj.sparkline_png_path})` : '';
-                const latestPr = proj.recent_prs && proj.recent_prs.length > 0 ? proj.recent_prs[0] : null;
+                const latestPr = proj.recent_prs?.at(0) ?? null;
 
                 const gitStatusLabel =
                   proj.dirty_files > 0
@@ -258,34 +259,43 @@ export default function Command() {
 
                 const summaryPillLine = [
                   proj.git_branch ? `\`⎇ ${proj.git_branch}\`` : '',
-                  gitStatusLabel,
-                  commits30d > 0 ? t`${commits30d} commits / 30d` : '',
-                  bBadge.label,
-                  `**${meta.label}**${age ? ` *(${age})*` : ''}`,
-                  tab.incognito ? `_${t`Private`}_` : '',
+                  `\`${gitStatusLabel}\``,
+                  `\`${bBadge.label}\``,
+                  `**${meta.label}**${age ? ` · ${age}` : ''}`,
+                  tab.incognito ? `\`${t`Private`}\`` : '',
                 ]
                   .filter(Boolean)
-                  .join(' · ');
+                  .join('  ');
 
                 const prsBlock =
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
                         `**${t`Recently Merged PRs`}**`,
                         ...proj.recent_prs.slice(0, 2).map((pr) => {
-                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 50);
-                          const display = pr.title.length > 50 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
-                          return pr.url ? `- [#${pr.number}](${pr.url}) ${display}` : `- \`#${pr.number}\` ${display}`;
+                          const shortPrTitle = extractCleanIntent(pr.title, '', false).slice(0, 52);
+                          const display = pr.title.length > 52 ? `${shortPrTitle.trimEnd()}…` : shortPrTitle;
+                          return `- \`#${pr.number}\` ${display}`;
                         }),
                       ].join('\n')
                     : '';
 
+                const velocitySection = chartImage
+                  ? [
+                      commits30d > 0
+                        ? `**${t`30-Day Activity`}** *(${t`${formattedCommits} commits`})*`
+                        : `**${t`30-Day Activity`}**`,
+                      chartImage,
+                    ].join('\n\n')
+                  : '';
+
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   summaryPillLine,
+                  '---',
                   activeContextLine,
                   gitHeadline,
                   prsBlock,
-                  chartImage,
+                  velocitySection,
                 ]
                   .filter(Boolean)
                   .join('\n\n');
