@@ -1,10 +1,110 @@
+use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;
 
+fn blend_pixel(buf: &mut [u8], w: usize, h: usize, x: i32, y: i32, r: u8, g: u8, b: u8, alpha: f32) {
+    if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 || alpha <= 0.001 {
+        return;
+    }
+    let idx = ((y as usize) * w + (x as usize)) * 4;
+    let src_a = alpha.clamp(0.0, 1.0);
+    let dst_a = buf[idx + 3] as f32 / 255.0;
+    let out_a = src_a + dst_a * (1.0 - src_a);
+    if out_a <= 0.0001 {
+        return;
+    }
+    let blend = |src_c: u8, dst_c: u8| -> u8 {
+        let sc = src_c as f32 / 255.0;
+        let dc = dst_c as f32 / 255.0;
+        let oc = (sc * src_a + dc * dst_a * (1.0 - src_a)) / out_a;
+        (oc * 255.0).round().clamp(0.0, 255.0) as u8
+    };
+    buf[idx] = blend(r, buf[idx]);
+    buf[idx + 1] = blend(g, buf[idx + 1]);
+    buf[idx + 2] = blend(b, buf[idx + 2]);
+    buf[idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
+}
+
+fn draw_disc_aa(buf: &mut [u8], w: usize, h: usize, cx: f32, cy: f32, radius: f32, r: u8, g: u8, b: u8, alpha: f32) {
+    let min_x = (cx - radius - 1.5).floor() as i32;
+    let max_x = (cx + radius + 1.5).ceil() as i32;
+    let min_y = (cy - radius - 1.5).floor() as i32;
+    let max_y = (cy + radius + 1.5).ceil() as i32;
+    for py in min_y..=max_y {
+        for px in min_x..=max_x {
+            let dx = px as f32 + 0.5 - cx;
+            let dy = py as f32 + 0.5 - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let cov = (radius + 0.6 - dist).clamp(0.0, 1.0);
+            if cov > 0.0 {
+                blend_pixel(buf, w, h, px, py, r, g, b, alpha * cov);
+            }
+        }
+    }
+}
+
+fn draw_segment_aa(
+    buf: &mut [u8],
+    w: usize,
+    h: usize,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+    thickness: f32,
+    r: u8,
+    g: u8,
+    b: u8,
+    alpha: f32,
+) {
+    let min_x = x0.min(x1).floor() as i32 - 3;
+    let max_x = x0.max(x1).ceil() as i32 + 3;
+    let min_y = y0.min(y1).floor() as i32 - 3;
+    let max_y = y0.max(y1).ceil() as i32 + 3;
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    let len_sq = (dx * dx + dy * dy).max(1e-6);
+    let half_w = thickness * 0.5;
+
+    for py in min_y..=max_y {
+        for px in min_x..=max_x {
+            let cx = px as f32 + 0.5;
+            let cy = py as f32 + 0.5;
+            let t = (((cx - x0) * dx + (cy - y0) * dy) / len_sq).clamp(0.0, 1.0);
+            let proj_x = x0 + t * dx;
+            let proj_y = y0 + t * dy;
+            let dist = ((cx - proj_x).powi(2) + (cy - proj_y).powi(2)).sqrt();
+            let cov = (half_w + 0.7 - dist).clamp(0.0, 1.0);
+            if cov > 0.0 {
+                blend_pixel(buf, w, h, px, py, r, g, b, alpha * cov);
+            }
+        }
+    }
+}
+
+fn catmull_rom(p0: f32, p1: f32, p2: f32, p3: f32, t: f32) -> f32 {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    0.5 * ((2.0 * p1)
+        + (-p0 + p2) * t
+        + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2
+        + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
+}
+
+fn adler32(data: &[u8]) -> u32 {
+    let mut a: u32 = 1;
+    let mut b: u32 = 0;
+    for &byte in data {
+        a = (a + byte as u32) % 65521;
+        b = (b + a) % 65521;
+    }
+    (b << 16) | a
+}
+
 fn crc32(data: &[u8]) -> u32 {
     let mut crc: u32 = 0xFFFF_FFFF;
-    for &b in data {
-        crc ^= b as u32;
+    for &byte in data {
+        crc ^= byte as u32;
         for _ in 0..8 {
             crc = if (crc & 1) != 0 {
                 (crc >> 1) ^ 0xEDB8_8320
@@ -16,56 +116,7 @@ fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
-fn adler32(data: &[u8]) -> u32 {
-    let mut s1: u32 = 1;
-    let mut s2: u32 = 0;
-    for &b in data {
-        s1 = (s1 + b as u32) % 65521;
-        s2 = (s2 + s1) % 65521;
-    }
-    (s2 << 16) | s1
-}
-
-fn encode_rgba_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity((width * height * 4 + 1024) as usize);
-    out.extend_from_slice(&[137, 80, 78, 71, 13, 10, 26, 10]);
-
-    let mut ihdr = Vec::with_capacity(13);
-    ihdr.extend_from_slice(&width.to_be_bytes());
-    ihdr.extend_from_slice(&height.to_be_bytes());
-    ihdr.push(8); // bit depth
-    ihdr.push(6); // RGBA
-    ihdr.extend_from_slice(&[0, 0, 0]);
-    write_chunk(&mut out, b"IHDR", &ihdr);
-
-    // Raw uncompressed deflate blocks (fast & zero-dependency)
-    let row_bytes = (width * 4 + 1) as usize;
-    let mut raw = Vec::with_capacity(row_bytes * height as usize);
-    for y in 0..height as usize {
-        raw.push(0); // filter None
-        let start = y * (width as usize * 4);
-        raw.extend_from_slice(&rgba[start..start + (width as usize * 4)]);
-    }
-
-    let mut zlib = Vec::with_capacity(raw.len() + 64);
-    zlib.extend_from_slice(&[0x78, 0x01]);
-    let mut pos = 0;
-    while pos < raw.len() {
-        let len = (raw.len() - pos).min(65535);
-        let is_last = if pos + len == raw.len() { 1u8 } else { 0u8 };
-        zlib.push(is_last);
-        zlib.extend_from_slice(&(len as u16).to_le_bytes());
-        zlib.extend_from_slice(&(!(len as u16)).to_le_bytes());
-        zlib.extend_from_slice(&raw[pos..pos + len]);
-        pos += len;
-    }
-    zlib.extend_from_slice(&adler32(&raw).to_be_bytes());
-    write_chunk(&mut out, b"IDAT", &zlib);
-    write_chunk(&mut out, b"IEND", &[]);
-    out
-}
-
-fn write_chunk(out: &mut Vec<u8>, tag: &[u8; 4], data: &[u8]) {
+fn write_png_chunk(out: &mut Vec<u8>, tag: &[u8; 4], data: &[u8]) {
     out.extend_from_slice(&(data.len() as u32).to_be_bytes());
     out.extend_from_slice(tag);
     out.extend_from_slice(data);
@@ -75,166 +126,155 @@ fn write_chunk(out: &mut Vec<u8>, tag: &[u8; 4], data: &[u8]) {
     out.extend_from_slice(&crc32(&crc_buf).to_be_bytes());
 }
 
-fn blend_px(buf: &mut [u8], w: u32, h: u32, x: i32, y: i32, r: u8, g: u8, b: u8, a: f32) {
-    if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 || a <= 0.0 {
-        return;
+fn write_rgba_png(path: &PathBuf, w: u32, h: u32, rgba: &[u8]) -> Result<()> {
+    let stride = (w as usize) * 4;
+    let mut raw = Vec::with_capacity((stride + 1) * (h as usize));
+    for y in 0..(h as usize) {
+        raw.push(0);
+        raw.extend_from_slice(&rgba[y * stride..(y + 1) * stride]);
     }
-    let idx = ((y as u32 * w + x as u32) * 4) as usize;
-    let src_a = a.clamp(0.0, 1.0);
-    let dst_a = buf[idx + 3] as f32 / 255.0;
-    let out_a = src_a + dst_a * (1.0 - src_a);
-    if out_a <= 0.0 {
-        return;
-    }
-    let blend = |s: u8, d: u8| -> u8 {
-        (((s as f32 * src_a) + (d as f32 * dst_a * (1.0 - src_a))) / out_a)
-            .round()
-            .clamp(0.0, 255.0) as u8
-    };
-    buf[idx] = blend(r, buf[idx]);
-    buf[idx + 1] = blend(g, buf[idx + 1]);
-    buf[idx + 2] = blend(b, buf[idx + 2]);
-    buf[idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-}
 
-fn draw_circle_aa(buf: &mut [u8], w: u32, h: u32, cx: f32, cy: f32, radius: f32, col: (u8, u8, u8), alpha: f32) {
-    let min_x = (cx - radius - 2.0).floor() as i32;
-    let max_x = (cx + radius + 2.0).ceil() as i32;
-    let min_y = (cy - radius - 2.0).floor() as i32;
-    let max_y = (cy + radius + 2.0).ceil() as i32;
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let dx = x as f32 + 0.5 - cx;
-            let dy = y as f32 + 0.5 - cy;
-            let dist = (dx * dx + dy * dy).sqrt();
-            let cov = (radius + 0.75 - dist).clamp(0.0, 1.0);
-            if cov > 0.0 {
-                blend_px(buf, w, h, x, y, col.0, col.1, col.2, alpha * cov);
-            }
-        }
+    let mut zlib = Vec::with_capacity(raw.len() + 64);
+    zlib.push(0x78);
+    zlib.push(0x01);
+    let mut pos = 0;
+    while pos < raw.len() {
+        let chunk_len = (raw.len() - pos).min(65535);
+        let is_final = if pos + chunk_len == raw.len() { 1u8 } else { 0u8 };
+        zlib.push(is_final);
+        let len_u16 = chunk_len as u16;
+        zlib.extend_from_slice(&len_u16.to_le_bytes());
+        zlib.extend_from_slice(&(!len_u16).to_le_bytes());
+        zlib.extend_from_slice(&raw[pos..pos + chunk_len]);
+        pos += chunk_len;
     }
-}
+    zlib.extend_from_slice(&adler32(&raw).to_be_bytes());
 
-fn draw_segment_aa(buf: &mut [u8], w: u32, h: u32, x0: f32, y0: f32, x1: f32, y1: f32, thickness: f32, col: (u8, u8, u8), alpha: f32) {
-    let min_x = x0.min(x1).floor() as i32 - 4;
-    let max_x = x0.max(x1).ceil() as i32 + 4;
-    let min_y = y0.min(y1).floor() as i32 - 4;
-    let max_y = y0.max(y1).ceil() as i32 + 4;
-    let vx = x1 - x0;
-    let vy = y1 - y0;
-    let len_sq = vx * vx + vy * vy;
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let px = x as f32 + 0.5;
-            let py = y as f32 + 0.5;
-            let t = if len_sq > 0.0 {
-                (((px - x0) * vx + (py - y0) * vy) / len_sq).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let proj_x = x0 + t * vx;
-            let proj_y = y0 + t * vy;
-            let dist = ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt();
-            let cov = (thickness * 0.5 + 0.8 - dist).clamp(0.0, 1.0);
-            if cov > 0.0 {
-                blend_px(buf, w, h, x, y, col.0, col.1, col.2, alpha * cov);
-            }
-        }
-    }
+    let mut png = Vec::with_capacity(zlib.len() + 64);
+    png.extend_from_slice(&[137, 80, 78, 71, 13, 10, 26, 10]);
+    let mut ihdr = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&w.to_be_bytes());
+    ihdr.extend_from_slice(&h.to_be_bytes());
+    ihdr.push(8);
+    ihdr.push(6);
+    ihdr.push(0);
+    ihdr.push(0);
+    ihdr.push(0);
+    write_png_chunk(&mut png, b"IHDR", &ihdr);
+    write_png_chunk(&mut png, b"IDAT", &zlib);
+    write_png_chunk(&mut png, b"IEND", &[]);
+
+    fs::write(path, png)?;
+    Ok(())
 }
 
 pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u8, u8)) -> Option<String> {
     let dir = PathBuf::from("/tmp/contextbraid-charts");
     fs::create_dir_all(&dir).ok()?;
 
-    let w: u32 = 720;
-    let h: u32 = 152;
-    let mut buf = vec![0u8; (w * h * 4) as usize];
-
-    // Subtle rounded card background & horizontal grid lines
-    for y in 4..(h - 4) {
-        for x in 4..(w - 4) {
-            blend_px(&mut buf, w, h, x as i32, y as i32, 130, 140, 160, 0.07);
-        }
-    }
-    for grid_y in [34, 76, 118] {
-        for x in (20..(w - 20)).step_by(8) {
-            for dx in 0..4 {
-                blend_px(&mut buf, w, h, (x + dx) as i32, grid_y, 140, 150, 170, 0.16);
-            }
-        }
-    }
-
-    let data: Vec<u32> = if counts.len() == 14 {
-        counts.to_vec()
-    } else {
-        vec![0; 14]
-    };
-    let max_val = (*data.iter().max().unwrap_or(&1)).max(1) as f32;
-
-    let pad_x = 28.0_f32;
-    let pad_top = 24.0_f32;
-    let pad_bot = 126.0_f32;
-    let plot_w = w as f32 - pad_x * 2.0;
-    let plot_h = pad_bot - pad_top;
-
-    let pts: Vec<(f32, f32, u32)> = data
-        .iter()
-        .enumerate()
-        .map(|(i, &v)| {
-            let x = pad_x + (i as f32 / 13.0) * plot_w;
-            let y = pad_bot - (v as f32 / max_val) * plot_h;
-            (x, y, v)
-        })
-        .collect();
-
-    // Sample smooth cubic Hermite / cosine curve across all X columns for area gradient + crisp curve
-    let steps = 280usize;
-    let mut curve_pts = Vec::with_capacity(steps + 1);
-    for s in 0..=steps {
-        let u = (s as f32 / steps as f32) * 13.0;
-        let idx = (u.floor() as usize).min(12);
-        let frac = u - idx as f32;
-        let mu = (1.0 - (frac * std::f32::consts::PI).cos()) * 0.5;
-        let x = pts[idx].0 + frac * (pts[idx + 1].0 - pts[idx].0);
-        let y = pts[idx].1 * (1.0 - mu) + pts[idx + 1].1 * mu;
-        curve_pts.push((x, y));
-    }
-
-    // Vertical translucent gradient fill under the curve
-    for &(cx, cy) in &curve_pts {
-        let xi = cx.round() as i32;
-        let y_start = cy.ceil() as i32;
-        let y_end = pad_bot.round() as i32;
-        for yi in y_start..=y_end {
-            let t = 1.0 - ((yi as f32 - cy) / (pad_bot - cy + 1.0)).clamp(0.0, 1.0);
-            blend_px(&mut buf, w, h, xi, yi, accent.0, accent.1, accent.2, 0.24 * t * t);
-        }
-    }
-
-    // Crisp anti-aliased curve segments
-    for win in curve_pts.windows(2) {
-        draw_segment_aa(&mut buf, w, h, win[0].0, win[0].1, win[1].0, win[1].1, 4.4, accent, 0.96);
-    }
-
-    // Nodes on active commit days + glowing beacon on latest day
-    for &(px, py, v) in &pts {
-        if v > 0 {
-            draw_circle_aa(&mut buf, w, h, px, py, 6.5, accent, 0.25);
-            draw_circle_aa(&mut buf, w, h, px, py, 4.2, accent, 1.0);
-        }
-    }
-    if let Some(&(lx, ly, _)) = pts.last() {
-        draw_circle_aa(&mut buf, w, h, lx, ly, 9.5, accent, 0.24);
-        draw_circle_aa(&mut buf, w, h, lx, ly, 5.0, accent, 1.0);
-    }
-
-    let png_bytes = encode_rgba_png(w, h, &buf);
     let safe_name: String = repo_name
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect();
     let out_path = dir.join(format!("{}.png", safe_name));
-    fs::write(&out_path, png_bytes).ok()?;
+
+    // 2x Retina canvas with 100% transparent background (RGBA = 0,0,0,0)
+    let w: usize = 720;
+    let h: usize = 152;
+    let mut buf = vec![0u8; w * h * 4];
+
+    let data: Vec<f32> = if counts.is_empty() {
+        vec![0.0; 30]
+    } else {
+        counts.iter().map(|&v| v as f32).collect()
+    };
+    let max_val = data.iter().cloned().fold(1.0_f32, f32::max);
+
+    let pad_x = 12.0_f32;
+    let pad_top = 18.0_f32;
+    let pad_bot = 16.0_f32;
+    let plot_w = w as f32 - pad_x * 2.0;
+    let plot_h = h as f32 - pad_top - pad_bot;
+    let base_y = h as f32 - pad_bot;
+
+    // Subtle hairline reference rules (mid + baseline)
+    for &ratio in &[0.0_f32, 0.5_f32] {
+        let gy = (base_y - ratio * plot_h).round() as i32;
+        for gx in (pad_x as i32)..((w as f32 - pad_x) as i32) {
+            if (gx / 6) % 2 == 0 {
+                blend_pixel(&mut buf, w, h, gx, gy, 142, 142, 147, 0.16);
+            }
+        }
+    }
+
+    let n = data.len();
+    let anchors: Vec<(f32, f32)> = data
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| {
+            let x = pad_x + (i as f32 / (n.saturating_sub(1).max(1) as f32)) * plot_w;
+            let norm = (v / max_val).sqrt();
+            let y = base_y - norm * plot_h;
+            (x, y)
+        })
+        .collect();
+
+    // High-density Catmull-Rom curve points
+    let mut curve: Vec<(f32, f32)> = Vec::with_capacity(n * 16);
+    for i in 0..n.saturating_sub(1) {
+        let p0 = anchors[i.saturating_sub(1)];
+        let p1 = anchors[i];
+        let p2 = anchors[i + 1];
+        let p3 = anchors[(i + 2).min(n - 1)];
+        let steps = 16;
+        for s in 0..=steps {
+            if i > 0 && s == 0 {
+                continue;
+            }
+            let t = s as f32 / steps as f32;
+            let cx = p1.0 + (p2.0 - p1.0) * t;
+            let cy = catmull_rom(p0.1, p1.1, p2.1, p3.1, t).clamp(pad_top - 2.0, base_y);
+            curve.push((cx, cy));
+        }
+    }
+
+    let (ar, ag, ab) = accent;
+
+    // Silky vertical gradient fill beneath curve
+    for win in curve.windows(2) {
+        let (x0, y0) = win[0];
+        let (x1, y1) = win[1];
+        let ix0 = x0.floor() as i32;
+        let ix1 = x1.ceil() as i32;
+        for px in ix0..=ix1 {
+            let t = if (x1 - x0).abs() < 1e-4 {
+                0.0
+            } else {
+                ((px as f32 - x0) / (x1 - x0)).clamp(0.0, 1.0)
+            };
+            let cy = y0 + t * (y1 - y0);
+            let start_y = cy.ceil() as i32;
+            let end_y = base_y as i32;
+            let span = (end_y - start_y).max(1) as f32;
+            for py in start_y..=end_y {
+                let rel: f32 = 1.0 - ((py - start_y) as f32 / span);
+                let fill_alpha = 0.22 * rel.powf(1.6);
+                blend_pixel(&mut buf, w, h, px, py, ar, ag, ab, fill_alpha);
+            }
+        }
+    }
+
+    // Refined 2.2px Retina anti-aliased stroke
+    for win in curve.windows(2) {
+        draw_segment_aa(&mut buf, w, h, win[0].0, win[0].1, win[1].0, win[1].1, 2.2, ar, ag, ab, 0.92);
+    }
+
+    // Minimalist live indicator on today's endpoint only
+    if let Some(&(lx, ly)) = anchors.last() {
+        draw_disc_aa(&mut buf, w, h, lx, ly, 7.5, ar, ag, ab, 0.16);
+        draw_disc_aa(&mut buf, w, h, lx, ly, 3.2, ar, ag, ab, 1.0);
+    }
+
+    write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
     Some(out_path.to_string_lossy().into_owned())
 }

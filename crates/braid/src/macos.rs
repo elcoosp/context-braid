@@ -379,7 +379,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             commit_sha: String::new(),
             commit_msg: String::new(),
             commit_ts: 0,
-            sparkline: vec![0; 14],
+            sparkline: vec![0; 30],
             sparkline_png_path: String::new(),
         };
     };
@@ -399,7 +399,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     let mut commit_sha = String::new();
     let mut commit_msg = String::new();
     let mut commit_ts: i64 = 0;
-    let mut sparkline = vec![0u32; 14];
+    let mut sparkline = vec![0u32; 30];
 
     if let Ok(head_commit) = repo.head_commit() {
         commit_sha = head_commit.id().to_hex_with_len(7).to_string();
@@ -414,21 +414,21 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(commit_ts);
-        let cutoff = now_sec - 14 * 86_400;
+        let cutoff = now_sec - 30 * 86_400;
 
         if let Ok(walk) = repo
             .rev_walk([head_commit.id()])
             .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
             .all()
         {
-            for info in walk.flatten().take(500) {
+            for info in walk.flatten().take(3000) {
                 let Some(ts) = info.commit_time else { continue; };
                 if ts < cutoff {
                     break;
                 }
                 let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
-                if age_days < 14 {
-                    let bucket = 13 - age_days;
+                if age_days < 30 {
+                    let bucket = 29 - age_days;
                     sparkline[bucket] = sparkline[bucket].saturating_add(1);
                 }
             }
