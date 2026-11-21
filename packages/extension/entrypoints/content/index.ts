@@ -34,7 +34,7 @@ export default defineContentScript({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const browserName = detectBrowserName();
 
-    const observer = new MutationObserver(() => scheduleCheck());
+    const observer = new MutationObserver(() => { if (Date.now() - bootedAt >= 2500) scheduleCheck(); });
 
     const evaluateAndSend = (force = false) => {
       if (!isContextValid()) {
@@ -108,7 +108,15 @@ export default defineContentScript({
       }, 900);
     };
 
-    evaluateAndSend(true);
+    const bootedAt = Date.now();
+    const safeEvaluate = (force = false) => {
+      const state = extractPageState(document);
+      // Ignore les squelettes transitoires de chargement initial (< 2.5s après montage)
+      if (state.status === 'working' && Date.now() - bootedAt < 2500) return;
+      evaluateAndSend(force);
+    };
+
+    setTimeout(() => safeEvaluate(true), 2600);
     document.addEventListener('visibilitychange', onVisibilityChange);
     browser.runtime.onMessage.addListener(onRuntimeMessage);
 
