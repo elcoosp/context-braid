@@ -1,3 +1,4 @@
+const APP_ICON_PNG: &[u8] = include_bytes!("../../../packages/extension/public/icon/128.png");
 use anyhow::{Context, Result};
 use std::collections::BTreeSet;
 use std::fs;

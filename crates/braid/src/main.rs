@@ -216,7 +216,7 @@ IpcMessage::SyncTabs { tabs, .. } => {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                                 .unwrap_or_else(|| "Workspace".into());
-                            macos::notify_agent_alert(&repo_label, &t.browser, &t.title);
+                            macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &t.title);
                         }
                     } else {
                         st.notified_alerts.remove(&key);

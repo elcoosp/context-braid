@@ -611,19 +611,49 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     }
 }
 
-pub fn notify_agent_alert(repo_name: &str, browser: &str, title: &str) {
-    let clean_title = if title.trim().is_empty() {
-        "Agent needs attention"
+pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id: i64, title: &str) {
+    let repo = repo_name.to_string();
+    let br = browser.to_string();
+    let msg = if title.trim().is_empty() {
+        "Agent needs attention".to_string()
     } else {
-        title.trim()
+        title.trim().to_string()
     };
-    let script = format!(
-        "display notification {:?} with title {:?} subtitle {:?} sound name \"Glass\"",
-        clean_title,
-        format!("ContextBraid • {}", repo_name),
-        format!("Alerte sur {}", browser),
-    );
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", &script])
-        .spawn();
+
+    std::thread::spawn(move || {
+        use mac_notification_sys::{Notification, NotificationResponse, Sound};
+        let _ = mac_notification_sys::set_application("com.contextbraid.app");
+
+        let resp = Notification::new()
+            .title(&format!("ContextBraid • {}", repo))
+            .subtitle(&format!("Alerte sur {}", br))
+            .message(&msg)
+            .sound(Sound::Default)
+            .main_button(mac_notification_sys::MainButton::SingleAction("Ouvrir l’onglet"))
+            .wait_for_click(true)
+            .send();
+
+        if matches!(
+            resp,
+            Ok(NotificationResponse::Click) | Ok(NotificationResponse::ActionButton(_))
+        ) {
+            activate_browser_app(&br);
+            if let Ok(config) = braid_core::BraidConfig::load_or_default() {
+                if let Ok(mut stream) = std::os::unix::net::UnixStream::connect(&config.daemon.socket_path) {
+                    use std::io::Write;
+                    let req = serde_json::json!({
+                        "type": "focus_target",
+                        "browser": br,
+                        "window_id": window_id,
+                        "tab_id": tab_id,
+                    });
+                    if let Ok(line) = serde_json::to_string(&req) {
+                        let _ = stream.write_all(line.as_bytes());
+                        let _ = stream.write_all(b"\n");
+                        let _ = stream.flush();
+                    }
+                }
+            }
+        }
+    });
 }
