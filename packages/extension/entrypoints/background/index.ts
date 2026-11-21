@@ -87,11 +87,16 @@ export default defineBackground(() => {
 
   const flushTabs = () => {
     if (tabCache.size === 0) return;
+    const now = Date.now();
+    const freshTabs = Array.from(tabCache.values()).map((t) => ({
+      ...t,
+      updated_at_ms: now,
+    }));
     try {
       ensurePort().postMessage({
         type: 'sync_tabs',
         browser: browserName,
-        tabs: Array.from(tabCache.values()),
+        tabs: freshTabs,
       });
     } catch {
       port = null;

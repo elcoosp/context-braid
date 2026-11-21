@@ -53,7 +53,7 @@ impl DaemonState {
     }
 
     fn build_dashboard(&mut self) -> Result<Vec<ProjectWorkspace>> {
-        let cutoff = now_ms().saturating_sub(25_000);
+        let cutoff = now_ms().saturating_sub(180_000);
         self.tabs.retain(|_, (_, ts)| *ts >= cutoff);
 
         let root = self.config.resolved_repos_root();
@@ -248,6 +248,14 @@ IpcMessage::SyncTabs { tabs, .. } => {
                 let root = st.config.resolved_repos_root();
                 let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
                 for t in tabs {
+                    tracing::info!(
+                        browser = %t.browser,
+                        win = t.window_id,
+                        tab = t.tab_id,
+                        status = ?t.status,
+                        title = %t.title,
+                        "DIAG_SYNC_TAB"
+                    );
                     let key = (t.browser.clone(), t.window_id, t.tab_id);
                     let alert_kind = match t.status {
                         AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
@@ -444,6 +452,19 @@ IpcMessage::CycleProject { repo_name } => {
                         "CYCLE_PROJECT_DISPATCH"
                     );
                     st.focus_tab(&target)?;
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::DiagLog { source, tab_id, detail } => {
+                use std::io::Write;
+                let line = format!("[{}] [{}] tab={} {}", now_ms(), source, tab_id, detail);
+                tracing::info!("{}", line);
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/braid-zai-live-zip.log")
+                {
+                    let _ = writeln!(f, "{}", line);
                 }
                 IpcMessage::Ack
             }
