@@ -18,3 +18,7 @@ test-results/
 # Compiled Lingui catalogs & SWC staging
 src/locales/**/*.ts
 .src-backup/
+.swc/
+packages/raycast/src/locales/**/*.ts
+.swc/
+packages/raycast/src/locales/**/*.ts
