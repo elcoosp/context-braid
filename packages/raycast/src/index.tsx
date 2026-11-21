@@ -31,6 +31,12 @@ function detectRole(tab: TabContext, favoriteEditor: string): { name: string; ic
     return { name: 'Google AI', icon: BRAND_ICONS.gemini };
   }
   if (host.endsWith('deepseek.com')) return { name: 'DeepSeek', icon: BRAND_ICONS.deepseek };
+  if (host.endsWith('claude.ai')) return { name: 'Claude', icon: Icon.Stars };
+  if (host.endsWith('chatgpt.com') || host.endsWith('://openai.com')) return { name: 'ChatGPT', icon: Icon.Bubble };
+  if (host.endsWith('perplexity.ai')) return { name: 'Perplexity', icon: Icon.MagnifyingGlass };
+  if (host.endsWith('mistral.ai')) return { name: 'Mistral', icon: Icon.Bolt };
+  if (host.endsWith('v0.dev') || host.endsWith('v0.app')) return { name: 'v0', icon: Icon.AppWindow };
+  if (host === 'github.com' && pathname.startsWith('/copilot')) return { name: 'Copilot', icon: Icon.Code };
   return { name: 'Web', icon: BRAND_ICONS.browser };
 }
 
@@ -40,7 +46,7 @@ function extractCleanIntent(rawTitle: string, repoName: string, isGoogleAi: bool
     .replace(/\s*\|\s*Z\.ai.*$/i, '')
     .replace(/\s*-\s*Qwen.*$/i, '')
     .replace(/\s*-\s*Google Gemini.*$/i, '')
-    .replace(/\s*-\s*(Recherche Google|Google Search).*$/i, '')
+    .replace(/\s*-\s*(Recherche Google|Google Search|Claude|ChatGPT|Perplexity|Le Chat|Mistral).*$/i, '')
     .trim();
 
   if (isGoogleAi) {
@@ -254,12 +260,13 @@ export default function Command() {
                       ].join('\n')
                     : '';
 
+                const commits30d = (proj.commit_sparkline ?? []).reduce((a, b) => a + b, 0);
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   activeContextLine,
                   gitHeadline,
-                  chartImage,
                   prsBlock,
+                  chartImage,
                 ]
                   .filter(Boolean)
                   .join('\n\n');

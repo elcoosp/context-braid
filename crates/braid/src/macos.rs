@@ -287,6 +287,45 @@ fn list_zed_active_session_paths(repos_root: &Path) -> Vec<PathBuf> {
     out
 }
 
+fn list_vscode_family_windows(repos_root: &Path, app_folder: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let Some(home) = dirs::home_dir() else {
+        return out;
+    };
+    let storage_path = home
+        .join("Library/Application Support")
+        .join(app_folder)
+        .join("User/globalStorage/storage.json");
+    let Ok(raw) = std::fs::read_to_string(&storage_path) else {
+        return out;
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return out;
+    };
+    let Some(opened) = val
+        .pointer("/windowsState/openedWindows")
+        .and_then(|v| v.as_array())
+    else {
+        return out;
+    };
+    for win in opened {
+        let Some(folder_uri) = win.get("folder").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        if let Some(raw_path) = folder_uri.strip_prefix("file://") {
+            let decoded = raw_path.replace("%20", " ");
+            let p = Path::new(&decoded);
+            if p.starts_with(repos_root) && p != repos_root {
+                let pb = p.to_path_buf();
+                if !out.contains(&pb) {
+                    out.push(pb);
+                }
+            }
+        }
+    }
+    out
+}
+
 pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     let spec = resolve_editor_spec(favorite);
     let pids = running_pids_for_bundle(spec.bundle_id);
@@ -294,8 +333,12 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
         return Vec::new();
     }
 
-    if spec.id == "zed" {
-        return list_zed_active_session_paths(repos_root);
+    match spec.id {
+        "zed" => return list_zed_active_session_paths(repos_root),
+        "cursor" => return list_vscode_family_windows(repos_root, "Cursor"),
+        "vscode" => return list_vscode_family_windows(repos_root, "Code"),
+        "windsurf" => return list_vscode_family_windows(repos_root, "Windsurf"),
+        _ => {}
     }
 
     // Fallback via CoreGraphics window titles for other editors
