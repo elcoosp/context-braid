@@ -662,25 +662,7 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
         "display notification {:?} with title {:?} subtitle {:?}",
         msg, full_title, subtitle
     );
-
-    let uid = std::process::Command::new("id")
-        .arg("-u")
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
-
-    let launched = if !uid.is_empty() {
-        std::process::Command::new("launchctl")
-            .args(["asuser", &uid, "/usr/bin/osascript", "-e", &script])
-            .spawn()
-            .is_ok()
-    } else {
-        false
-    };
-
-    if !launched {
-        let _ = std::process::Command::new("/usr/bin/osascript")
-            .args(["-e", &script])
-            .spawn();
-    }
+    let _ = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .spawn();
 }
