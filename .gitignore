@@ -1,0 +1,14 @@
+# Build outputs & caches
+target/
+dist/
+.output/
+.wxt/
+node_modules/
+*.tsbuildinfo
+
+# OS & editor artifacts
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
