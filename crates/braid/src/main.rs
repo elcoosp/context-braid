@@ -389,6 +389,16 @@ Some("host") => {
 host::run_host_entry();
 Ok(())
 }
+Some("notify") => {
+let repo = args.get(2).map(|s| s.as_str()).unwrap_or("ContextBraid");
+let subtitle = args.get(3).map(|s| s.as_str()).unwrap_or("Agent Alert");
+let message = args.get(4).map(|s| s.as_str()).unwrap_or("");
+let browser = args.get(5).map(|s| s.as_str()).unwrap_or("Brave");
+let window_id: i64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(0);
+let tab_id: i64 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(0);
+macos::deliver_gui_notification(repo, subtitle, message, browser, window_id, tab_id);
+Ok(())
+}
 Some("install") => {
 let extra: Vec<String> = args.iter().skip(2).cloned().collect();
 installer::install_self(&extra)
