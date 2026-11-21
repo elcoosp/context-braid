@@ -361,7 +361,7 @@ pub fn activate_browser_app(browser: &str) {
     }
 }
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
 
 #[derive(Clone)]
@@ -376,45 +376,59 @@ pub struct GitRepoMeta {
     pub recent_prs: Vec<braid_core::ipc::MergedPr>,
 }
 
-fn github_base_url_from_remote(raw: &str) -> Option<String> {
-    let trimmed = raw.trim().trim_end_matches(".git");
-    if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
-        return Some(format!("https://github.com{}", rest));
-    }
-    if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
-        return Some(format!("https://github.com{}", rest));
-    }
-    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://://github.com") {
-        return Some(trimmed.replace("http://", "https://"));
-    }
-    None
+fn sparkline_cache() -> &'static Mutex<HashMap<String, (String, i64, Vec<u32>)>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, (String, i64, Vec<u32>)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn parse_pr_from_summary(summary: &str) -> Option<(u64, String)> {
-    if let Some(rest) = summary.strip_prefix("Merge pull request #") {
-        let num_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-        if let Ok(num) = num_str.parse::<u64>() {
-            return Some((num, format!("Merge PR #{}", num)));
+fn pr_cache() -> &'static Mutex<HashMap<String, (String, Vec<braid_core::ipc::MergedPr>)>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, (String, Vec<braid_core::ipc::MergedPr>)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn pr_inflight() -> &'static Mutex<HashSet<String>> {
+    static INFLIGHT: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    INFLIGHT.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
+    let key = format!("{}@{}", repo_path.display(), head_sha);
+    if let Ok(mut set) = pr_inflight().lock() {
+        if !set.insert(key.clone()) {
+            return;
         }
     }
-    if let Some(open_idx) = summary.rfind("(#") {
-        let after = &summary[open_idx + 2..];
-        if let Some(close_idx) = after.find(')') {
-            let num_str = &after[..close_idx];
-            if !num_str.is_empty() && num_str.chars().all(|c| c.is_ascii_digit()) {
-                if let Ok(num) = num_str.parse::<u64>() {
-                    let clean_title = summary[..open_idx].trim().to_string();
-                    return Some((num, if clean_title.is_empty() { format!("PR #{}", num) } else { clean_title }));
+
+    std::thread::spawn(move || {
+        let mut fetched = Vec::new();
+        let gh_bin = if Path::new("/opt/homebrew/bin/gh").exists() {
+            "/opt/homebrew/bin/gh"
+        } else if Path::new("/usr/local/bin/gh").exists() {
+            "/usr/local/bin/gh"
+        } else {
+            "gh"
+        };
+
+        if let Ok(out) = std::process::Command::new(gh_bin)
+            .current_dir(&repo_path)
+            .args(["pr", "list", "--state", "merged", "--limit", "3", "--json", "number,title,url"])
+            .output()
+        {
+            if out.status.success() {
+                if let Ok(prs) = serde_json::from_slice::<Vec<braid_core::ipc::MergedPr>>(&out.stdout) {
+                    fetched = prs;
                 }
             }
         }
-    }
-    None
-}
 
-fn git_history_cache() -> &'static Mutex<HashMap<String, (String, i64, Vec<u32>, Vec<braid_core::ipc::MergedPr>)>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, (String, i64, Vec<u32>, Vec<braid_core::ipc::MergedPr>)>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+        let repo_key = repo_path.to_string_lossy().into_owned();
+        if let Ok(mut cache) = pr_cache().lock() {
+            cache.insert(repo_key, (head_sha, fetched));
+        }
+        if let Ok(mut set) = pr_inflight().lock() {
+            set.remove(&key);
+        }
+    });
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
@@ -465,25 +479,16 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         let today_bucket = now_sec / 86_400;
         let cache_key = repo_path.to_string_lossy().into_owned();
 
-        let cached = git_history_cache()
+        // 1. 30-day commit sparkline cached in O(1) by (HEAD SHA, day)
+        if let Some((_, _, cached_spark)) = sparkline_cache()
             .lock()
             .ok()
             .and_then(|g| g.get(&cache_key).cloned())
-            .filter(|(sha, day, _, _)| sha == &commit_sha && *day == today_bucket);
-
-        if let Some((_, _, cached_spark, cached_prs)) = cached {
+            .filter(|(sha, day, _)| sha == &commit_sha && *day == today_bucket)
+        {
             sparkline = cached_spark;
-            recent_prs = cached_prs;
         } else {
-            let gh_base = repo
-                .config_snapshot()
-                .string("remote.origin.url")
-                .or_else(|| repo.config_snapshot().string("remote.upstream.url"))
-                .and_then(|raw| github_base_url_from_remote(&raw.to_string()));
-
             let cutoff = now_sec - 30 * 86_400;
-            let mut seen_pr_nums = Vec::new();
-
             if let Ok(walk) = repo
                 .rev_walk([head_commit.id()])
                 .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
@@ -491,54 +496,29 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             {
                 for info in walk.flatten().take(3000) {
                     let Some(ts) = info.commit_time else { continue; };
-                    if ts >= cutoff {
-                        let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
-                        if age_days < 30 {
-                            let bucket = 29 - age_days;
-                            sparkline[bucket] = sparkline[bucket].saturating_add(1);
-                        }
-                    } else if recent_prs.len() >= 3 {
+                    if ts < cutoff {
                         break;
                     }
-
-                    if recent_prs.len() < 3 {
-                        if let Ok(obj) = info.object() {
-                            if let Ok(msg) = obj.message() {
-                                let summary = msg.summary().to_string();
-                                if let Some((pr_num, mut pr_title)) = parse_pr_from_summary(&summary) {
-                                    if !seen_pr_nums.contains(&pr_num) {
-                                        seen_pr_nums.push(pr_num);
-                                        if pr_title.starts_with("Merge PR #") {
-                                            if let Some(body_line) = msg.body.and_then(|b| {
-                                                b.to_string()
-                                                    .lines()
-                                                    .map(str::trim)
-                                                    .find(|l| !l.is_empty())
-                                                    .map(str::to_string)
-                                            }) {
-                                                pr_title = body_line;
-                                            }
-                                        }
-                                        let url = gh_base
-                                            .as_ref()
-                                            .map(|base| format!("{}/pull/{}", base, pr_num))
-                                            .unwrap_or_default();
-                                        recent_prs.push(braid_core::ipc::MergedPr {
-                                            number: pr_num,
-                                            title: pr_title,
-                                            url,
-                                        });
-                                    }
-                                }
-                            }
-                        }
+                    let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
+                    if age_days < 30 {
+                        let bucket = 29 - age_days;
+                        sparkline[bucket] = sparkline[bucket].saturating_add(1);
                     }
                 }
             }
-
-            if let Ok(mut g) = git_history_cache().lock() {
-                g.insert(cache_key, (commit_sha.clone(), today_bucket, sparkline.clone(), recent_prs.clone()));
+            if let Ok(mut g) = sparkline_cache().lock() {
+                g.insert(cache_key.clone(), (commit_sha.clone(), today_bucket, sparkline.clone()));
             }
+        }
+
+        // 2. Merged PRs (Merge, Squash, AND Rebase/reapply) via non-blocking gh CLI worker cached by HEAD SHA
+        if let Some((cached_sha, cached_prs)) = pr_cache().lock().ok().and_then(|g| g.get(&cache_key).cloned()) {
+            recent_prs = cached_prs;
+            if cached_sha != commit_sha {
+                trigger_async_pr_fetch(repo_path.to_path_buf(), commit_sha.clone());
+            }
+        } else {
+            trigger_async_pr_fetch(repo_path.to_path_buf(), commit_sha.clone());
         }
     }
 
