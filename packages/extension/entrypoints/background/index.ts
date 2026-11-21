@@ -34,9 +34,9 @@ export default defineBackground(() => {
   const browserName = detectRuntimeBrowser();
   let port: ReturnType<typeof browser.runtime.connectNative> | null = null;
   const tabCache = new Map<number, Record<string, unknown>>();
+  const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
   const downloadedZips = new Set<string>();
   let autoDownloadZip = false;
-  const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
 
   const handleDaemonResponse = async (resp: unknown) => {
     const msg = resp as {
@@ -74,17 +74,6 @@ export default defineBackground(() => {
     return port;
   };
 
-  const sendDiag = (source: string, tabId: number, detail: string) => {
-    try {
-      ensurePort().postMessage({
-        type: 'diag_log',
-        source,
-        tab_id: tabId,
-        detail,
-      });
-    } catch {}
-  };
-
   const flushTabs = () => {
     if (tabCache.size === 0) return;
     const now = Date.now();
@@ -117,8 +106,71 @@ export default defineBackground(() => {
     }
   };
 
-  // Réinjecte le content script dans un onglet précis (fonctionne même fenêtre minimisée !)
-  const probeTab = async (tabId: number) => {
+  const triggerZipDownload = (tabId: number, zipUrl: string, dedupKey: string) => {
+    if (!autoDownloadZip || downloadedZips.has(dedupKey)) return;
+    downloadedZips.add(dedupKey);
+    if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
+      browser.downloads.download({ url: zipUrl }).catch(() => {});
+    } else {
+      browser.scripting
+        .executeScript({
+          target: { tabId },
+          func: () => {
+            const target =
+              document.querySelector<HTMLElement>(
+                "a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']",
+              ) ||
+              (Array.from(document.querySelectorAll('li.group\\/item span'))
+                .find((s) => s.textContent?.trim() === '· zip')
+                ?.closest('li, button, a') as HTMLElement | null);
+            target?.click();
+          },
+        })
+        .catch(() => {});
+    }
+  };
+
+  // Interroge directement l'API storage z.ai (`/api/v1/storage/chats/<id>/files/by-message?prefix=download`)
+  // pour détecter tout `.zip` dès sa création serveur, même si la fenêtre est minimisée et que React n'a pas encore repeint le DOM !
+  const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
+    if (!tabUrl || !tabUrl.includes('chat.z.ai/c/')) return;
+    const chatId = tabUrl.split('/c/')[1]?.split(/[?#]/)[0];
+    if (!chatId || chatId.length < 8) return;
+
+    try {
+      const apiUrl = `https://z.ai{chatId}/files/by-message?prefix=download&limit=20`;
+      const res = await fetch(apiUrl, { credentials: 'include' });
+      if (!res.ok) return;
+      const bodyText = await res.text();
+      if (!bodyText.toLowerCase().includes('.zip')) return;
+
+      let zipDownloadUrl = '';
+      try {
+        const parsed = JSON.parse(bodyText);
+        const flat = JSON.stringify(parsed);
+        const urlMatch = flat.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
+        if (urlMatch) {
+          zipDownloadUrl = urlMatch[0];
+        }
+      } catch {}
+
+      const existing = tabCache.get(tabId);
+      if (existing) {
+        const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
+        triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+        if (existing.status !== 'completed') {
+          tabCache.set(tabId, {
+            ...existing,
+            status: 'completed',
+            updated_at_ms: Date.now(),
+          });
+          flushTabs();
+        }
+      }
+    } catch {}
+  };
+
+  const probeTab = async (tabId: number, tabUrl?: string) => {
     try {
       const files =
         browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
@@ -127,6 +179,7 @@ export default defineBackground(() => {
         files,
       });
     } catch {}
+    await probeZaiServerStorage(tabId, tabUrl);
   };
 
   const probeAllOpenAiTabs = async () => {
@@ -136,7 +189,7 @@ export default defineBackground(() => {
       for (const tab of tabs) {
         if (tab.id != null && isSupportedAiUrl(tab.url)) {
           openIds.add(tab.id);
-          void probeTab(tab.id);
+          void probeTab(tab.id, tab.url);
         }
       }
       for (const cachedId of tabCache.keys()) {
@@ -148,7 +201,6 @@ export default defineBackground(() => {
     } catch {}
   };
 
-  // Listeners globaux enregistrés à chaque réveil du Service Worker MV3
   browser.tabs.onActivated.addListener((activeInfo) => {
     notifyFocused(activeInfo.windowId, activeInfo.tabId);
   });
@@ -170,35 +222,10 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
-      sendDiag(
-        'CONTENT_RX',
-        sender.tab.id,
-        `hidden=${Boolean(msg.hidden)} status=${msg.status} zipUrl=${msg.zipDownloadUrl ?? 'none'} title=${JSON.stringify(msg.title)} snippet=${JSON.stringify(String(msg.contextSnippet ?? '').slice(0, 140))}`,
-      );
-      if (autoDownloadZip && msg.status === 'completed') {
-        const dlKey = `${sender.tab.id}|${msg.zipDownloadUrl || msg.title || msg.contextSnippet}`;
-        if (!downloadedZips.has(dlKey)) {
-          downloadedZips.add(dlKey);
-          const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
-          if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
-            browser.downloads.download({ url: zipUrl }).catch(() => {});
-          } else {
-            // Déclenche le clic natif sur le bouton/artefact .zip dans l'onglet en arrière-plan
-            browser.scripting
-              .executeScript({
-                target: { tabId: sender.tab.id },
-                func: () => {
-                  const target =
-                    document.querySelector<HTMLElement>("a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']") ||
-                    Array.from(document.querySelectorAll('li.group\\/item span'))
-                      .find((s) => s.textContent?.trim() === '· zip')
-                      ?.closest('li, button, a') as HTMLElement | null;
-                  target?.click();
-                },
-              })
-              .catch(() => {});
-          }
-        }
+      if (msg.status === 'completed') {
+        const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
+        const dlKey = `${sender.tab.id}|${zipUrl || msg.title || msg.contextSnippet}`;
+        triggerZipDownload(sender.tab.id, zipUrl, dlKey);
       }
       tabCache.set(sender.tab.id, {
         browser: (msg.browserName as string) || browserName,
@@ -216,113 +243,59 @@ export default defineBackground(() => {
     }
   });
 
-
-  if (browser.webRequest?.onBeforeRequest) {
-    browser.webRequest.onBeforeRequest.addListener(
-      (details) => {
-        if (details.tabId <= 0) return;
-        if (!['image', 'stylesheet', 'font', 'script'].includes(details.type)) {
-          sendDiag('NET_DONE', details.tabId, `${details.method} ${details.statusCode} [${details.type}] ${details.url}`);
-        }
-        if (!['image', 'stylesheet', 'font', 'script'].includes(details.type)) {
-          sendDiag('NET_REQ', details.tabId, `${details.method} [${details.type}] ${details.url}`);
-        }
-      },
-      { urls: AI_MATCH_PATTERNS },
-    );
-  }
-
-  if (browser.webRequest?.onErrorOccurred) {
-    browser.webRequest.onErrorOccurred.addListener(
-      (details) => {
-        if (details.tabId <= 0) return;
-        sendDiag('NET_ERR', details.tabId, `${details.method} [${details.type}] err=${details.error} ${details.url}`);
-      },
-      { urls: AI_MATCH_PATTERNS },
-    );
-  }
-
-  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (!isSupportedAiUrl(tab.url)) return;
-    if (changeInfo.title || changeInfo.status || changeInfo.url) {
-      sendDiag(
-        'TAB_UPD',
-        tabId,
-        `status=${changeInfo.status ?? '-'} title=${JSON.stringify(changeInfo.title ?? tab.title ?? '')} url=${changeInfo.url ?? ''}`,
-      );
-    }
-  });
-
-  if (browser.downloads?.onCreated) {
-    browser.downloads.onCreated.addListener((item) => {
-      sendDiag('DOWNLOAD_CREATED', -1, `id=${item.id} filename=${item.filename} url=${item.url}`);
-    });
-  }
-
-  // Événement réseau natif : réveille immédiatement la sonde dès qu'une requête API/SSE se termine
-  // sur un onglet IA en arrière-plan ou dans une fenêtre minimisée !
-  if (browser.webRequest?.onCompleted) {
-    browser.webRequest.onCompleted.addListener(
-      (details) => {
-        if (details.tabId <= 0) return;
-        
-        
-        
-
-        const isStorageDownloadList = details.url.includes('/files/by-message') && details.url.includes('prefix=download');
-        const isChatCompletionOrBatch =
-          details.url.includes('/messages/batch') ||
-          details.url.includes('/completions') ||
-          details.url.includes('/api/v1/chats/');
-
-        if (!isStorageDownloadList && !isChatCompletionOrBatch && details.type !== 'xmlhttprequest') {
-          return;
-        }
-
-        // Si une requête API retourne 403 (Captcha/WAF), 429 (Rate limit) ou 5xx, alerte immédiatement
-        if (
-          details.url.includes('/api/') &&
-          (details.statusCode === 403 || details.statusCode === 429 || details.statusCode >= 500)
-        ) {
-          const existingTab = tabCache.get(details.tabId);
-          if (existingTab) {
-            tabCache.set(details.tabId, {
-              ...existingTab,
-              status: 'needs_attention',
-              updated_at_ms: Date.now(),
-            });
-            flushTabs();
-          }
-        }
-
-        const delayMs = isStorageDownloadList ? 150 : 350;
-        const existing = pollDebounce.get(details.tabId);
-        if (existing) clearTimeout(existing);
-        pollDebounce.set(
-          details.tabId,
-          setTimeout(() => {
-            pollDebounce.delete(details.tabId);
-            void probeTab(details.tabId);
-          }, delayMs),
-        );
-      },
-      { urls: AI_MATCH_PATTERNS },
-    );
-  }
-
-  // Réveil garanti toutes les 6 secondes via chrome.alarms (jamais gelé par MV3 même fenêtre minimisée)
-  if (browser.alarms) {
-    browser.alarms.create(ALARM_NAME, { periodInMinutes: 0.1 });
-    browser.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === ALARM_NAME) {
-        void probeAllOpenAiTabs();
-      }
-    });
-  }
-
-  browser.runtime.onInstalled.addListener(() => {
-    void probeAllOpenAiTabs();
-  });
-
-  void probeAllOpenAiTabs();
+if (browser.webRequest?.onCompleted) {
+browser.webRequest.onCompleted.addListener(
+(details) => {
+if (details.tabId <= 0) return;
+const isZaiCompletionOrStorage =
+details.url.includes('/files/by-message') ||
+details.url.includes('/messages/batch') ||
+details.url.includes('/api/chat/continue') ||
+details.url.includes('/api/chat/completions');
+const isQwenApi =
+details.url.includes('chat.qwen.ai/api/v2/chats/') ||
+details.url.includes('chat.qwen.ai/api/v2/library/list');
+if (!isZaiCompletionOrStorage && !isQwenApi && details.type !== 'xmlhttprequest') {
+return;
+}
+if (
+details.url.includes('/api/') &&
+(details.statusCode === 403 || details.statusCode === 429 || details.statusCode >= 500)
+) {
+const existingTab = tabCache.get(details.tabId);
+if (existingTab) {
+tabCache.set(details.tabId, {
+...existingTab,
+status: 'needs_attention',
+updated_at_ms: Date.now(),
+});
+flushTabs();
+}
+}
+const existing = pollDebounce.get(details.tabId);
+if (existing) clearTimeout(existing);
+pollDebounce.set(
+details.tabId,
+setTimeout(() => {
+pollDebounce.delete(details.tabId);
+const cachedUrl = tabCache.get(details.tabId)?.url as string | undefined;
+void probeTab(details.tabId, cachedUrl);
+}, 250),
+);
+},
+{ urls: AI_MATCH_PATTERNS },
+);
+}
+if (browser.alarms) {
+browser.alarms.create(ALARM_NAME, { periodInMinutes: 0.1 });
+browser.alarms.onAlarm.addListener((alarm) => {
+if (alarm.name === ALARM_NAME) {
+void probeAllOpenAiTabs();
+}
+});
+}
+browser.runtime.onInstalled.addListener(() => {
+void probeAllOpenAiTabs();
+});
+void probeAllOpenAiTabs();
 });

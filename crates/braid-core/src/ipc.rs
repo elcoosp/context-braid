@@ -103,10 +103,5 @@ pub enum IpcMessage {
     BrowserCommand {
         commands: Vec<BrowserCommand>,
     },
-    DiagLog {
-        source: String,
-        tab_id: i64,
-        detail: String,
-    },
     Ack,
 }
