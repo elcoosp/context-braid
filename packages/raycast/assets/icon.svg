@@ -1,0 +1,43 @@
+<svg xmlns="http://w3.org" width="1024" height="1024" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgMain" x1="24" y1="24" x2="488" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#252B42"/>
+      <stop offset="50%" stop-color="#141826"/>
+      <stop offset="100%" stop-color="#090B12"/>
+    </linearGradient>
+    <radialGradient id="glowMain" cx="150" cy="130" r="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#818CF8" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="24" x2="0" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="strandA" x1="140" y1="120" x2="372" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD"/>
+      <stop offset="50%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="strandB" x1="372" y1="120" x2="140" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="55%" stop-color="#CBD5E1"/>
+      <stop offset="100%" stop-color="#64748B"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bgMain)"/>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#glowMain)"/>
+  <rect x="25.5" y="25.5" width="461" height="461" rx="106.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+
+  <path d="M 164 136 C 164 224, 348 208, 348 296 C 348 344, 304 376, 256 376"
+        fill="none" stroke="url(#strandB)" stroke-width="34" stroke-linecap="round"/>
+  <path d="M 348 136 C 348 224, 164 208, 164 296 C 164 344, 208 376, 256 376"
+        fill="none" stroke="#0E121D" stroke-width="54" stroke-linecap="round"/>
+  <path d="M 348 136 C 348 224, 164 208, 164 296 C 164 344, 208 376, 256 376"
+        fill="none" stroke="url(#strandA)" stroke-width="34" stroke-linecap="round"/>
+
+  <circle cx="164" cy="136" r="17" fill="#F8FAFC"/>
+  <circle cx="348" cy="136" r="17" fill="#7DD3FC"/>
+  <circle cx="256" cy="376" r="19" fill="#F8FAFC"/>
+</svg>
