@@ -111,23 +111,34 @@ export default defineBackground(() => {
     downloadedZips.add(dedupKey);
     if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
       browser.downloads.download({ url: zipUrl }).catch(() => {});
-    } else {
-      browser.scripting
-        .executeScript({
-          target: { tabId },
-          func: () => {
-            const target =
-              document.querySelector<HTMLElement>(
-                "a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']",
-              ) ||
-              (Array.from(document.querySelectorAll('li.group\\/item span'))
-                .find((s) => s.textContent?.trim() === '· zip')
-                ?.closest('li, button, a') as HTMLElement | null);
-            target?.click();
-          },
-        })
-        .catch(() => {});
+      return;
     }
+    browser.scripting
+      .executeScript({
+        target: { tabId },
+        func: () => {
+          const sandboxLinks = document.querySelectorAll<HTMLElement>(
+            "a[data-sandbox-file$='.zip'], a[data-sandbox-file*='.zip']",
+          );
+          if (sandboxLinks.length > 0) {
+            const lastLink = sandboxLinks.item(sandboxLinks.length - 1);
+            lastLink?.click();
+            return;
+          }
+          const direct = document.querySelector<HTMLElement>(
+            "a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']",
+          );
+          if (direct) {
+            direct.click();
+            return;
+          }
+          const legacySpan = Array.from(document.querySelectorAll('li span')).find(
+            (s) => s.textContent?.trim() === '· zip',
+          );
+          (legacySpan?.closest('li, button, a') as HTMLElement | null)?.click();
+        },
+      })
+      .catch(() => {});
   };
 
   // Interroge directement l'API storage z.ai (`/api/v1/storage/chats/<id>/files/by-message?prefix=download`)
