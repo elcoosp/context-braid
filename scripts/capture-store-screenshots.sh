@@ -5,12 +5,33 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${ROOT_DIR}/packages/raycast/metadata"
 mkdir -p "${OUT_DIR}"
 
-echo "1/3 Ouverture de Open Project Cockpit dans Raycast..."
-open "raycast://extensions/elcoosp/context-braid-raycast/index"
-sleep 1.8
+# Détecte automatiquement le deeplink exact enregistré par Raycast sur cette machine
+DEEPLINK=$(python3 - << 'PY'
+import os, re
+base = os.path.expanduser("~/Library/Application Support/com.raycast.macos")
+for root, _, files in os.walk(base):
+    for fn in files:
+        p = os.path.join(root, fn)
+        try:
+            data = open(p, "rb").read()
+            m = re.search(rb"raycast://extensions/[a-zA-Z0-9_@.-]+/context-braid-raycast/index", data)
+            if m:
+                print(m.group(0).decode("utf-8"))
+                raise SystemExit(0)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
+print("raycast://extensions/elcoosp/context-braid-raycast/index")
+PY
+)
 
-# Récupère les coordonnées exactes x,y,w,h de la fenêtre Raycast via PID com.raycast.macos
-RECT=$(swift -e '
+echo "1/3 Ouverture via deeplink : ${DEEPLINK}"
+open "${DEEPLINK}"
+sleep 1.6
+
+# Récupère le CGWindowID exact de la fenêtre active de Raycast (kCGWindowLayer > 0)
+RAYCAST_WIN_ID=$(swift -e '
 import AppKit
 import CoreGraphics
 
@@ -20,36 +41,36 @@ guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "
 let pid = app.processIdentifier
 let opts: CGWindowListOption = [.optionAll, .excludeDesktopElements]
 if let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] {
-    var bestRect: (Int, Int, Int, Int)?
+    var bestId: Int?
     var bestArea: Double = 0
     for w in list {
         guard let ownerPid = w[kCGWindowOwnerPID as String] as? pid_t, ownerPid == pid,
+              let layer = w[kCGWindowLayer as String] as? Int, layer > 0,
               let bounds = w[kCGWindowBounds as String] as? [String: Any],
-              let x = bounds["X"] as? Double,
-              let y = bounds["Y"] as? Double,
               let width = bounds["Width"] as? Double,
               let height = bounds["Height"] as? Double,
-              width > 400 && height > 250 else { continue }
+              width > 500 && height > 300,
+              let id = w[kCGWindowNumber as String] as? Int else { continue }
         let area = width * height
         if area > bestArea {
             bestArea = area
-            bestRect = (Int(x), Int(y), Int(width), Int(height))
+            bestId = id
         }
     }
-    if let r = bestRect {
-        print("\(r.0),\(r.1),\(r.2),\(r.3)")
+    if let id = bestId {
+        print(id)
     }
 }
 ')
 
-if [[ -z "${RECT}" ]]; then
-  echo "Erreur : Impossible de lire les dimensions de la fenêtre Raycast." >&2
+if [[ -z "${RAYCAST_WIN_ID}" ]]; then
+  echo "Erreur : Fenêtre Raycast introuvable." >&2
   exit 1
 fi
 
 RAW_1="/tmp/cb_raycast_raw_1.png"
-echo "2/3 Capture Retina de la zone Raycast (${RECT})..."
-screencapture -x -R "${RECT}" "${RAW_1}"
+echo "2/3 Capture Retina directe de la fenêtre Raycast (CGWindowID=${RAYCAST_WIN_ID})..."
+screencapture -l "${RAYCAST_WIN_ID}" -o -x "${RAW_1}"
 
 echo "3/3 Composition Store 2000x1250 px (16:10)..."
 python3 - "${RAW_1}" "${OUT_DIR}/01-project-cockpit.png" << 'PY'
