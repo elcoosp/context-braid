@@ -1,0 +1,110 @@
+assets:
+  packageZip: packages/extension/.output/context-braidextension-0.1.0-chrome.zip
+  firefoxZip: packages/extension/.output/context-braidextension-0.1.0-firefox.zip
+  sourcesZip: packages/extension/.output/context-braidextension-0.1.0-sources.zip
+  icon128: packages/extension/.output/chrome-mv3/icon/128.png
+  edgeIcon300: packages/extension/store-assets/edge-icon-300x300.png
+  promoSmall: packages/extension/store-assets/promo-small-440x280.png
+  screenshots:
+    - path: packages/extension/store-assets/screenshot-1280x800.png
+      caption: ContextBraid Project Cockpit linking Git repositories, code editors, and browser AI agents in Raycast.
+
+permissions:
+  singlePurpose: >
+    Link active browser AI coding sessions (Z.ai, Qwen, Gemini, Google AI, DeepSeek)
+    to local macOS Git repositories and Raycast over a local Native Messaging bridge,
+    and automatically save newly generated ZIP archives to Downloads.
+  justifications:
+    tabs: Detect open AI agent tabs, read their repository context title and completion state, and focus the matching tab when selected in Raycast.
+    nativeMessaging: Relay tab status events locally to the ContextBraid macOS background daemon (braid-host) over a Unix domain socket with zero cloud servers.
+    scripting: Re-inject the lightweight status observer into already-open AI agent tabs when the extension starts or reloads.
+    alarms: Periodically probe background or minimized AI agent tabs every 6 seconds so completed responses and ZIP downloads are detected reliably.
+    webRequest: Detect completed AI generation network requests in background tabs to trigger immediate status updates and ZIP archive downloads.
+    downloads: Automatically save newly generated .zip code archives from supported AI agent tabs directly into the user's local Downloads folder.
+    storage: Persist local deduplication keys and a local 50-entry diagnostic ring buffer (cb_autodownload_logs) in browser.storage.local.
+    hostPermissions: Restrict content scripts and status probes strictly to Z.ai, Qwen, Gemini, Google AI Search, and DeepSeek domains.
+
+storeListing:
+  category: Developer Tools
+  defaultLocale: en
+  privacyPolicyUrl: https://github.com/elcoosp/context-braid/blob/main/PRIVACY.md
+  supportUrl: https://github.com/elcoosp/context-braid/issues
+  homepageUrl: https://github.com/elcoosp/context-braid
+  regions: all
+  locales:
+    en:
+      title: ContextBraid
+      summary: Link browser AI coding tabs (Z.ai, Qwen, Gemini, DeepSeek) to local Git repos & Raycast with auto ZIP downloads.
+      detailedDescription: >
+        ContextBraid connects your browser AI coding sessions directly to your local macOS Git repositories, editors, and Raycast workspace cockpit — with zero cloud relays and zero remote telemetry.
+
+        1. MULTI-AGENT TAB TRACKING
+        • Automatically detects active, working, completed, and attention-needed states across Z.ai, Qwen, Gemini, Google AI, and DeepSeek.
+        • Jump straight from Raycast or the macOS menu bar to the exact browser tab working on a repository.
+
+        2. BACKGROUND ZIP AUTO-DOWNLOAD
+        • Watches for newly generated .zip project archives and saves them automatically to ~/Downloads — even when tabs are hidden or windows are minimized.
+
+        3. ZERO-CLOUD LOCAL IPC
+        • Communicates exclusively with the local ContextBraid.app Native Messaging host (braid-host) over a local macOS Unix domain socket.
+    fr:
+      title: ContextBraid
+      summary: Reliez vos onglets IA (Z.ai, Qwen, Gemini, DeepSeek) à vos dépôts Git locaux et Raycast avec téléchargement ZIP auto.
+      detailedDescription: >
+        ContextBraid relie vos sessions de code IA dans le navigateur directement à vos dépôts Git macOS, vos éditeurs et votre cockpit Raycast — sans serveur cloud ni télémétrie.
+
+        1. SUIVI MULTI-AGENTS EN TEMPS RÉEL
+        • Détecte automatiquement les états en cours, terminé ou en attente d'action sur Z.ai, Qwen, Gemini, Google AI et DeepSeek.
+
+        2. TÉLÉCHARGEMENT AUTOMATIQUE DES ARCHIVES ZIP
+        • Détecte les nouvelles archives .zip générées par les agents et les enregistre automatiquement dans ~/Downloads, même en arrière-plan.
+
+        3. COMMUNICATION 100 % LOCALE
+        • Communique uniquement avec l'hôte Native Messaging local ContextBraid.app (braid-host) via un socket Unix macOS.
+    zh-CN:
+      title: ContextBraid
+      summary: 将浏览器 AI 编程标签页（Z.ai、Qwen、Gemini、DeepSeek）连接至本地 Git 仓库与 Raycast，支持 ZIP 自动下载。
+      detailedDescription: >
+        ContextBraid 将浏览器中的 AI 编程会话直接连接到本地 macOS Git 仓库、代码编辑器与 Raycast 工作台，全程本地通信，无云端中继或遥测。
+    ja:
+      title: ContextBraid
+      summary: ブラウザの AI コーディングタブ（Z.ai、Qwen、Gemini、DeepSeek）をローカル Git と Raycast に連携し ZIP を自動保存。
+      detailedDescription: >
+        ContextBraid はブラウザ上の AI コーディングセッションをローカルの macOS Git リポジトリ、エディタ、Raycast コックピットに直接連携します。
+    de:
+      title: ContextBraid
+      summary: Verbinde KI-Coding-Tabs (Z.ai, Qwen, Gemini, DeepSeek) mit lokalen Git-Repos & Raycast samt automatischem ZIP-Download.
+      detailedDescription: >
+        ContextBraid verknüpft KI-Coding-Sitzungen im Browser direkt mit lokalen macOS-Git-Repositories, Editoren und dem Raycast-Cockpit — ganz ohne Cloud-Server.
+    es:
+      title: ContextBraid
+      summary: Conecta pestañas de IA (Z.ai, Qwen, Gemini, DeepSeek) con repositorios Git locales y Raycast con descarga automática de ZIP.
+      detailedDescription: >
+        ContextBraid conecta tus sesiones de programación con IA en el navegador directamente con tus repositorios Git locales en macOS, editores y Raycast.
+    ko:
+      title: ContextBraid
+      summary: 브라우저 AI 코딩 탭(Z.ai, Qwen, Gemini, DeepSeek)을 로컬 Git 저장소 및 Raycast와 연결하고 ZIP을 자동 다운로드합니다.
+      detailedDescription: >
+        ContextBraid는 브라우저의 AI 코딩 세션을 로컬 macOS Git 저장소, 코드 편집기 및 Raycast 워크스페이스에 직접 연결합니다.
+
+releaseNotes:
+  en: Initial public release with multi-agent tab tracking, background ZIP auto-download, and local macOS Native Messaging IPC.
+  fr: Version initiale avec suivi multi-agents, téléchargement automatique des archives ZIP en arrière-plan et IPC local macOS.
+
+platforms:
+  chrome:
+    consoleUrl: https://chrome.google.com/webstore/devconsole
+    category: Developer Tools
+  edge:
+    partnerCenterUrl: https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview
+    apiBaseUrl: https://api.addons.microsoftedge.microsoft.com/v1
+    productIdEnv: EDGE_PRODUCT_ID
+    category: Developer Tools
+  firefox:
+    amoApiBaseUrl: https://addons.mozilla.org/api/v5
+    slug: contextbraid
+    geckoId: contextbraid@extensions.local
+    strictMinVersion: '140.0'
+    categories:
+      - developer-tools
+    license: MIT

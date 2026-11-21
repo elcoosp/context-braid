@@ -6,7 +6,13 @@
     "build": "pnpm -r build",
     "test:browser": "pnpm --filter @context-braid/extension test:browser",
     "test:unit": "pnpm --filter @context-braid/extension test:unit",
-    "test:e2e": "pnpm --filter @context-braid/extension test:e2e"
+    "test:e2e": "pnpm --filter @context-braid/extension test:e2e",
+    "store:validate": "extship --validate-only",
+    "store:dry-run": "extship --dry-run",
+    "store:sync": "extship",
+    "store:sync:chrome": "pnpm --filter @context-braid/extension zip && extship --target chrome",
+    "store:sync:edge": "pnpm --filter @context-braid/extension zip && extship --target edge",
+    "store:sync:firefox": "pnpm --filter @context-braid/extension zip:firefox && extship --target firefox"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev",
@@ -15,4 +21,7 @@
   },
   "packageManager": "pnpm@12.18.0"
 }
+
+
+
 
