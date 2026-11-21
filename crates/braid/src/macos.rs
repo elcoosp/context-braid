@@ -692,8 +692,6 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
                     msg,
                 ])
                 .spawn();
-        } else {
-            deliver_un_notification_gui(repo_name, subtitle, msg);
         }
     }
 }
@@ -816,4 +814,13 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
     let _ = std::process::Command::new("/usr/bin/osascript")
         .args(["-e", &script])
         .spawn();
+}
+
+pub fn frontmost_window_title() -> Option<String> {
+    let out = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", "tell application \"System Events\" to tell (first application process whose frontmost is true) to get name of front window"])
+        .output()
+        .ok()?;
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
 }

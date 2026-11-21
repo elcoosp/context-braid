@@ -212,6 +212,11 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
         <string>{}</string>
         <string>daemon</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+    </dict>
     <key>LimitLoadToSessionType</key>
     <string>Aqua</string>
     <key>RunAtLoad</key>

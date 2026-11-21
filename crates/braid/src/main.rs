@@ -195,7 +195,15 @@ IpcMessage::NotifyTabFocused {
                 tab_id,
             } => {
                 let mut st = state.write().await;
-                st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
+                tracing::info!(
+    browser = %browser,
+    window_id = window_id,
+    tab_id = tab_id,
+    prev_active_repo = ?st.active_repo,
+    mapped_repo = ?st.tab_repo_history.get(&(browser.clone(), tab_id)),
+    "CYCLE_INSTR_TAB_FOCUSED"
+);
+st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
                 if let Some(repo) = st.tab_repo_history.get(&(browser, tab_id)).cloned() {
                     if st.active_repo.as_deref() != Some(&repo) {
                         st.active_repo = Some(repo);
@@ -289,61 +297,96 @@ st.focus_tab(&tab)?;
 IpcMessage::Ack
 }
 IpcMessage::CycleProject { repo_name } => {
-let mut st = state.write().await;
-let projects = st.build_dashboard()?;
-let front_bundle = macos::frontmost_bundle_id().unwrap_or_default();
-let front_repo = if front_bundle.contains("raycast") {
-None
-} else if front_bundle == macos::resolve_editor_spec(&st.config.editor.favorite).bundle_id {
-let zed_projs: Vec<_> = projects
-.iter()
-.filter(|p| p.tabs.iter().any(|t| t.window_id == 0 && t.tab_id == 0))
-.collect();
-if zed_projs.len() == 1 {
-Some(zed_projs[0].repo_name.clone())
-} else {
-st.active_repo.clone()
-}
-} else {
-st.last_focused_tab
-.as_ref()
-.and_then(|(b, w, tid)| {
-projects
-.iter()
-.find(|p| {
-p.tabs
-.iter()
-.any(|t| &t.browser == b && t.window_id == *w && t.tab_id == *tid)
-})
-.map(|p| p.repo_name.clone())
-})
-.or_else(|| st.active_repo.clone())
-};
-let target_repo = repo_name.or(front_repo).or_else(|| st.active_repo.clone());
-let proj = target_repo
-.and_then(|r| projects.iter().find(|p| p.repo_name == r))
-.or_else(|| projects.first());
-if let Some(p) = proj {
-if st.active_repo.as_deref() != Some(&p.repo_name) {
-st.active_repo = Some(p.repo_name.clone());
-st.cycle_cursor = 0;
-}
-let idx = st.cycle_cursor % p.tabs.len();
-st.cycle_cursor = st.cycle_cursor.wrapping_add(1);
-let target = p.tabs[idx].clone();
-info!(
-"CYCLE [{}] ({}/{}) -> {} [{}]",
-p.repo_name,
-idx + 1,
-p.tabs.len(),
-target.title,
-target.browser
-);
-st.focus_tab(&target)?;
-}
-IpcMessage::Ack
-}
-IpcMessage::SubscribeHost { .. } => unreachable!(),
+                let mut st = state.write().await;
+                let projects = st.build_dashboard()?;
+                let front_bundle = macos::frontmost_bundle_id().unwrap_or_default();
+                let front_win_title = macos::frontmost_window_title().unwrap_or_default();
+                let editor_spec = macos::resolve_editor_spec(&st.config.editor.favorite);
+                let is_editor_front = front_bundle == editor_spec.bundle_id;
+
+                tracing::info!(
+                    arg_repo_name = ?repo_name,
+                    front_bundle = %front_bundle,
+                    front_win_title = %front_win_title,
+                    is_editor_front = is_editor_front,
+                    stored_active_repo = ?st.active_repo,
+                    "CYCLE_PROJECT_REQUEST"
+                );
+
+                // 1. Résout le dépôt depuis le titre exact de la fenêtre au premier plan (Zed ou Navigateur)
+                let win_lower = front_win_title.to_lowercase();
+                let by_window_title = if !win_lower.is_empty() && !front_bundle.contains("raycast") {
+                    projects
+                        .iter()
+                        .filter(|p| {
+                            let rn = p.repo_name.to_lowercase();
+                            rn.len() >= 2 && win_lower.contains(&rn)
+                        })
+                        .max_by_key(|p| p.repo_name.len())
+                        .map(|p| p.repo_name.clone())
+                } else {
+                    None
+                };
+
+                // 2. Sinon depuis le dernier onglet focalisé connu
+                let by_last_tab = st.last_focused_tab.as_ref().and_then(|(b, w, tid)| {
+                    projects
+                        .iter()
+                        .find(|p| p.tabs.iter().any(|t| &t.browser == b && t.window_id == *w && t.tab_id == *tid))
+                        .map(|p| p.repo_name.clone())
+                });
+
+                let target_repo = repo_name
+                    .or(by_window_title)
+                    .or(by_last_tab)
+                    .or_else(|| st.active_repo.clone());
+
+                let proj = target_repo
+                    .as_deref()
+                    .and_then(|r| projects.iter().find(|p| p.repo_name == r))
+                    .or_else(|| projects.first());
+
+                if let Some(p) = proj {
+                    if st.active_repo.as_deref() != Some(&p.repo_name) {
+                        st.active_repo = Some(p.repo_name.clone());
+                        st.cycle_cursor = 0;
+                    }
+
+                    // Si on est déjà dans l'éditeur et que cursor == 0 pointe sur l'entrée éditeur, avance d'un cran
+                    // pour basculer immédiatement vers l'onglet navigateur (et vice-versa) !
+                    let len = p.tabs.len();
+                    let mut idx = st.cycle_cursor % len;
+                    let candidate = &p.tabs[idx];
+                    let candidate_is_editor = matches!(
+                        candidate.browser.as_str(),
+                        "zed" | "cursor" | "vscode" | "windsurf" | "neovim" | "editor"
+                    );
+                    if len > 1 && is_editor_front && candidate_is_editor {
+                        idx = (idx + 1) % len;
+                    } else if len > 1 && !is_editor_front && !candidate_is_editor && !win_lower.is_empty() {
+                        // Si l'onglet candidat est déjà l'onglet actif au premier plan, avance vers la surface suivante
+                        let cand_title = candidate.title.to_lowercase();
+                        if !cand_title.is_empty() && (win_lower.contains(&cand_title) || cand_title.contains(&win_lower)) {
+                            idx = (idx + 1) % len;
+                        }
+                    }
+
+                    st.cycle_cursor = (idx + 1) % len;
+                    let target = p.tabs[idx].clone();
+                    tracing::info!(
+                        repo = %p.repo_name,
+                        step = format!("{}/{}", idx + 1, len),
+                        target_browser = %target.browser,
+                        target_win = target.window_id,
+                        target_tab = target.tab_id,
+                        target_title = %target.title,
+                        "CYCLE_PROJECT_DISPATCH"
+                    );
+                    st.focus_tab(&target)?;
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::SubscribeHost { .. } => unreachable!(),
 _ => IpcMessage::Ack,
 };
 let out = serde_json::to_string(&response)?;
