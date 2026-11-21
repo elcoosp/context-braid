@@ -40,7 +40,7 @@ export default defineContentScript({
       }
 
       const state = extractPageState(document);
-      const signature = `${state.status}|${document.title}|${state.contextSnippet}`;
+      const signature = `${state.status}|${document.title}|${state.contextSnippet}|${state.zipDownloadUrl ?? ''}`;
       const now = Date.now();
       if (!force && signature === lastSignature && now - lastSentAt < 9000) return;
       lastSignature = signature;

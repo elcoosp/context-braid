@@ -99,7 +99,7 @@ function hasInlineRuntimeError(doc: Document): boolean {
 export function extractPageState(
   doc: Document,
   rules: ExtractionRules = DEFAULT_RULES,
-): { status: AgentStatus; contextSnippet: string } {
+): { status: AgentStatus; contextSnippet: string; zipDownloadUrl?: string } {
   const title = (doc.title || '').trim();
   const snippet = collectFastSnippet(doc, title, rules);
 
@@ -114,8 +114,13 @@ export function extractPageState(
   if (hasInlineRuntimeError(doc)) {
     return { status: 'needs_attention', contextSnippet: snippet };
   }
-  if (hasCompletedZip(doc, rules)) {
-    return { status: 'completed', contextSnippet: snippet };
+  const zipUrl = findCompletedZipUrl(doc, rules);
+  if (zipUrl !== null) {
+    return {
+      status: 'completed',
+      contextSnippet: snippet,
+      ...(zipUrl ? { zipDownloadUrl: zipUrl } : {}),
+    };
   }
   for (const sel of rules.workingSelectors) {
     if (isVisible(doc.querySelector(sel))) {
@@ -125,19 +130,27 @@ export function extractPageState(
   return { status: 'idle', contextSnippet: snippet };
 }
 
-function hasCompletedZip(doc: Document, rules: ExtractionRules): boolean {
+function findCompletedZipUrl(doc: Document, rules: ExtractionRules): string | null {
   const loc = doc.location || (typeof window !== 'undefined' ? window.location : null);
   if (loc && loc.hostname.endsWith('google.com') && loc.pathname.startsWith('/search')) {
-    return false;
+    return null;
   }
   for (const sel of rules.completedSelectors) {
-    if (doc.querySelector(sel)) return true;
+    const el = doc.querySelector(sel);
+    if (el) {
+      const href = el.getAttribute('href') || (el as HTMLAnchorElement).href || '';
+      return href.startsWith('http') || href.startsWith('blob:') ? href : '';
+    }
   }
   const items = doc.querySelectorAll('li.group\\/item span');
   for (const span of items) {
-    if (span.textContent?.trim() === '· zip') return true;
+    if (span.textContent?.trim() === '· zip') {
+      const link = span.closest('li')?.querySelector('a[href]') as HTMLAnchorElement | null;
+      const href = link?.href || '';
+      return href.startsWith('http') || href.startsWith('blob:') ? href : '';
+    }
   }
-  return false;
+  return null;
 }
 
 function collectFastSnippet(doc: Document, title: string, rules: ExtractionRules): string {

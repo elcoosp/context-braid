@@ -194,7 +194,19 @@ async fn handle_client(stream: UnixStream, state: Arc<RwLock<DaemonState>>) -> R
         };
 
         if let IpcMessage::SubscribeHost { .. } = msg {
-            let mut rx = state.read().await.push_tx.subscribe();
+            let (mut rx, auto_dl) = {
+                let st = state.read().await;
+                (st.push_tx.subscribe(), st.config.auto_download_zip)
+            };
+            let cfg_msg = serde_json::json!({
+                "type": "sync_config",
+                "auto_download_zip": auto_dl,
+            });
+            if let Ok(cfg_line) = serde_json::to_string(&cfg_msg) {
+                let _ = writer.write_all(cfg_line.as_bytes()).await;
+                let _ = writer.write_all(b"\n").await;
+                let _ = writer.flush().await;
+            }
             while let Ok(payload) = rx.recv().await {
                 if writer.write_all(payload.as_bytes()).await.is_err()
                     || writer.write_all(b"\n").await.is_err()

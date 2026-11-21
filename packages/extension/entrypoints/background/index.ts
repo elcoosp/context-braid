@@ -34,13 +34,20 @@ export default defineBackground(() => {
   const browserName = detectRuntimeBrowser();
   let port: ReturnType<typeof browser.runtime.connectNative> | null = null;
   const tabCache = new Map<number, Record<string, unknown>>();
+  const downloadedZips = new Set<string>();
+  let autoDownloadZip = false;
   const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
 
   const handleDaemonResponse = async (resp: unknown) => {
     const msg = resp as {
       type?: string;
+      auto_download_zip?: boolean;
       commands?: Array<{ action: string; window_id: number; tab_id: number }>;
     };
+    if (msg?.type === 'sync_config' && typeof msg.auto_download_zip === 'boolean') {
+      autoDownloadZip = msg.auto_download_zip;
+      return;
+    }
     if (msg?.type === 'browser_command' && Array.isArray(msg.commands)) {
       for (const cmd of msg.commands) {
         if (cmd.action === 'focus_tab' && cmd.tab_id > 0) {
@@ -147,6 +154,31 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
+      if (autoDownloadZip && msg.status === 'completed') {
+        const dlKey = `${sender.tab.id}|${msg.zipDownloadUrl || msg.title || msg.contextSnippet}`;
+        if (!downloadedZips.has(dlKey)) {
+          downloadedZips.add(dlKey);
+          const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
+          if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
+            browser.downloads.download({ url: zipUrl }).catch(() => {});
+          } else {
+            // Déclenche le clic natif sur le bouton/artefact .zip dans l'onglet en arrière-plan
+            browser.scripting
+              .executeScript({
+                target: { tabId: sender.tab.id },
+                func: () => {
+                  const target =
+                    document.querySelector<HTMLElement>("a[download$='.zip'], a[href*='.zip'], button[data-testid='download-zip']") ||
+                    Array.from(document.querySelectorAll('li.group\\/item span'))
+                      .find((s) => s.textContent?.trim() === '· zip')
+                      ?.closest('li, button, a') as HTMLElement | null;
+                  target?.click();
+                },
+              })
+              .catch(() => {});
+          }
+        }
+      }
       tabCache.set(sender.tab.id, {
         browser: (msg.browserName as string) || browserName,
         window_id: sender.tab.windowId ?? -1,
