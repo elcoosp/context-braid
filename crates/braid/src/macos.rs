@@ -649,7 +649,6 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
         title.trim().to_string()
     };
 
-    // Play crisp native macOS system sound immediately (guaranteed audible even if banner is DND-delayed)
     let sound_file = if sub.to_lowercase().contains("zip") {
         "/System/Library/Sounds/Glass.aiff"
     } else {
@@ -663,7 +662,6 @@ pub fn notify_agent_alert(repo_name: &str, browser: &str, window_id: i64, tab_id
 
     std::thread::spawn(move || {
         use mac_notification_sys::{Notification, NotificationResponse};
-        // Register ContextBraid bundle if available, otherwise fall back cleanly so macOS never drops the banner
         if mac_notification_sys::set_application("com.contextbraid.app").is_err() {
             let _ = mac_notification_sys::set_application("com.apple.Terminal");
         }
