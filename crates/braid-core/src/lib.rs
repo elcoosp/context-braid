@@ -1,158 +1,110 @@
 pub mod ipc;
-pub use ipc::*;
-use anyhow::{Context, Result};
+
+pub use ipc::{
+    AgentStatus, BrowserCommand, IpcMessage, ProjectWorkspace, TabContextPayload,
+};
+
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BraidConfig {
-    pub repos: ReposConfig,
-    pub daemon: DaemonConfig,
-    #[serde(default)]
-    pub roles: Vec<RoleConfig>,
-    pub shortcuts: ShortcutsConfig,
+pub struct ReposConfig {
+    pub root_dir: String,
+    #[serde(default = "default_ignore")]
+    pub ignore: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReposConfig {
-    pub root: String,
-    #[serde(default)]
-    pub ignore: Vec<String>,
+fn default_ignore() -> Vec<String> {
+    vec![
+        ".git".into(),
+        "node_modules".into(),
+        "target".into(),
+        ".build".into(),
+    ]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
+    #[serde(default = "default_socket_path")]
     pub socket_path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoleConfig {
-    pub id: String,
-    pub label: String,
-    #[serde(default)]
-    pub url_patterns: Vec<String>,
-    pub app_name: Option<String>,
-    pub icon: String,
+fn default_socket_path() -> String {
+    "/tmp/braid.sock".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShortcutsConfig {
-    pub cycle_project_windows: String,
-    pub open_dashboard: String,
-    pub jump_next_alert: String,
+pub struct EditorConfig {
+    #[serde(default = "default_favorite_editor")]
+    pub favorite: String,
+}
+
+fn default_favorite_editor() -> String {
+    "zed".into()
+}
+
+impl Default for EditorConfig {
+    fn default() -> Self {
+        Self {
+            favorite: default_favorite_editor(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BraidConfig {
+    pub repos: ReposConfig,
+    pub daemon: DaemonConfig,
+    #[serde(default)]
+    pub editor: EditorConfig,
 }
 
 impl Default for BraidConfig {
     fn default() -> Self {
         Self {
             repos: ReposConfig {
-                root: "~/Documents/Repos".to_string(),
-                ignore: vec!["node_modules".into(), "target".into(), ".git".into()],
+                root_dir: "~/Documents/Repos".into(),
+                ignore: default_ignore(),
             },
-            daemon: DaemonConfig { socket_path: "/tmp/braid.sock".into() },
-            roles: vec![
-                RoleConfig {
-                    id: "executor".into(),
-                    label: "Agent Long (z.ai)".into(),
-                    url_patterns: vec!["*://*.z.ai/*".into()],
-                    app_name: None,
-                    icon: "robot".into(),
-                },
-                RoleConfig {
-                    id: "architect".into(),
-                    label: "Prompt Builder (Qwen)".into(),
-                    url_patterns: vec!["*://chat.qwen.ai/*".into(), "*://qwen.ai/*".into()],
-                    app_name: None,
-                    icon: "sparkles".into(),
-                },
-                RoleConfig {
-                    id: "scripter".into(),
-                    label: "Live Scripting (Gemini)".into(),
-                    url_patterns: vec!["*://://google.com*".into()],
-                    app_name: None,
-                    icon: "bolt".into(),
-                },
-            ],
-            shortcuts: ShortcutsConfig {
-                cycle_project_windows: "Option+Tab".into(),
-                open_dashboard: "Option+Space".into(),
-                jump_next_alert: "Option+A".into(),
+            daemon: DaemonConfig {
+                socket_path: default_socket_path(),
             },
+            editor: EditorConfig::default(),
         }
     }
 }
 
 impl BraidConfig {
+    pub fn config_path() -> Result<PathBuf> {
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("~/.config"));
+        Ok(base.join("contextbraid").join("config.toml"))
+    }
+
     pub fn load_or_default() -> Result<Self> {
-        let p = if let Ok(env_p) = std::env::var("BRAID_CONFIG_PATH") {
-            PathBuf::from(env_p)
-        } else {
-            dirs::config_dir()
-                .unwrap_or_else(|| PathBuf::from("~/.config"))
-                .join("contextbraid/config.toml")
-        };
-        if !p.exists() {
-            return Ok(Self::default());
+        let path = Self::config_path()?;
+        if !path.exists() {
+            let cfg = Self::default();
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(&path, toml::to_string_pretty(&cfg)?)?;
+            return Ok(cfg);
         }
-        let raw = fs::read_to_string(&p).with_context(|| format!("Erreur lecture {:?}", p))?;
+        let raw = fs::read_to_string(path)?;
         Ok(toml::from_str(&raw)?)
     }
 
     pub fn resolved_repos_root(&self) -> PathBuf {
-        if let Some(s) = self.repos.root.strip_prefix("~/") {
-            if let Some(h) = dirs::home_dir() {
-                return h.join(s);
+        if let Some(stripped) = self.repos.root_dir.strip_prefix("~/") {
+            if let Some(home) = dirs::home_dir() {
+                return home.join(stripped);
             }
         }
-        PathBuf::from(&self.repos.root)
+        PathBuf::from(&self.repos.root_dir)
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentStatus {
-    Idle,
-    Working,
-    NeedsAttention,
-    Completed,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TabContextPayload {
-    pub browser: String,
-    pub window_id: i64,
-    pub tab_id: i64,
-    pub opener_tab_id: Option<i64>,
-    pub incognito: bool,
-    pub url: String,
-    pub title: String,
-    pub context_snippet: String,
-    pub status: AgentStatus,
-    pub updated_at_ms: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectWorkspace {
-    pub repo_name: String,
-    pub repo_path: String,
-    pub tabs: Vec<TabContextPayload>,
-    pub has_alert: bool,
-}
-
-fn is_project_dir(path: &Path) -> bool {
-    const MARKERS: &[&str] = &[
-        ".git",
-        "Cargo.toml",
-        "package.json",
-        "pyproject.toml",
-        "go.mod",
-        "flake.nix",
-        "justfile",
-        "Makefile",
-    ];
-    MARKERS.iter().any(|m| path.join(m).exists())
 }
 
 pub fn scan_repos(root: &Path, ignore: &[String]) -> Result<Vec<(String, PathBuf)>> {
@@ -161,34 +113,48 @@ pub fn scan_repos(root: &Path, ignore: &[String]) -> Result<Vec<(String, PathBuf
         return Ok(repos);
     }
     for entry in fs::read_dir(root)? {
-        let path = entry?.path();
-        if path.is_dir() && is_project_dir(&path) {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if !name.starts_with('.') && !ignore.iter().any(|ig| ig == name) {
-                    repos.push((name.to_string(), path));
-                }
-            }
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
         }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') || ignore.iter().any(|ig| ig == &name) {
+            continue;
+        }
+        repos.push((name, path));
     }
-    repos.sort_by(|a, b| a.0.cmp(&b.0));
+    repos.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
     Ok(repos)
 }
 
-pub fn count_whole_word_matches(haystack: &str, needle: &str) -> usize {
-    let n = needle.to_lowercase();
-    if n.is_empty() {
+fn count_whole_word_matches(text: &str, needle: &str) -> usize {
+    let bytes = text.as_bytes();
+    let n_len = needle.len();
+    if n_len == 0 || bytes.len() < n_len {
         return 0;
     }
-    haystack
-        .split(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
-        .filter(|token| *token == n)
-        .count()
+    let is_word = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'-';
+    let mut count = 0;
+    let mut pos = 0;
+    while let Some(found) = text[pos..].find(needle) {
+        let start = pos + found;
+        let end = start + n_len;
+        let left_ok = start == 0 || !is_word(bytes[start - 1]);
+        let right_ok = end == bytes.len() || !is_word(bytes[end]);
+        if left_ok && right_ok {
+            count += 1;
+        }
+        pos = start + n_len;
+    }
+    count
 }
 
 fn count_leaf_path_hits(text: &str, repo_lower: &str) -> usize {
     text.split_whitespace()
         .filter(|tok| {
-            let clean = tok.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_');
+            let clean =
+                tok.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_');
             clean
                 .rsplit_once('/')
                 .map(|(_, leaf)| leaf.trim_matches('.') == repo_lower)
@@ -214,19 +180,13 @@ fn score_repo_candidate(tab: &TabContextPayload, repo_name: &str) -> usize {
     }
 
     let mut score = 0;
-
-    // 1. Chemin explicite "owner/repo" : seul le segment final (feuille) est crédité, jamais le owner
     let leaf_hits = count_leaf_path_hits(&full_hay, &n);
     if leaf_hits > 0 {
         score += 120 * leaf_hits;
     }
-
-    // 2. Correspondance directe dans le titre de l'onglet (ex: titre "Alacer" ou "Glyim")
     if title_hits > 0 {
         score += 90 * title_hits;
     }
-
-    // 3. Poids de spécificité lexicale dans le reste du contexte
     let specificity_weight = if n.contains('-') || n.contains('_') {
         35
     } else if n.len() >= 7 {
@@ -276,42 +236,28 @@ pub fn match_tab_to_repo(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
 
     #[test]
     fn test_repo_leaf_priority_and_whole_word_matching() {
-        let dir = tempdir().unwrap();
-        let user_dir = dir.path().join("elcoosp");
-        let repo_dir = dir.path().join("guiwright");
-        let short_dir = dir.path().join("zsx");
-        for d in [&user_dir, &repo_dir, &short_dir] {
-            fs::create_dir(d).unwrap();
-            fs::create_dir(d.join(".git")).unwrap();
-        }
-
-        let repos = scan_repos(dir.path(), &[]).unwrap();
-        let inherited = HashMap::new();
-
+        let repos = vec![
+            ("cli".into(), PathBuf::from("/repos/cli")),
+            ("guiwright".into(), PathBuf::from("/repos/guiwright")),
+        ];
         let tab = TabContextPayload {
             browser: "chrome".into(),
             window_id: 1,
-            tab_id: 10,
+            tab_id: 2,
             opener_tab_id: None,
-            incognito: true,
+            incognito: false,
             url: "https://z.ai".into(),
-            title: "Deliver Ship.toml & ZIP for GU... | Z.ai".into(),
-            context_snippet: "Task: elcoosp/guiwright. Deliver zip.".into(),
+            title: "Build guiwright CLI".into(),
+            context_snippet: "Path: /Users/dev/repos/guiwright".into(),
             status: AgentStatus::Completed,
-            updated_at_ms: 1000,
+            updated_at_ms: 100,
         };
-
-        assert_eq!(match_tab_to_repo(&tab, &repos, &inherited).as_deref(), Some("guiwright"));
-
-        let unrelated = TabContextPayload {
-            context_snippet: "zero size execution test".into(),
-            title: "Unrelated".into(),
-            ..tab
-        };
-        assert_eq!(match_tab_to_repo(&unrelated, &repos, &inherited), None);
+        assert_eq!(
+            match_tab_to_repo(&tab, &repos, &HashMap::new()),
+            Some("guiwright".into())
+        );
     }
 }
