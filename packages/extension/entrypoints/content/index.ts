@@ -1,4 +1,4 @@
-import { extractPageState } from '../../src/core/extractor';
+import { extractPageState, findZipDownloadTargets } from '../../src/core/extractor';
 import { AI_MATCH_PATTERNS } from '../../src/core/origins';
 
 declare global {
@@ -35,6 +35,51 @@ export default defineContentScript({
     const browserName = detectBrowserName();
 
     const observer = new MutationObserver(() => { if (Date.now() - bootedAt >= 2500) scheduleCheck(); });
+
+    
+    const STORAGE_KEY = `cb_downloaded_zips:${window.location.pathname}`;
+    const downloadedKeys = new Set<string>(
+      JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]"),
+    );
+    let baselineCaptured = false;
+
+    const persistKeys = () => {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...downloadedKeys].slice(-50)));
+      } catch {
+        // ignore storage quota
+      }
+    };
+
+    const checkAndAutoDownloadZips = () => {
+      const targets = findZipDownloadTargets(document);
+      if (!baselineCaptured) {
+        // Au premier scan (2.6s après montage), ignore les anciens ZIP déjà présents dans l'historique
+        for (const t of targets) {
+          downloadedKeys.add(t.key);
+        }
+        baselineCaptured = true;
+        persistKeys();
+        return;
+      }
+
+      for (const t of targets) {
+        if (downloadedKeys.has(t.key)) continue;
+        downloadedKeys.add(t.key);
+        persistKeys();
+
+        if (t.url.startsWith("http://") || t.url.startsWith("https://")) {
+          browser.runtime.sendMessage({
+            type: "AUTO_DOWNLOAD_ZIP",
+            url: t.url,
+          }).catch(() => {
+            t.element.click();
+          });
+        } else {
+          t.element.click();
+        }
+      }
+    };
 
     const evaluateAndSend = (force = false) => {
       if (!isContextValid()) {
@@ -113,6 +158,7 @@ export default defineContentScript({
       const state = extractPageState(document);
       // Ignore les squelettes transitoires de chargement initial (< 2.5s après montage)
       if (state.status === 'working' && Date.now() - bootedAt < 2500) return;
+      checkAndAutoDownloadZips();
       evaluateAndSend(force);
     };
 

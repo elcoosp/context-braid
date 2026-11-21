@@ -384,8 +384,30 @@ export default defineBackground(() => {
     flushTabs();
   });
 
-  browser.runtime.onMessage.addListener((msg, sender) => {
-    if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
+  
+const recentDownloadUrls = new Map<string, number>();
+
+function triggerBackgroundZipDownload(url: string) {
+  const now = Date.now();
+  const prev = recentDownloadUrls.get(url);
+  if (prev && now - prev < 60_000) return;
+  recentDownloadUrls.set(url, now);
+
+  if (browser.downloads?.download) {
+    void browser.downloads.download({
+      url,
+      conflictAction: "uniquify",
+      saveAs: false,
+    }).catch(() => {});
+  }
+}
+
+browser.runtime.onMessage.addListener((msg, sender) => {
+    if (msg?.type === 'AUTO_DOWNLOAD_ZIP' && typeof msg.url === 'string') {
+    triggerBackgroundZipDownload(msg.url);
+    return;
+  }
+  if (msg?.type === 'TAB_CONTEXT_UPDATE' && sender.tab?.id != null) {
       if (msg.status === 'completed') {
         const zipUrl = typeof msg.zipDownloadUrl === 'string' ? msg.zipDownloadUrl : '';
         const tabUrl = typeof msg.url === 'string' ? msg.url : '';

@@ -214,3 +214,41 @@ export function extractLiveAgentStep(doc: Document): string {
   }
   return '';
 }
+
+
+export interface ZipDownloadTarget {
+  url: string;
+  element: HTMLElement;
+  key: string;
+}
+
+export function findZipDownloadTargets(doc: Document): ZipDownloadTarget[] {
+  const results: ZipDownloadTarget[] = [];
+  const seen = new Set<string>();
+
+  const addCandidate = (el: HTMLElement | null, rawHref: string) => {
+    if (!el) return;
+    const href = (rawHref || "").trim();
+    const label = (el.textContent || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+    const key = href && !href.startsWith("blob:") ? href : `${window.location.pathname}::${label}::${results.length}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ url: href, element: el, key });
+  };
+
+  for (const el of Array.from(doc.querySelectorAll('a[download], a[href$=".zip"], a[href*=".zip?"]'))) {
+    const htmlEl = el as HTMLAnchorElement;
+    addCandidate(htmlEl, htmlEl.href || htmlEl.getAttribute("href") || "");
+  }
+
+  for (const span of Array.from(doc.querySelectorAll('li.group\\/item span'))) {
+    if (span.textContent?.trim() === "· zip") {
+      const li = span.closest("li");
+      const link = li?.querySelector("a[href]") as HTMLAnchorElement | null;
+      const btn = (link || li?.querySelector("button")) as HTMLElement | null;
+      addCandidate(btn, link?.href || link?.getAttribute("href") || "");
+    }
+  }
+
+  return results;
+}
