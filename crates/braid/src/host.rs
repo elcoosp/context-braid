@@ -60,11 +60,10 @@ pub fn run_host() -> Result<()> {
                     break;
                 }
                 let trimmed = line.trim();
-                if !trimmed.is_empty() {
-                    if let Ok(mut out) = push_stdout.lock() {
+                if !trimmed.is_empty()
+                    && let Ok(mut out) = push_stdout.lock() {
                         let _ = write_frame(&mut *out, trimmed);
                     }
-                }
                 line.clear();
             }
         }
@@ -81,12 +80,11 @@ pub fn run_host() -> Result<()> {
         for _ in 0..3 {
             if writeln!(sock, "{}", msg.trim()).is_ok() && sock.flush().is_ok() {
                 let mut line = String::new();
-                if let Ok(n) = reader.read_line(&mut line) {
-                    if n > 0 && !line.trim().is_empty() {
+                if let Ok(n) = reader.read_line(&mut line)
+                    && n > 0 && !line.trim().is_empty() {
                         resp = line.trim().to_string();
                         break;
                     }
-                }
             }
             sock = connect_with_retry(&sock_path)?;
             reader = BufReader::new(sock.try_clone()?);

@@ -2,81 +2,81 @@ use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;
 
-fn blend_pixel(buf: &mut [u8], w: usize, h: usize, x: i32, y: i32, r: u8, g: u8, b: u8, alpha: f32) {
-    if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 || alpha <= 0.001 {
-        return;
-    }
-    let idx = ((y as usize) * w + (x as usize)) * 4;
-    let src_a = alpha.clamp(0.0, 1.0);
-    let dst_a = buf[idx + 3] as f32 / 255.0;
-    let out_a = src_a + dst_a * (1.0 - src_a);
-    if out_a <= 0.0001 {
-        return;
-    }
-    let blend = |src_c: u8, dst_c: u8| -> u8 {
-        let sc = src_c as f32 / 255.0;
-        let dc = dst_c as f32 / 255.0;
-        let oc = (sc * src_a + dc * dst_a * (1.0 - src_a)) / out_a;
-        (oc * 255.0).round().clamp(0.0, 255.0) as u8
-    };
-    buf[idx] = blend(r, buf[idx]);
-    buf[idx + 1] = blend(g, buf[idx + 1]);
-    buf[idx + 2] = blend(b, buf[idx + 2]);
-    buf[idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-}
-
-fn draw_disc_aa(buf: &mut [u8], w: usize, h: usize, cx: f32, cy: f32, radius: f32, r: u8, g: u8, b: u8, alpha: f32) {
-    let min_x = (cx - radius - 1.5).floor() as i32;
-    let max_x = (cx + radius + 1.5).ceil() as i32;
-    let min_y = (cy - radius - 1.5).floor() as i32;
-    let max_y = (cy + radius + 1.5).ceil() as i32;
-    for py in min_y..=max_y {
-        for px in min_x..=max_x {
-            let dx = px as f32 + 0.5 - cx;
-            let dy = py as f32 + 0.5 - cy;
-            let dist = (dx * dx + dy * dy).sqrt();
-            let cov = (radius + 0.6 - dist).clamp(0.0, 1.0);
-            if cov > 0.0 {
-                blend_pixel(buf, w, h, px, py, r, g, b, alpha * cov);
-            }
-        }
-    }
-}
-
-fn draw_segment_aa(
-    buf: &mut [u8],
-    w: usize,
-    h: usize,
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
-    thickness: f32,
+#[derive(Clone, Copy)]
+struct Rgba {
     r: u8,
     g: u8,
     b: u8,
     alpha: f32,
-) {
-    let min_x = x0.min(x1).floor() as i32 - 3;
-    let max_x = x0.max(x1).ceil() as i32 + 3;
-    let min_y = y0.min(y1).floor() as i32 - 3;
-    let max_y = y0.max(y1).ceil() as i32 + 3;
-    let dx = x1 - x0;
-    let dy = y1 - y0;
-    let len_sq = (dx * dx + dy * dy).max(1e-6);
-    let half_w = thickness * 0.5;
+}
 
-    for py in min_y..=max_y {
-        for px in min_x..=max_x {
-            let cx = px as f32 + 0.5;
-            let cy = py as f32 + 0.5;
-            let t = (((cx - x0) * dx + (cy - y0) * dy) / len_sq).clamp(0.0, 1.0);
-            let proj_x = x0 + t * dx;
-            let proj_y = y0 + t * dy;
-            let dist = ((cx - proj_x).powi(2) + (cy - proj_y).powi(2)).sqrt();
-            let cov = (half_w + 0.7 - dist).clamp(0.0, 1.0);
-            if cov > 0.0 {
-                blend_pixel(buf, w, h, px, py, r, g, b, alpha * cov);
+struct Canvas<'a> {
+    buf: &'a mut [u8],
+    w: usize,
+    h: usize,
+}
+
+impl<'a> Canvas<'a> {
+    fn blend_pixel(&mut self, x: i32, y: i32, color: Rgba) {
+        if x < 0 || y < 0 || (x as usize) >= self.w || (y as usize) >= self.h || color.alpha <= 0.001 {
+            return;
+        }
+        let idx = ((y as usize) * self.w + (x as usize)) * 4;
+        let a = color.alpha.clamp(0.0, 1.0);
+        let inv = 1.0 - a;
+        self.buf[idx] = (color.r as f32 * a + self.buf[idx] as f32 * inv).round() as u8;
+        self.buf[idx + 1] = (color.g as f32 * a + self.buf[idx + 1] as f32 * inv).round() as u8;
+        self.buf[idx + 2] = (color.b as f32 * a + self.buf[idx + 2] as f32 * inv).round() as u8;
+        let dst_a = self.buf[idx + 3] as f32 / 255.0;
+        let out_a = (a + dst_a * inv).clamp(0.0, 1.0);
+        self.buf[idx + 3] = (out_a * 255.0).round() as u8;
+    }
+
+    fn draw_disc_aa(&mut self, cx: f32, cy: f32, radius: f32, color: Rgba) {
+        let min_x = (cx - radius - 1.5).floor() as i32;
+        let max_x = (cx + radius + 1.5).ceil() as i32;
+        let min_y = (cy - radius - 1.5).floor() as i32;
+        let max_y = (cy + radius + 1.5).ceil() as i32;
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let dx = (x as f32 + 0.5) - cx;
+                let dy = (y as f32 + 0.5) - cy;
+                let dist = (dx * dx + dy * dy).sqrt();
+                let cov = (radius + 0.5 - dist).clamp(0.0, 1.0);
+                if cov > 0.0 {
+                    self.blend_pixel(x, y, Rgba { alpha: color.alpha * cov, ..color });
+                }
+            }
+        }
+    }
+
+    fn draw_segment_aa(&mut self, p0: (f32, f32), p1: (f32, f32), half_w: f32, color: Rgba) {
+        let (x0, y0) = p0;
+        let (x1, y1) = p1;
+        let min_x = (x0.min(x1) - half_w - 2.0).floor() as i32;
+        let max_x = (x0.max(x1) + half_w + 2.0).ceil() as i32;
+        let min_y = (y0.min(y1) - half_w - 2.0).floor() as i32;
+        let max_y = (y0.max(y1) + half_w + 2.0).ceil() as i32;
+        let vx = x1 - x0;
+        let vy = y1 - y0;
+        let len_sq = vx * vx + vy * vy;
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let px = x as f32 + 0.5;
+                let py = y as f32 + 0.5;
+                let t = if len_sq > 1e-6 {
+                    (((px - x0) * vx + (py - y0) * vy) / len_sq).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let proj_x = x0 + t * vx;
+                let proj_y = y0 + t * vy;
+                let dist = ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt();
+                let cov = (half_w + 0.65 - dist).clamp(0.0, 1.0);
+                if cov > 0.0 {
+                    self.blend_pixel(x, y, Rgba { alpha: color.alpha * cov, ..color });
+                }
             }
         }
     }
@@ -206,6 +206,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     let w: usize = 720;
     let h: usize = 84;
     let mut buf = vec![0u8; w * h * 4];
+    let mut canvas = Canvas { buf: &mut buf, w, h };
 
     let data: Vec<f32> = if counts.is_empty() {
         vec![0.0; 30]
@@ -225,7 +226,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         let gy = (base_y - ratio * plot_h).round() as i32;
         for gx in (pad_x as i32)..((w as f32 - pad_x) as i32) {
             if (gx / 6) % 2 == 0 {
-                blend_pixel(&mut buf, w, h, gx, gy, 142, 142, 147, 0.09);
+                canvas.blend_pixel(gx, gy, Rgba { r: 142, g: 142, b: 147, alpha: 0.09 });
             }
         }
     }
@@ -280,7 +281,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
             for py in start_y..=end_y {
                 let rel: f32 = 1.0 - ((py - start_y) as f32 / span);
                 let fill_alpha = 0.14 * rel.powf(1.7);
-                blend_pixel(&mut buf, w, h, px, py, ar, ag, ab, fill_alpha);
+                canvas.blend_pixel(px, py, Rgba { r: ar, g: ag, b: ab, alpha: fill_alpha });
             }
         }
     }
@@ -288,12 +289,12 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     for idx in 0..curve.len().saturating_sub(1) {
         let (x0, y0) = curve[idx];
         let (x1, y1) = curve[idx + 1];
-        draw_segment_aa(&mut buf, w, h, x0, y0, x1, y1, 1.85, ar, ag, ab, 0.88);
+        canvas.draw_segment_aa((x0, y0), (x1, y1), 1.85, Rgba { r: ar, g: ag, b: ab, alpha: 0.88 });
     }
 
     if let Some(&(lx, ly)) = anchors.last() {
-        draw_disc_aa(&mut buf, w, h, lx, ly, 6.0, ar, ag, ab, 0.14);
-        draw_disc_aa(&mut buf, w, h, lx, ly, 2.6, ar, ag, ab, 0.95);
+        canvas.draw_disc_aa(lx, ly, 6.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.14 });
+        canvas.draw_disc_aa(lx, ly, 2.6, Rgba { r: ar, g: ag, b: ab, alpha: 0.95 });
     }
 
 write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;

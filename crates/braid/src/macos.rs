@@ -51,37 +51,6 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     unsafe { fn_act(app, sel_activate, 2) }
 }
 
-pub fn frontmost_bundle_id() -> Option<String> {
-    let cls_ws = unsafe { objc_getClass(c"NSWorkspace".as_ptr()) };
-    if cls_ws.is_null() {
-        return None;
-    }
-    let sel_shared = unsafe { sel_registerName(c"sharedWorkspace".as_ptr()) };
-    let sel_front = unsafe { sel_registerName(c"frontmostApplication".as_ptr()) };
-    let sel_bundle = unsafe { sel_registerName(c"bundleIdentifier".as_ptr()) };
-    let sel_utf8 = unsafe { sel_registerName(c"UTF8String".as_ptr()) };
-
-    type MsgObj = unsafe extern "C" fn(*const c_void, *const c_void) -> *const c_void;
-    type MsgCStr = unsafe extern "C" fn(*const c_void, *const c_void) -> *const i8;
-
-    let fn_obj: MsgObj = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
-    let fn_cstr: MsgCStr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
-
-    let ws = unsafe { fn_obj(cls_ws, sel_shared) };
-    let app = unsafe { fn_obj(ws, sel_front) };
-    if app.is_null() {
-        return None;
-    }
-    let ns_id = unsafe { fn_obj(app, sel_bundle) };
-    if ns_id.is_null() {
-        return None;
-    }
-    let c_ptr = unsafe { fn_cstr(ns_id, sel_utf8) };
-    if c_ptr.is_null() {
-        return None;
-    }
-    Some(unsafe { CStr::from_ptr(c_ptr) }.to_string_lossy().into_owned())
-}
 
 pub struct EditorSpec {
     pub id: &'static str,
@@ -388,8 +357,8 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
         _ => None,
     };
 
-    if let Some(bin) = cli_bin {
-        if Path::new(bin).exists() {
+    if let Some(bin) = cli_bin
+        && Path::new(bin).exists() {
             let status = std::process::Command::new(bin)
                 .arg("-n")
                 .arg(repo_path)
@@ -398,7 +367,6 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
                 return Ok(());
             }
         }
-    }
 
     let status = std::process::Command::new("open")
         .args(["-na", spec.cli_app, "--args", "-n"])
@@ -444,13 +412,18 @@ pub struct GitRepoMeta {
     pub recent_prs: Vec<braid_core::ipc::MergedPr>,
 }
 
-fn sparkline_cache() -> &'static Mutex<HashMap<String, (String, i64, Vec<u32>)>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, (String, i64, Vec<u32>)>>> = OnceLock::new();
+type SparklineEntry = (String, i64, Vec<u32>);
+type SparklineCacheMap = HashMap<String, SparklineEntry>;
+type MergedPrEntry = (String, Vec<braid_core::ipc::MergedPr>);
+type MergedPrCacheMap = HashMap<String, MergedPrEntry>;
+
+fn sparkline_cache() -> &'static Mutex<SparklineCacheMap> {
+    static CACHE: OnceLock<Mutex<SparklineCacheMap>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn pr_cache() -> &'static Mutex<HashMap<String, (String, Vec<braid_core::ipc::MergedPr>)>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, (String, Vec<braid_core::ipc::MergedPr>)>>> = OnceLock::new();
+fn pr_cache() -> &'static Mutex<MergedPrCacheMap> {
+    static CACHE: OnceLock<Mutex<MergedPrCacheMap>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -461,11 +434,10 @@ fn pr_inflight() -> &'static Mutex<HashSet<String>> {
 
 fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
     let key = format!("{}@{}", repo_path.display(), head_sha);
-    if let Ok(mut set) = pr_inflight().lock() {
-        if !set.insert(key.clone()) {
+    if let Ok(mut set) = pr_inflight().lock()
+        && !set.insert(key.clone()) {
             return;
         }
-    }
 
     std::thread::spawn(move || {
         let mut fetched = Vec::new();
@@ -481,13 +453,10 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
             .current_dir(&repo_path)
             .args(["pr", "list", "--state", "merged", "--limit", "3", "--json", "number,title,url"])
             .output()
-        {
-            if out.status.success() {
-                if let Ok(prs) = serde_json::from_slice::<Vec<braid_core::ipc::MergedPr>>(&out.stdout) {
+            && out.status.success()
+                && let Ok(prs) = serde_json::from_slice::<Vec<braid_core::ipc::MergedPr>>(&out.stdout) {
                     fetched = prs;
                 }
-            }
-        }
 
         let repo_key = repo_path.to_string_lossy().into_owned();
         if let Ok(mut cache) = pr_cache().lock() {
@@ -660,7 +629,6 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
     {
         let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
         lock.lock().unwrap().push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
-        return;
     }
 
     #[cfg(not(test))]
@@ -823,12 +791,6 @@ pub fn frontmost_app_and_window() -> (String, String) {
     };
     use std::ffi::c_void;
 
-    #[link(name = "CoreGraphics", kind = "framework")]
-    unsafe extern "C" {
-        fn CGWindowListCopyWindowInfo(option: u32, relativeToWindow: u32) -> *const CFArray;
-    }
-
-    // kCGWindowListOptionOnScreenOnly (1) | kCGWindowListExcludeDesktopElements (16) = 17
     let raw_list = unsafe { CGWindowListCopyWindowInfo(17, 0) };
     if raw_list.is_null() {
         return (String::new(), String::new());
@@ -840,6 +802,7 @@ pub fn frontmost_app_and_window() -> (String, String) {
     let k_layer = CFString::from_static_str("kCGWindowLayer");
     let k_owner = CFString::from_static_str("kCGWindowOwnerName");
     let k_name = CFString::from_static_str("kCGWindowName");
+    let k_pid = CFString::from_static_str("kCGWindowOwnerPID");
 
     let count = list.len();
     for i in 0..count {
@@ -874,63 +837,147 @@ pub fn frontmost_app_and_window() -> (String, String) {
             continue;
         }
 
+        let mut win_name = String::new();
         let name_ptr = unsafe { dict.value(k_name.as_ref() as *const CFString as *const c_void) };
-        let win_name = if !name_ptr.is_null() {
-            unsafe { &*(name_ptr as *const CFString) }.to_string()
-        } else {
-            String::new()
-        };
+        if !name_ptr.is_null() {
+            win_name = unsafe { &*(name_ptr as *const CFString) }.to_string();
+        }
+
+        if win_name.is_empty() {
+            let pid_ptr = unsafe { dict.value(k_pid.as_ref() as *const CFString as *const c_void) };
+            let mut pid: i32 = 0;
+            if !pid_ptr.is_null() {
+                let num = unsafe { &*(pid_ptr as *const CFNumber) };
+                unsafe { num.value(CFNumberType::SInt32Type, &mut pid as *mut i32 as *mut c_void) };
+            }
+            if pid > 0 {
+                win_name = ax_focused_window_title(pid).unwrap_or_default();
+            }
+        }
+
         return (owner, win_name);
     }
 
     (String::new(), String::new())
 }
 
-pub fn frontmost_window_title() -> Option<String> {
-    let (_, w) = frontmost_app_and_window();
-    if w.is_empty() { None } else { Some(w) }
+fn ax_focused_window_title(pid: i32) -> Option<String> {
+    use objc2_core_foundation::{CFRetained, CFString};
+    use std::ffi::c_void;
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXUIElementCreateApplication(pid: i32) -> *mut c_void;
+        fn AXUIElementCopyAttributeValue(
+            element: *const c_void,
+            attribute: *const CFString,
+            value: *mut *const c_void,
+        ) -> i32;
+        fn CFRelease(cf: *const c_void);
+    }
+
+    let app_el = unsafe { AXUIElementCreateApplication(pid) };
+    if app_el.is_null() {
+        return None;
+    }
+
+    let attr_focused = CFString::from_static_str("AXFocusedWindow");
+    let mut win_el: *const c_void = std::ptr::null();
+    let err1 = unsafe {
+        AXUIElementCopyAttributeValue(app_el, attr_focused.as_ref(), &mut win_el)
+    };
+    unsafe { CFRelease(app_el) };
+    if err1 != 0 || win_el.is_null() {
+        return None;
+    }
+
+    let attr_title = CFString::from_static_str("AXTitle");
+    let mut title_cf: *const c_void = std::ptr::null();
+    let err2 = unsafe {
+        AXUIElementCopyAttributeValue(win_el, attr_title.as_ref(), &mut title_cf)
+    };
+    unsafe { CFRelease(win_el) };
+    if err2 != 0 || title_cf.is_null() {
+        return None;
+    }
+
+    let title_str: CFRetained<CFString> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+    };
+    let s = title_str.to_string();
+    if s.is_empty() { None } else { Some(s) }
 }
 
 pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::Result<()> {
+    use objc2_core_foundation::{CFArray, CFRetained, CFString};
+    use std::ffi::c_void;
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXUIElementCreateApplication(pid: i32) -> *mut c_void;
+        fn AXUIElementCopyAttributeValue(
+            element: *const c_void,
+            attribute: *const CFString,
+            value: *mut *const c_void,
+        ) -> i32;
+        fn AXUIElementPerformAction(element: *const c_void, action: *const CFString) -> i32;
+        fn CFRelease(cf: *const c_void);
+    }
+
     focus_editor_app(favorite)?;
     let spec = resolve_editor_spec(favorite);
-    let script = format!(
-        r#"tell application "System Events"
-            tell process {:?}
-                set frontmost to true
-                repeat with w in windows
-                    if name of w contains {:?} then
-                        perform action "AXRaise" of w
-                        exit repeat
-                    end if
-                end repeat
-            end tell
-        end tell"#,
-        spec.cli_app, repo_name
-    );
-    let _ = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
-        .spawn();
+
+    let pid = find_running_app_pid(spec.bundle_id).unwrap_or(0);
+    if pid <= 0 {
+        return Ok(());
+    }
+
+    let app_el = unsafe { AXUIElementCreateApplication(pid) };
+    if app_el.is_null() {
+        return Ok(());
+    }
+
+    let attr_windows = CFString::from_static_str("AXWindows");
+    let mut wins_cf: *const c_void = std::ptr::null();
+    let err = unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &mut wins_cf) };
+    unsafe { CFRelease(app_el) };
+    if err != 0 || wins_cf.is_null() {
+        return Ok(());
+    }
+
+    let wins: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray))
+    };
+    let attr_title = CFString::from_static_str("AXTitle");
+    let act_raise = CFString::from_static_str("AXRaise");
+    let target_low = repo_name.to_lowercase();
+
+    for i in 0..wins.len() {
+        let w_ptr = unsafe { wins.value_at_index(i as isize) };
+        if w_ptr.is_null() {
+            continue;
+        }
+        let mut title_cf: *const c_void = std::ptr::null();
+        let t_err = unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+        if t_err == 0 && !title_cf.is_null() {
+            let title_str: CFRetained<CFString> = unsafe {
+                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+            };
+            if title_str.to_string().to_lowercase().contains(&target_low) {
+                unsafe { AXUIElementPerformAction(w_ptr, act_raise.as_ref()) };
+                break;
+            }
+        }
+    }
+
     Ok(())
 }
 
-pub fn frontmost_ax_window_title(app_name: &str) -> Option<String> {
-    let script = format!(
-        r#"tell application "System Events"
-            if exists process {:?} then
-                tell process {:?}
-                    if (count of windows) > 0 then
-                        return name of front window
-                    end if
-                end tell
-            end if
-        end tell"#,
-        app_name, app_name
-    );
-    let out = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
-        .output()
-        .ok()?;
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() { None } else { Some(s) }
+fn find_running_app_pid(bundle_id: &str) -> Option<i32> {
+    use objc2_app_kit::NSRunningApplication;
+    use objc2_foundation::NSString;
+
+    let ns_bid = NSString::from_str(bundle_id);
+    let apps = NSRunningApplication::runningApplicationsWithBundleIdentifier(&ns_bid);
+    apps.firstObject().map(|app| app.processIdentifier())
 }

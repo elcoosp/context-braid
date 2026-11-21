@@ -204,12 +204,11 @@ IpcMessage::NotifyTabFocused {
     "CYCLE_INSTR_TAB_FOCUSED"
 );
 st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
-                if let Some(repo) = st.tab_repo_history.get(&(browser, tab_id)).cloned() {
-                    if st.active_repo.as_deref() != Some(&repo) {
+                if let Some(repo) = st.tab_repo_history.get(&(browser, tab_id)).cloned()
+                    && st.active_repo.as_deref() != Some(&repo) {
                         st.active_repo = Some(repo);
                         st.cycle_cursor = 0;
                     }
-                }
                 IpcMessage::Ack
             }
 IpcMessage::SyncTabs { tabs, .. } => {
@@ -306,13 +305,7 @@ IpcMessage::CycleProject { repo_name } => {
                     || owner_low.contains(&editor_spec.cli_app.to_lowercase());
 
                 // Titre fenêtre : CoreGraphics si disponible, sinon Accessibility AXUIElement pour l'éditeur (< 2ms)
-                let front_win_title = if !cg_win_title.is_empty() {
-                    cg_win_title
-                } else if is_editor_front {
-                    macos::frontmost_ax_window_title(&editor_spec.cli_app).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let front_win_title = cg_win_title;
 
                 tracing::info!(
                     arg_repo_name = ?repo_name,
@@ -384,16 +377,14 @@ IpcMessage::CycleProject { repo_name } => {
                     // Saute la surface qui est déjà au premier plan
                     if len > 1 && is_editor_front && candidate_is_editor {
                         idx = (idx + 1) % len;
-                    } else if len > 1 && !is_editor_front && !candidate_is_editor {
-                        if let Some((fb, fw, ftid)) = &st.last_focused_tab {
-                            if candidate.browser.eq_ignore_ascii_case(fb)
+                    } else if len > 1 && !is_editor_front && !candidate_is_editor
+                        && let Some((fb, fw, ftid)) = &st.last_focused_tab
+                            && candidate.browser.eq_ignore_ascii_case(fb)
                                 && candidate.window_id == *fw
                                 && candidate.tab_id == *ftid
                             {
                                 idx = (idx + 1) % len;
                             }
-                        }
-                    }
 
                     st.cycle_cursor = (idx + 1) % len;
                     let target = p.tabs[idx].clone();

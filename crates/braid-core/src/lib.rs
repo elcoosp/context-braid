@@ -98,10 +98,10 @@ impl BraidConfig {
     }
 
     pub fn resolved_repos_root(&self) -> PathBuf {
-        if let Some(stripped) = self.repos.root_dir.strip_prefix("~/") {
-            if let Some(home) = dirs::home_dir() {
-                return home.join(stripped);
-            }
+        if let Some(stripped) = self.repos.root_dir.strip_prefix("~/")
+            && let Some(home) = dirs::home_dir()
+        {
+            return home.join(stripped);
         }
         PathBuf::from(&self.repos.root_dir)
     }
@@ -124,7 +124,7 @@ pub fn scan_repos(root: &Path, ignore: &[String]) -> Result<Vec<(String, PathBuf
         }
         repos.push((name, path));
     }
-    repos.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    repos.sort_by_key(|a| a.0.to_lowercase());
     Ok(repos)
 }
 
@@ -224,10 +224,10 @@ pub fn match_tab_to_repo(
         return Some(repo);
     }
 
-    if let Some(op) = tab.opener_tab_id {
-        if let Some(parent) = inherited.get(&(tab.browser.clone(), op)) {
-            return Some(parent.clone());
-        }
+    if let Some(op) = tab.opener_tab_id
+        && let Some(parent) = inherited.get(&(tab.browser.clone(), op))
+    {
+        return Some(parent.clone());
     }
 
     None

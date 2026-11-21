@@ -15,19 +15,16 @@ pub fn default_install_bin() -> Result<PathBuf> {
 }
 
 fn collect_existing_origins(manifest_path: &Path, set: &mut BTreeSet<String>) {
-    if let Ok(raw) = fs::read_to_string(manifest_path) {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) {
-            if let Some(arr) = val.get("allowed_origins").and_then(|v| v.as_array()) {
+    if let Ok(raw) = fs::read_to_string(manifest_path)
+        && let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw)
+            && let Some(arr) = val.get("allowed_origins").and_then(|v| v.as_array()) {
                 for item in arr {
-                    if let Some(s) = item.as_str() {
-                        if s.starts_with("chrome-extension://") {
+                    if let Some(s) = item.as_str()
+                        && s.starts_with("chrome-extension://") {
                             set.insert(s.to_string());
                         }
-                    }
                 }
             }
-        }
-    }
 }
 
 pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
