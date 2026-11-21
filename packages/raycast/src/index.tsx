@@ -241,7 +241,8 @@ export default function Command() {
                 const bBadge = browserBadge(tab.browser, proj.favorite_editor);
                 const workingAction = extractWorkingAction(tab);
                 const taskDetail = extractCleanIntent(tab.title, proj.repo_name, role.name === 'Google AI');
-                const rowSubtitle = workingAction || taskDetail;
+                const rawRowSub = workingAction || taskDetail;
+                const rowSubtitle = rawRowSub.length <= 26 ? rawRowSub : `${rawRowSub.slice(0, 25).trimEnd()}…`;
                 const age = formatRelativeAge(tab.updated_at_ms);
 
                 const accessories: List.Item.Accessory[] = [];

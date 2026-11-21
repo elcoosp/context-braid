@@ -249,29 +249,37 @@ IpcMessage::SyncTabs { tabs, .. } => {
                 let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
                 for t in tabs {
                     let key = (t.browser.clone(), t.window_id, t.tab_id);
+                    let was_working = st
+                        .tabs
+                        .get(&key)
+                        .map(|(prev, _)| prev.status == AgentStatus::Working)
+                        .unwrap_or(false);
                     let alert_kind = match t.status {
                         AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
                         AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
+                        AgentStatus::Idle if was_working => Some((3u8, format!("Réponse terminée sur {}", t.browser))),
                         _ => None,
                     };
                     let is_first_seen = st.seen_tabs.insert(key.clone());
                     if let Some((kind, subtitle)) = alert_kind {
                         use std::hash::{Hash, Hasher};
                         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                        if kind == 2 {
+                        if kind == 2 || kind == 3 {
                             t.title.hash(&mut hasher);
                             t.context_snippet.hash(&mut hasher);
                         }
                         let sig = hasher.finish();
                         let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, sig);
-                        if st.notified_alerts.insert(alert_key) && !is_first_seen {
+                        if st.notified_alerts.insert(alert_key) && (!is_first_seen || kind == 3) {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                                 .unwrap_or_else(|| "Workspace".into());
                             macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
                         }
-                    } else {
-                        st.notified_alerts.retain(|(b, w, tid, k, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id && *k == 1));
+                    } else if t.status == AgentStatus::Working {
+                        st.notified_alerts.retain(|(b, w, tid, k, _)| {
+                            !(b == &t.browser && *w == t.window_id && *tid == t.tab_id && (*k == 1 || *k == 3))
+                        });
                     }
                     st.tabs.insert(key, (t, now));
                 }

@@ -19,9 +19,9 @@ function isSupportedAiUrl(rawUrl?: string): boolean {
       h.endsWith('.z.ai') ||
       h === 'qwen.ai' ||
       h.endsWith('.qwen.ai') ||
-      h === '://google.com' ||
-      (h === '://google.com' && u.pathname.startsWith('/search')) ||
-      h === '://deepseek.com'
+      h === ['gemini', 'google', 'com'].join('.') ||
+      (h === ['www', 'google', 'com'].join('.') && u.pathname.startsWith('/search')) ||
+      h === ['chat', 'deepseek', 'com'].join('.')
     );
   } catch {
     return false;
@@ -144,38 +144,56 @@ export default defineBackground(() => {
   // Interroge directement l'API storage z.ai (`/api/v1/storage/chats/<id>/files/by-message?prefix=download`)
   // pour détecter tout `.zip` dès sa création serveur, même si la fenêtre est minimisée et que React n'a pas encore repeint le DOM !
   const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
-    if (!tabUrl || !tabUrl.includes('chat.z.ai/c/')) return;
-    const chatId = tabUrl.split('/c/')[1]?.split(/[?#]/)[0];
+    const resolvedUrl = tabUrl || (tabCache.get(tabId)?.url as string | undefined) || '';
+    if (!resolvedUrl.includes('chat.z.ai/c/')) return;
+    const chatId = resolvedUrl.split('/c/')?.split(/[?#]/);
     if (!chatId || chatId.length < 8) return;
 
-    try {
-      const apiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/storage/chats/', chatId, '/files/by-message', '?prefix=download&limit=20'].join('');
-      const res = await fetch(apiUrl, { credentials: 'include' });
-      if (!res.ok) return;
-      const bodyText = await res.text();
-      if (!bodyText.toLowerCase().includes('.zip')) return;
+    const subApiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/chats/subagents?chat_id=', chatId].join('');
+    const storageApiUrl = ['https', '://', 'chat', '.z.ai', '/api/v1/storage/chats/', chatId, '/files/by-message', '?prefix=download&limit=20'].join('');
 
-      let zipDownloadUrl = '';
-      try {
-        const parsed = JSON.parse(bodyText);
-        const flat = JSON.stringify(parsed);
-        const urlMatch = flat.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
-        if (urlMatch) {
-          zipDownloadUrl = urlMatch[0];
-        }
-      } catch {}
+    try {
+      const [subRes, storageRes] = await Promise.all([
+        fetch(subApiUrl, { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(storageApiUrl, { credentials: 'include' }).then((r) => (r.ok ? r.text() : '')).catch(() => ''),
+      ]);
 
       const existing = tabCache.get(tabId);
-      if (existing && existing.status !== 'working') {
-        const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
-        triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
-        if (existing.status !== 'completed') {
+      if (!existing) return;
+
+      if (existing.status === 'working' && Array.isArray(subRes?.data) && subRes.data.length > 0) {
+        const latestSub = subRes.data[subRes.data.length - 1];
+        const subDesc = String(latestSub?.description || latestSub?.subagent_type || '').trim();
+        const curSnippet = String(existing.context_snippet || '');
+        if (subDesc && (curSnippet.startsWith('Thinking') || !curSnippet.includes(' — '))) {
+          const base = curSnippet.includes(' — ') ? curSnippet.split(' — ').slice(1).join(' — ') : curSnippet;
           tabCache.set(tabId, {
             ...existing,
-            status: 'completed',
+            context_snippet: `${subDesc} — ${base}`,
             updated_at_ms: Date.now(),
           });
           flushTabs();
+        }
+      }
+
+      if (storageRes && storageRes.toLowerCase().includes('.zip')) {
+        let zipDownloadUrl = '';
+        const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
+        if (urlMatch) {
+          zipDownloadUrl = urlMatch;
+        }
+        const latestCached = tabCache.get(tabId);
+        if (latestCached && latestCached.status !== 'working') {
+          const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
+          triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+          if (latestCached.status !== 'completed') {
+            tabCache.set(tabId, {
+              ...latestCached,
+              status: 'completed',
+              updated_at_ms: Date.now(),
+            });
+            flushTabs();
+          }
         }
       }
     } catch {}
