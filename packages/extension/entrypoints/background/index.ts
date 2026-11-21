@@ -36,7 +36,15 @@ export default defineBackground(() => {
   const tabCache = new Map<number, Record<string, unknown>>();
   const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
   const downloadedZips = new Set<string>();
+  const knownChatZips = new Map<string, Set<string>>();
   let autoDownloadZip = false;
+  if (browser.storage?.local) {
+    browser.storage.local.get('autoDownloadZip').then((res) => {
+      if (typeof res?.autoDownloadZip === 'boolean') {
+        autoDownloadZip = res.autoDownloadZip;
+      }
+    }).catch(() => {});
+  }
 
   const handleDaemonResponse = async (resp: unknown) => {
     const msg = resp as {
@@ -46,6 +54,7 @@ export default defineBackground(() => {
     };
     if (msg?.type === 'sync_config' && typeof msg.auto_download_zip === 'boolean') {
       autoDownloadZip = msg.auto_download_zip;
+      browser.storage?.local?.set({ autoDownloadZip: msg.auto_download_zip }).catch(() => {});
       return;
     }
     if (msg?.type === 'browser_command' && Array.isArray(msg.commands)) {
@@ -162,7 +171,7 @@ export default defineBackground(() => {
       if (!existing) return;
 
       if (existing.status === 'working' && Array.isArray(subRes?.data) && subRes.data.length > 0) {
-        const latestSub = subRes.data[subRes.data.length - 1];
+        const latestSub = subRes.data.at(-1);
         const subDesc = String(latestSub?.description || latestSub?.subagent_type || '').trim();
         const curSnippet = String(existing.context_snippet || '');
         if (subDesc && (curSnippet.startsWith('Thinking') || !curSnippet.includes(' — '))) {
@@ -177,16 +186,32 @@ export default defineBackground(() => {
       }
 
       if (storageRes && storageRes.toLowerCase().includes('.zip')) {
-        let zipDownloadUrl = '';
-        const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
-        if (urlMatch) {
-          zipDownloadUrl = urlMatch.at(0) ?? '';
-        }
-        const latestCached = tabCache.get(tabId);
-        if (latestCached && latestCached.status !== 'working') {
-          const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
-          triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
-          if (latestCached.status !== 'completed') {
+        // Extrait toutes les clés/noms de fichiers `.zip` retournés par le serveur pour cette conversation
+        const zipKeys = Array.from(
+          new Set(
+            (storageRes.match(/[A-Za-z0-9_./-]+\.zip/gi) ?? []).map((k) => k.toLowerCase()),
+          ),
+        );
+        let seenForChat = knownChatZips.get(chatId);
+        if (!seenForChat) {
+          // Premier scan de cette conversation : enregistre les anciens .zip existants sans re-notifier
+          seenForChat = new Set(zipKeys);
+          knownChatZips.set(chatId, seenForChat);
+        } else {
+          const newlyCreatedZips = zipKeys.filter((k) => !seenForChat!.has(k));
+          for (const k of newlyCreatedZips) {
+            seenForChat.add(k);
+          }
+          if (newlyCreatedZips.length > 0) {
+            let zipDownloadUrl = '';
+            const urlMatch = storageRes.match(/https?:\/\/[^"'\s]+\.zip[^"'\s]*/i);
+            if (urlMatch) {
+              zipDownloadUrl = urlMatch.at(0) ?? '';
+            }
+            const latestZipKey = newlyCreatedZips.at(-1) ?? chatId;
+            const dedupKey = `${tabId}|${zipDownloadUrl || latestZipKey}`;
+            triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+            const latestCached = tabCache.get(tabId) ?? existing;
             tabCache.set(tabId, {
               ...latestCached,
               status: 'completed',
