@@ -213,49 +213,6 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
     titles
 }
 
-fn list_zed_active_session_paths(repos_root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    let Some(home) = dirs::home_dir() else {
-        return out;
-    };
-    let db_path = home
-        .join("Library/Application Support/Zed/db/0-stable/db.sqlite");
-    if !db_path.exists() {
-        return out;
-    }
-    let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let Ok(conn) = rusqlite::Connection::open_with_flags(&db_path, flags) else {
-        return out;
-    };
-
-    // Only select workspaces belonging to the live Zed process's current session_id
-    let Ok(mut stmt) = conn.prepare(
-        "SELECT paths FROM workspaces
-         WHERE session_id = (
-             SELECT session_id FROM workspaces
-             WHERE session_id IS NOT NULL AND session_id != ''
-             ORDER BY timestamp DESC LIMIT 1
-         )"
-    ) else {
-        return out;
-    };
-    let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(0)) else {
-        return out;
-    };
-    for paths_str in rows.flatten() {
-        for raw_line in paths_str.lines() {
-            let p = Path::new(raw_line.trim());
-            if p.starts_with(repos_root) && p != repos_root {
-                let pb = p.to_path_buf();
-                if !out.contains(&pb) {
-                    out.push(pb);
-                }
-            }
-        }
-    }
-    out
-}
-
 fn list_vscode_family_windows(repos_root: &Path, app_folder: &str) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let Some(home) = dirs::home_dir() else {
@@ -303,7 +260,6 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     }
 
     match spec.id {
-        "zed" => return list_zed_active_session_paths(repos_root),
         "cursor" => return list_vscode_family_windows(repos_root, "Cursor"),
         "vscode" => return list_vscode_family_windows(repos_root, "Code"),
         "windsurf" => return list_vscode_family_windows(repos_root, "Windsurf"),
@@ -311,7 +267,14 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     }
 
     // Fallback via CoreGraphics window titles for other editors
-    let win_titles = list_window_titles_for_pids(&pids);
+    let mut win_titles = list_window_titles_for_pids(&pids);
+    for &pid in &pids {
+        for t in ax_all_window_titles(pid) {
+            if !win_titles.contains(&t) {
+                win_titles.push(t);
+            }
+        }
+    }
     let mut open_paths = Vec::new();
     let Ok(entries) = std::fs::read_dir(repos_root) else {
         return open_paths;
@@ -980,4 +943,57 @@ fn find_running_app_pid(bundle_id: &str) -> Option<i32> {
     let ns_bid = NSString::from_str(bundle_id);
     let apps = NSRunningApplication::runningApplicationsWithBundleIdentifier(&ns_bid);
     apps.firstObject().map(|app| app.processIdentifier())
+}
+
+fn ax_all_window_titles(pid: i32) -> Vec<String> {
+    use objc2_core_foundation::{CFArray, CFRetained, CFString};
+    use std::ffi::c_void;
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXUIElementCreateApplication(pid: i32) -> *mut c_void;
+        fn AXUIElementCopyAttributeValue(
+            element: *const c_void,
+            attribute: *const CFString,
+            value: *mut *const c_void,
+        ) -> i32;
+        fn CFRelease(cf: *const c_void);
+    }
+
+    let mut out = Vec::new();
+    let app_el = unsafe { AXUIElementCreateApplication(pid) };
+    if app_el.is_null() {
+        return out;
+    }
+
+    let attr_windows = CFString::from_static_str("AXWindows");
+    let mut wins_cf: *const c_void = std::ptr::null();
+    let err = unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &mut wins_cf) };
+    unsafe { CFRelease(app_el) };
+    if err != 0 || wins_cf.is_null() {
+        return out;
+    }
+
+    let wins: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray))
+    };
+    let attr_title = CFString::from_static_str("AXTitle");
+    for i in 0..wins.len() {
+        let w_ptr = unsafe { wins.value_at_index(i as isize) };
+        if w_ptr.is_null() {
+            continue;
+        }
+        let mut title_cf: *const c_void = std::ptr::null();
+        let t_err = unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+        if t_err == 0 && !title_cf.is_null() {
+            let title_str: CFRetained<CFString> = unsafe {
+                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+            };
+            let s = title_str.to_string().trim().to_string();
+            if !s.is_empty() {
+                out.push(s);
+            }
+        }
+    }
+    out
 }
