@@ -176,9 +176,33 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect();
-    let out_path = dir.join(format!("{}.png", safe_name));
 
-    // 2x Retina canvas with 100% transparent background (RGBA = 0,0,0,0)
+    // Content-addressed hash so WebKit never displays stale cached images
+    let mut sig: u64 = 0xcbf29ce484222325;
+    for &c in counts {
+        sig ^= c as u64;
+        sig = sig.wrapping_mul(0x100000001b3);
+    }
+    sig ^= ((accent.0 as u64) << 16) | ((accent.1 as u64) << 8) | (accent.2 as u64);
+    let file_name = format!("{}_v2_{:08x}.png", safe_name, (sig & 0xffff_ffff) as u32);
+    let out_path = dir.join(&file_name);
+
+    if out_path.exists() {
+        return Some(out_path.to_string_lossy().into_owned());
+    }
+
+    // Remove older chart files for this repository
+    let prefix = format!("{}_", safe_name);
+    let legacy = format!("{}.png", safe_name);
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let fname = entry.file_name().to_string_lossy().into_owned();
+            if (fname.starts_with(&prefix) || fname == legacy) && fname != file_name {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+
     let w: usize = 720;
     let h: usize = 152;
     let mut buf = vec![0u8; w * h * 4];
@@ -197,7 +221,6 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     let plot_h = h as f32 - pad_top - pad_bot;
     let base_y = h as f32 - pad_bot;
 
-    // Subtle hairline reference rules (mid + baseline)
     for &ratio in &[0.0_f32, 0.5_f32] {
         let gy = (base_y - ratio * plot_h).round() as i32;
         for gx in (pad_x as i32)..((w as f32 - pad_x) as i32) {
@@ -219,7 +242,6 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         })
         .collect();
 
-    // High-density Catmull-Rom curve points
     let mut curve: Vec<(f32, f32)> = Vec::with_capacity(n * 16);
     for i in 0..n.saturating_sub(1) {
         let p0 = anchors[i.saturating_sub(1)];
@@ -240,10 +262,9 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
 
     let (ar, ag, ab) = accent;
 
-    // Silky vertical gradient fill beneath curve
-    for win in curve.windows(2) {
-        let (x0, y0) = win[0];
-        let (x1, y1) = win[1];
+    for idx in 0..curve.len().saturating_sub(1) {
+        let (x0, y0) = curve[idx];
+        let (x1, y1) = curve[idx + 1];
         let ix0 = x0.floor() as i32;
         let ix1 = x1.ceil() as i32;
         for px in ix0..=ix1 {
@@ -264,17 +285,17 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         }
     }
 
-    // Refined 2.2px Retina anti-aliased stroke
-    for win in curve.windows(2) {
-        draw_segment_aa(&mut buf, w, h, win[0].0, win[0].1, win[1].0, win[1].1, 2.2, ar, ag, ab, 0.92);
+    for idx in 0..curve.len().saturating_sub(1) {
+        let (x0, y0) = curve[idx];
+        let (x1, y1) = curve[idx + 1];
+        draw_segment_aa(&mut buf, w, h, x0, y0, x1, y1, 2.2, ar, ag, ab, 0.92);
     }
 
-    // Minimalist live indicator on today's endpoint only
     if let Some(&(lx, ly)) = anchors.last() {
         draw_disc_aa(&mut buf, w, h, lx, ly, 7.5, ar, ag, ab, 0.16);
         draw_disc_aa(&mut buf, w, h, lx, ly, 3.2, ar, ag, ab, 1.0);
     }
 
-    write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
-    Some(out_path.to_string_lossy().into_owned())
+write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
+Some(out_path.to_string_lossy().into_owned())
 }
