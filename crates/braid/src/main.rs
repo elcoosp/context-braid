@@ -25,7 +25,8 @@ struct DaemonState {
     active_repo: Option<String>,
     last_focused_tab: Option<(String, i64, i64)>,
     cycle_cursor: usize,
-    notified_alerts: HashSet<(String, i64, i64, u8)>,
+    notified_alerts: HashSet<(String, i64, i64, u8, u64)>,
+    seen_tabs: HashSet<(String, i64, i64)>,
     push_tx: broadcast::Sender<String>,
 }
 
@@ -46,6 +47,7 @@ impl DaemonState {
             last_focused_tab: None,
             cycle_cursor: 0,
             notified_alerts: HashSet::new(),
+            seen_tabs: HashSet::new(),
             push_tx,
         }
     }
@@ -252,17 +254,24 @@ IpcMessage::SyncTabs { tabs, .. } => {
                         AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
                         _ => None,
                     };
+                    let is_first_seen = st.seen_tabs.insert(key.clone());
                     if let Some((kind, subtitle)) = alert_kind {
-                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind);
-                        if st.notified_alerts.insert(alert_key) {
+                        use std::hash::{Hash, Hasher};
+                        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                        if kind == 2 {
+                            t.title.hash(&mut hasher);
+                            t.context_snippet.hash(&mut hasher);
+                        }
+                        let sig = hasher.finish();
+                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, sig);
+                        if st.notified_alerts.insert(alert_key) && !is_first_seen {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
                                 .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                                 .unwrap_or_else(|| "Workspace".into());
                             macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
                         }
                     } else {
-                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 1));
-                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 2));
+                        st.notified_alerts.retain(|(b, w, tid, _, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id));
                     }
                     st.tabs.insert(key, (t, now));
                 }
@@ -556,19 +565,25 @@ assert_eq!(decoded, sample);
                         AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
                         _ => None,
                     };
+                    let is_first_seen = st.seen_tabs.insert(key.clone());
                     if let Some((kind, subtitle)) = alert_kind {
-                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind);
-                        if st.notified_alerts.insert(alert_key) {
+                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, 0);
+                        if st.notified_alerts.insert(alert_key) && !is_first_seen {
                             crate::macos::notify_agent_alert("context-braid", &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
                         }
                     } else {
-                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 1));
-                        st.notified_alerts.remove(&(t.browser.clone(), t.window_id, t.tab_id, 2));
+                        st.notified_alerts.retain(|(b, w, tid, _, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id));
                     }
                     st.tabs.insert(key, (t, now));
                 }
             }
         };
+
+        // 0. Découverte initiale d'un onglet déjà Completed (F5 / démarrage daemon) -> 0 notification
+        let mut stale_tab = make_tab(AgentStatus::Completed);
+        stale_tab.tab_id = 999;
+        apply_tab(&mut st, stale_tab);
+        assert!(crate::macos::take_test_notifications().is_empty());
 
         // 1. Working -> aucune notification
         apply_tab(&mut st, make_tab(AgentStatus::Working));
