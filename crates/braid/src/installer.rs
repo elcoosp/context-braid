@@ -108,7 +108,7 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     let plist_path = launch_agents.join("com.contextbraid.daemon.plist");
     let plist = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>

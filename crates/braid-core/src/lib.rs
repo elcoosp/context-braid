@@ -249,7 +249,7 @@ mod tests {
             tab_id: 2,
             opener_tab_id: None,
             incognito: false,
-            url: "https://z.ai".into(),
+            url: "https://chat.z.ai/c/task-123".into(),
             title: "Build guiwright CLI".into(),
             context_snippet: "Path: /Users/dev/repos/guiwright".into(),
             status: AgentStatus::Completed,
