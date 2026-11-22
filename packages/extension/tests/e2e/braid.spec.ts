@@ -15,7 +15,7 @@ function sendIpc(sockPath: string, payload: unknown): Promise<any> {
       buf += chunk.toString('utf8');
       if (buf.includes('\n')) {
         client.end();
-        resolve(JSON.parse(buf.split('\n')[0]));
+        resolve(JSON.parse(buf.split('\n')[0] ?? '{}'));
       }
     });
     client.on('error', reject);
