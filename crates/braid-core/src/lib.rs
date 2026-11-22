@@ -1,8 +1,6 @@
 pub mod ipc;
 
-pub use ipc::{
-    AgentStatus, BrowserCommand, IpcMessage, ProjectWorkspace, TabContextPayload,
-};
+pub use ipc::{AgentStatus, BrowserCommand, IpcMessage, ProjectWorkspace, TabContextPayload};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -156,8 +154,8 @@ fn count_whole_word_matches(text: &str, needle: &str) -> usize {
 fn count_leaf_path_hits(text: &str, repo_lower: &str) -> usize {
     text.split_whitespace()
         .filter(|tok| {
-            let clean =
-                tok.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_');
+            let clean = tok
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_');
             clean
                 .rsplit_once('/')
                 .map(|(_, leaf)| leaf.trim_matches('.') == repo_lower)
@@ -174,7 +172,12 @@ fn score_repo_candidate(tab: &TabContextPayload, repo_name: &str) -> usize {
 
     let title_lower = tab.title.to_lowercase();
     let snippet_lower = tab.context_snippet.to_lowercase();
-    let full_hay = format!("{} {} {}", title_lower, snippet_lower, tab.url.to_lowercase());
+    let full_hay = format!(
+        "{} {} {}",
+        title_lower,
+        snippet_lower,
+        tab.url.to_lowercase()
+    );
 
     let title_hits = count_whole_word_matches(&title_lower, &n);
     let total_hits = count_whole_word_matches(&full_hay, &n);
