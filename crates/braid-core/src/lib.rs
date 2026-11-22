@@ -108,6 +108,20 @@ impl BraidConfig {
         Ok(toml::from_str(&raw)?)
     }
 
+    /// Saves the current configuration to disk.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serializing or writing the configuration file fails.
+    pub fn save(&self) -> Result<()> {
+        let path = Self::config_path()?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, toml::to_string_pretty(self)?)?;
+        Ok(())
+    }
+
     #[must_use]
     pub fn resolved_repos_root(&self) -> PathBuf {
         if let Some(stripped) = self.repos.root_dir.strip_prefix("~/")
