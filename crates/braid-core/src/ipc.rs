@@ -108,6 +108,10 @@ pub enum IpcMessage {
     CycleProject {
         repo_name: Option<String>,
     },
+    UpdateConfig {
+        auto_download_zip: Option<bool>,
+        favorite_editor: Option<String>,
+    },
     BrowserCommand {
         commands: Vec<BrowserCommand>,
     },
