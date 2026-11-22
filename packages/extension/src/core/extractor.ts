@@ -82,16 +82,22 @@ function hasInlineRuntimeError(doc: Document): boolean {
     }
   }
 
-  const candidates = doc.querySelectorAll('main div, main p, main span');
-  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 50; i--) {
+  const root =
+    doc.querySelector('main [data-scope-id="turn"]:last-of-type') ??
+    doc.querySelector('main') ??
+    doc.body;
+  if (!root) return false;
+
+  const candidates = root.querySelectorAll('div, p, span');
+  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 40; i--) {
     const el = candidates[i];
-    if (!isVisible(el)) continue;
+    const text = (el.textContent || '').trim();
+    if (text.length === 0 || text.length >= 280) continue;
+    if (!INLINE_ERROR_PATTERNS.some((re) => re.test(text))) continue;
     if (el.closest('[data-user-bubble="true"], pre, code')) continue;
     if (!isAfterLastUserBubble(el, lastUserBubble)) continue;
-    const text = (el.textContent || '').trim();
-    if (text.length > 0 && text.length < 280 && INLINE_ERROR_PATTERNS.some((re) => re.test(text))) {
-      return true;
-    }
+    if (!isVisible(el)) continue;
+    return true;
   }
   return false;
 }
