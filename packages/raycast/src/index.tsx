@@ -2,6 +2,8 @@ import "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { plural, t } from "@lingui/core/macro";
 import {
+  getPreferenceValues,
+  openExtensionPreferences,
   Action,
   ActionPanel,
   Color,
@@ -19,6 +21,12 @@ import { PairBrowserForm } from "./PairBrowserForm";
 import { ProjectWorkspace, queryDaemon, TabContext } from "./socketClient";
 
 type StatusFilter = "all" | "attention" | "working" | "editor";
+
+interface BraidPreferences {
+  autoDownloadZip?: boolean;
+  favoriteEditor?: string;
+  muteDurationMinutes?: string;
+}
 
 function detectRole(
   tab: TabContext,
@@ -177,6 +185,12 @@ function statusMeta(tab: TabContext): { label: string; color: Color } {
 }
 
 export default function Command() {
+  const prefs = getPreferenceValues<BraidPreferences>();
+  const muteMinutes = Math.max(
+    1,
+    Number.parseInt(prefs.muteDurationMinutes ?? "30", 10) || 30,
+  );
+  const syncedPrefsRef = useRef<string>("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [showDetail, setShowDetail] = useState<boolean>(true);
 
@@ -197,6 +211,22 @@ export default function Command() {
     lastSnapshotRef.current = { json: nextJson, list: next };
     return next;
   });
+
+  useEffect(() => {
+    const payload = {
+      type: "update_config",
+      auto_download_zip:
+        typeof prefs.autoDownloadZip === "boolean"
+          ? prefs.autoDownloadZip
+          : true,
+      favorite_editor: prefs.favoriteEditor || "zed",
+    };
+    const key = JSON.stringify(payload);
+    if (key !== syncedPrefsRef.current) {
+      syncedPrefsRef.current = key;
+      queryDaemon(payload).catch(() => {});
+    }
+  }, [prefs.autoDownloadZip, prefs.favoriteEditor]);
 
   useEffect(() => {
     const id = setInterval(() => revalidate(), 1500);
@@ -225,13 +255,13 @@ export default function Command() {
     await queryDaemon({
       type: "toggle_repo_mute",
       repo_name: proj.repo_name,
-      duration_ms: 30 * 60 * 1000,
+      duration_ms: muteMinutes * 60 * 1000,
     });
     await showToast({
       style: Toast.Style.Success,
       title: isMuted
         ? t`Alerts unmuted for ${proj.repo_name}`
-        : t`Muted ${proj.repo_name} for 30m`,
+        : t`Muted ${proj.repo_name} for ${muteMinutes}m`,
     });
     revalidate();
   };
@@ -306,6 +336,12 @@ export default function Command() {
             title={t`Install / Start Engine`}
             icon={Icon.Download}
             onAction={installEngine}
+          />
+          <Action
+            title={t`Open Extension Preferences`}
+            icon={Icon.Gear}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
+            onAction={openExtensionPreferences}
           />
           <Action.Push
             title={t`Connect Browser Extension ID`}
@@ -447,11 +483,25 @@ export default function Command() {
                   ? `**HEAD** \`${proj.last_commit_sha}\` · ${cleanCommitMsg}${commitAge ? ` *(${commitAge})*` : ""}`
                   : "";
 
+                const prsBlock =
+                  proj.recent_prs && proj.recent_prs.length > 0
+                    ? [
+                        `**${t`Recently Merged PRs`}**`,
+                        ...proj.recent_prs.slice(0, 3).map((pr) => {
+                          const rawPr = sanitizeMarkdownText(pr.title, 44);
+                          return pr.url
+                            ? `[#${pr.number}](${pr.url}) ${rawPr}`
+                            : `\`#${pr.number}\` ${rawPr}`;
+                        }),
+                      ].join("  \n")
+                    : "";
+
                 const detailMarkdown = [
                   `## ${proj.repo_name}`,
                   activityCallout,
                   chartImage,
                   commitLine,
+                  prsBlock,
                 ]
                   .filter(Boolean)
                   .join("\n\n");
@@ -624,7 +674,7 @@ export default function Command() {
                             title={
                               (proj.muted_until_ms ?? 0) > Date.now()
                                 ? t`Unmute Repo Alerts`
-                                : t`Mute Repo Alerts (30m)`
+                                : t`Mute Repo Alerts (${muteMinutes}m)`
                             }
                             icon={
                               (proj.muted_until_ms ?? 0) > Date.now()
