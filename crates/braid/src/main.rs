@@ -458,6 +458,17 @@ async fn dispatch_ipc_message(
             process_cycle_project(&mut *state.write().await, repo_name)?;
             Ok(IpcMessage::Ack)
         }
+        IpcMessage::UpdateConfig {
+            auto_download_zip,
+            favorite_editor,
+        } => {
+            handle_update_config(
+                &mut *state.write().await,
+                auto_download_zip,
+                favorite_editor,
+            )?;
+            Ok(IpcMessage::Ack)
+        }
         _ => Ok(IpcMessage::Ack),
     }
 }
@@ -523,6 +534,35 @@ async fn handle_client(stream: UnixStream, state: Arc<RwLock<DaemonState>>) -> R
     }
     Ok(())
 }
+fn handle_update_config(
+    st: &mut DaemonState,
+    auto_download_zip: Option<bool>,
+    favorite_editor: Option<String>,
+) -> Result<()> {
+    let mut changed = false;
+    if let Some(auto_dl) = auto_download_zip
+        && st.config.auto_download_zip != auto_dl
+    {
+        st.config.auto_download_zip = auto_dl;
+        changed = true;
+        let cfg_msg = serde_json::json!({ "type": "sync_config", "auto_download_zip": auto_dl });
+        if let Ok(json) = serde_json::to_string(&cfg_msg) {
+            let _ = st.push_tx.send(json);
+        }
+    }
+    if let Some(editor) = favorite_editor
+        && !editor.trim().is_empty()
+        && st.config.editor.favorite != editor
+    {
+        st.config.editor.favorite = editor;
+        changed = true;
+    }
+    if changed {
+        st.config.save()?;
+    }
+    Ok(())
+}
+
 async fn run_daemon() -> Result<()> {
     use std::os::unix::io::AsRawFd;
     let lock_file = std::fs::OpenOptions::new()
