@@ -37,3 +37,5 @@ export function initI18n(): string {
   i18n.activate(locale);
   return locale;
 }
+
+initI18n();

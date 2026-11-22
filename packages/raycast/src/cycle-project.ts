@@ -1,3 +1,4 @@
+import "./i18n";
 import { appendFileSync } from "node:fs";
 import { queryDaemon } from "./socketClient";
 

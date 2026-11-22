@@ -1,3 +1,4 @@
+import "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { plural, t } from "@lingui/core/macro";
 import {
@@ -14,7 +15,6 @@ import {
 import { usePromise } from "@raycast/utils";
 import { ensureBraidInstalledAndRunning } from "./bootstrap";
 import { BRAND_ICONS, browserBadge, editorMeta } from "./brandIcons";
-import "./i18n";
 import { PairBrowserForm } from "./PairBrowserForm";
 import { ProjectWorkspace, queryDaemon, TabContext } from "./socketClient";
 

@@ -1,6 +1,6 @@
+import "./i18n";
 import { t } from "@lingui/core/macro";
 import { showHUD } from "@raycast/api";
-import "./i18n";
 import { queryDaemon } from "./socketClient";
 
 export default async function Command() {
