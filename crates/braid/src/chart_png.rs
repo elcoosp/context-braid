@@ -18,7 +18,12 @@ struct Canvas<'a> {
 
 impl<'a> Canvas<'a> {
     fn blend_pixel(&mut self, x: i32, y: i32, color: Rgba) {
-        if x < 0 || y < 0 || (x as usize) >= self.w || (y as usize) >= self.h || color.alpha <= 0.001 {
+        if x < 0
+            || y < 0
+            || (x as usize) >= self.w
+            || (y as usize) >= self.h
+            || color.alpha <= 0.001
+        {
             return;
         }
         let idx = ((y as usize) * self.w + (x as usize)) * 4;
@@ -67,7 +72,11 @@ impl<'a> Canvas<'a> {
                         if (bits >> (2 - rx)) & 1 == 1 {
                             for sy in 0..scale {
                                 for sx in 0..scale {
-                                    self.blend_pixel(x + rx * scale + sx, y + (ry as i32) * scale + sy, color);
+                                    self.blend_pixel(
+                                        x + rx * scale + sx,
+                                        y + (ry as i32) * scale + sy,
+                                        color,
+                                    );
                                 }
                             }
                         }
@@ -90,7 +99,14 @@ impl<'a> Canvas<'a> {
                 let dist = (dx * dx + dy * dy).sqrt();
                 let cov = (radius + 0.5 - dist).clamp(0.0, 1.0);
                 if cov > 0.0 {
-                    self.blend_pixel(x, y, Rgba { alpha: color.alpha * cov, ..color });
+                    self.blend_pixel(
+                        x,
+                        y,
+                        Rgba {
+                            alpha: color.alpha * cov,
+                            ..color
+                        },
+                    );
                 }
             }
         }
@@ -121,7 +137,14 @@ impl<'a> Canvas<'a> {
                 let dist = ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt();
                 let cov = (half_w + 0.65 - dist).clamp(0.0, 1.0);
                 if cov > 0.0 {
-                    self.blend_pixel(x, y, Rgba { alpha: color.alpha * cov, ..color });
+                    self.blend_pixel(
+                        x,
+                        y,
+                        Rgba {
+                            alpha: color.alpha * cov,
+                            ..color
+                        },
+                    );
                 }
             }
         }
@@ -186,7 +209,11 @@ fn write_rgba_png(path: &PathBuf, w: u32, h: u32, rgba: &[u8]) -> Result<()> {
     let mut pos = 0;
     while pos < raw.len() {
         let chunk_len = (raw.len() - pos).min(65535);
-        let is_final = if pos + chunk_len == raw.len() { 1u8 } else { 0u8 };
+        let is_final = if pos + chunk_len == raw.len() {
+            1u8
+        } else {
+            0u8
+        };
         zlib.push(is_final);
         let len_u16 = chunk_len as u16;
         zlib.extend_from_slice(&len_u16.to_le_bytes());
@@ -214,13 +241,23 @@ fn write_rgba_png(path: &PathBuf, w: u32, h: u32, rgba: &[u8]) -> Result<()> {
     Ok(())
 }
 
-pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u8, u8)) -> Option<String> {
+pub fn render_velocity_chart_png(
+    repo_name: &str,
+    counts: &[u32],
+    accent: (u8, u8, u8),
+) -> Option<String> {
     let dir = PathBuf::from("/tmp/contextbraid-charts");
     fs::create_dir_all(&dir).ok()?;
 
     let safe_name: String = repo_name
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
 
     // Content-addressed hash so WebKit never displays stale cached images
@@ -255,7 +292,11 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         return Some(out_path.to_string_lossy().into_owned());
     }
     let mut buf = vec![0u8; w * h * 4];
-    let mut canvas = Canvas { buf: &mut buf, w, h };
+    let mut canvas = Canvas {
+        buf: &mut buf,
+        w,
+        h,
+    };
 
     let data: Vec<f32> = if counts.is_empty() {
         vec![0.0; 30]
@@ -275,7 +316,16 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         let gy = (base_y - ratio * plot_h).round() as i32;
         for gx in (pad_x as i32)..((w as f32 - pad_x) as i32) {
             if (gx / 6) % 2 == 0 {
-                canvas.blend_pixel(gx, gy, Rgba { r: 142, g: 142, b: 147, alpha: 0.09 });
+                canvas.blend_pixel(
+                    gx,
+                    gy,
+                    Rgba {
+                        r: 142,
+                        g: 142,
+                        b: 147,
+                        alpha: 0.09,
+                    },
+                );
             }
         }
     }
@@ -330,7 +380,16 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
             for py in start_y..=end_y {
                 let rel: f32 = 1.0 - ((py - start_y) as f32 / span);
                 let fill_alpha = 0.07 * rel.powf(1.8);
-                canvas.blend_pixel(px, py, Rgba { r: ar, g: ag, b: ab, alpha: fill_alpha });
+                canvas.blend_pixel(
+                    px,
+                    py,
+                    Rgba {
+                        r: ar,
+                        g: ag,
+                        b: ab,
+                        alpha: fill_alpha,
+                    },
+                );
             }
         }
     }
@@ -338,14 +397,37 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     for idx in 0..curve.len().saturating_sub(1) {
         let (x0, y0) = curve[idx];
         let (x1, y1) = curve[idx + 1];
-        canvas.draw_segment_aa((x0, y0), (x1, y1), 1.85, Rgba { r: ar, g: ag, b: ab, alpha: 0.88 });
+        canvas.draw_segment_aa(
+            (x0, y0),
+            (x1, y1),
+            1.85,
+            Rgba {
+                r: ar,
+                g: ag,
+                b: ab,
+                alpha: 0.88,
+            },
+        );
     }
 
-    let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
-    let neutral_text = Rgba { r: 120, g: 125, b: 134, alpha: 0.80 };
+    let neutral_line = Rgba {
+        r: 132,
+        g: 136,
+        b: 144,
+        alpha: 0.22,
+    };
+    let neutral_text = Rgba {
+        r: 120,
+        g: 125,
+        b: 134,
+        alpha: 0.80,
+    };
     let base_row = (h - 6) as i32;
     let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
-    let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
+    let right_x = anchors
+        .last()
+        .map(|p| p.0.round() as i32)
+        .unwrap_or((w - 10) as i32);
 
     // Ligne de base micro-pointillée + 4 repères hebdomadaires discrets
     let mut gx = left_x;
@@ -357,24 +439,51 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     for step in 0..=4 {
         let tx = left_x + ((right_x - left_x) * step) / 4;
         for ty in (base_row - 3)..=base_row {
-            canvas.blend_pixel(tx, ty, Rgba { r: 132, g: 136, b: 144, alpha: 0.32 });
+            canvas.blend_pixel(
+                tx,
+                ty,
+                Rgba {
+                    r: 132,
+                    g: 136,
+                    b: 144,
+                    alpha: 0.32,
+                },
+            );
         }
     }
 
     // Repère vertical subtil du pic d'activité (si peak > 0)
     let max_val = counts.iter().copied().max().unwrap_or(0);
-    if max_val > 0 {
-        if let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v) {
-            if let Some(&(px, py)) = anchors.get(peak_idx) {
-                let pxi = px.round() as i32;
-                let mut dy = (py.round() as i32) + 5;
-                while dy < base_row - 2 {
-                    canvas.blend_pixel(pxi, dy, Rgba { r: ar, g: ag, b: ab, alpha: 0.24 });
-                    dy += 4;
-                }
-                canvas.draw_disc_aa(px, py, 2.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.85 });
-            }
+    if max_val > 0
+        && let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v)
+        && let Some(&(px, py)) = anchors.get(peak_idx)
+    {
+        let pxi = px.round() as i32;
+        let mut dy = (py.round() as i32) + 5;
+        while dy < base_row - 2 {
+            canvas.blend_pixel(
+                pxi,
+                dy,
+                Rgba {
+                    r: ar,
+                    g: ag,
+                    b: ab,
+                    alpha: 0.24,
+                },
+            );
+            dy += 4;
         }
+        canvas.draw_disc_aa(
+            px,
+            py,
+            2.0,
+            Rgba {
+                r: ar,
+                g: ag,
+                b: ab,
+                alpha: 0.85,
+            },
+        );
     }
 
     // Micro-labels typographiques adaptatifs Light/Dark Mode (`30D` à gauche, `PEAK N/D` à droite)
@@ -385,13 +494,31 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         "IDLE".to_string()
     };
     let label_w = (peak_label.len() as i32) * 8;
-    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 5, &peak_label, neutral_text);
+    canvas.draw_micro_label(
+        (right_x - label_w).max(left_x + 40),
+        5,
+        &peak_label,
+        neutral_text,
+    );
 
-    let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
-    let neutral_text = Rgba { r: 120, g: 125, b: 134, alpha: 0.80 };
+    let neutral_line = Rgba {
+        r: 132,
+        g: 136,
+        b: 144,
+        alpha: 0.22,
+    };
+    let neutral_text = Rgba {
+        r: 120,
+        g: 125,
+        b: 134,
+        alpha: 0.80,
+    };
     let base_row = (h - 6) as i32;
     let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
-    let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
+    let right_x = anchors
+        .last()
+        .map(|p| p.0.round() as i32)
+        .unwrap_or((w - 10) as i32);
 
     let mut gx = left_x;
     while gx <= right_x {
@@ -402,23 +529,50 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     for step in 0..=4 {
         let tx = left_x + ((right_x - left_x) * step) / 4;
         for ty in (base_row - 3)..=base_row {
-            canvas.blend_pixel(tx, ty, Rgba { r: 132, g: 136, b: 144, alpha: 0.32 });
+            canvas.blend_pixel(
+                tx,
+                ty,
+                Rgba {
+                    r: 132,
+                    g: 136,
+                    b: 144,
+                    alpha: 0.32,
+                },
+            );
         }
     }
 
     let max_val = counts.iter().copied().max().unwrap_or(0);
-    if max_val > 0 {
-        if let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v) {
-            if let Some(&(px, py)) = anchors.get(peak_idx) {
-                let pxi = px.round() as i32;
-                let mut dy = (py.round() as i32) + 5;
-                while dy < base_row - 2 {
-                    canvas.blend_pixel(pxi, dy, Rgba { r: ar, g: ag, b: ab, alpha: 0.24 });
-                    dy += 4;
-                }
-                canvas.draw_disc_aa(px, py, 2.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.85 });
-            }
+    if max_val > 0
+        && let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v)
+        && let Some(&(px, py)) = anchors.get(peak_idx)
+    {
+        let pxi = px.round() as i32;
+        let mut dy = (py.round() as i32) + 5;
+        while dy < base_row - 2 {
+            canvas.blend_pixel(
+                pxi,
+                dy,
+                Rgba {
+                    r: ar,
+                    g: ag,
+                    b: ab,
+                    alpha: 0.24,
+                },
+            );
+            dy += 4;
         }
+        canvas.draw_disc_aa(
+            px,
+            py,
+            2.0,
+            Rgba {
+                r: ar,
+                g: ag,
+                b: ab,
+                alpha: 0.85,
+            },
+        );
     }
 
     canvas.draw_micro_label(left_x, 5, "30D", neutral_text);
@@ -428,13 +582,38 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         "IDLE".to_string()
     };
     let label_w = (peak_label.len() as i32) * 8;
-    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 5, &peak_label, neutral_text);
+    canvas.draw_micro_label(
+        (right_x - label_w).max(left_x + 40),
+        5,
+        &peak_label,
+        neutral_text,
+    );
 
     if let Some(&(lx, ly)) = anchors.last() {
-        canvas.draw_disc_aa(lx, ly, 6.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.14 });
-        canvas.draw_disc_aa(lx, ly, 2.6, Rgba { r: ar, g: ag, b: ab, alpha: 0.95 });
+        canvas.draw_disc_aa(
+            lx,
+            ly,
+            6.0,
+            Rgba {
+                r: ar,
+                g: ag,
+                b: ab,
+                alpha: 0.14,
+            },
+        );
+        canvas.draw_disc_aa(
+            lx,
+            ly,
+            2.6,
+            Rgba {
+                r: ar,
+                g: ag,
+                b: ab,
+                alpha: 0.95,
+            },
+        );
     }
 
-write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
-Some(out_path.to_string_lossy().into_owned())
+    write_rgba_png(&out_path, w as u32, h as u32, &buf).ok()?;
+    Some(out_path.to_string_lossy().into_owned())
 }
