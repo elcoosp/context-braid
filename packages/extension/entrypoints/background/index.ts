@@ -1,3 +1,4 @@
+import { isDirectZipDownloadUrl, validateZipDownloadPayload } from '../../src/core/extractor';
 import { AI_MATCH_PATTERNS } from '../../src/core/origins';
 
 function detectRuntimeBrowser(): string {
@@ -137,8 +138,8 @@ export default defineBackground(() => {
     downloadedZips.add(normalizedKey);
     persistDownloadedZips();
 
-    if (zipUrl && zipUrl.startsWith('http') && browser.downloads?.download) {
-      browser.downloads.download({ url: zipUrl, saveAs: false }).catch(() => {});
+    if (zipUrl && isDirectZipDownloadUrl(zipUrl) && typeof browser.downloads?.download === 'function') {
+      triggerBackgroundZipDownload(zipUrl, { source: 'triggerZipDownload', tabId });
       return;
     }
 
@@ -203,7 +204,7 @@ export default defineBackground(() => {
     const pendingZipRetries = new Map<string, ReturnType<typeof setTimeout>>();
   const awaitingZipTabs = new Map<number, { chatId: string; baselineCount: number; attempts: number }>();
   const countDownloadedForTab = (tabId: number) =>
-    Array.from(downloadedZipKeys).filter((k) => k.startsWith(`${tabId}|http`)).length;
+    Array.from(downloadedZips).filter((k) => k.startsWith(`${tabId}|http`)).length;
 
   const scheduleBackgroundZipRetry = (tabId: number, chatId: string, attempt = 0) => {
     const retryKey = `${tabId}|${chatId}`;
@@ -228,7 +229,7 @@ export default defineBackground(() => {
         awaitingZipTabs.delete(tabId);
         return;
       }
-      void probeZaiServerStorage(tabId, cached.url, true).then(() => {
+      void probeZaiServerStorage(tabId, typeof cached.url === 'string' ? cached.url : undefined, true).then(() => {
         const cur = awaitingZipTabs.get(tabId);
         if (!cur) return;
         if (countDownloadedForTab(tabId) > cur.baselineCount) {
@@ -271,7 +272,7 @@ export default defineBackground(() => {
           try {
             const parsed = JSON.parse(storageRes);
             const files = (parsed?.data?.messages || []).flatMap((m: { files?: Array<{ key?: string; url?: string; download_url?: string }> }) => m.files || []);
-            const zipEntries = files.filter((f) => String(f.key || '').toLowerCase().endsWith('.zip'));
+            const zipEntries = files.filter((f: { key?: string }) => String(f.key || '').toLowerCase().endsWith('.zip'));
             const lastZip = zipEntries.at(-1);
             if (lastZip) {
               if (lastZip.download_url || lastZip.url) {
@@ -302,7 +303,7 @@ export default defineBackground(() => {
 
       const { subRes, storageRes, signedZipUrl } = payload;
       const existing = tabCache.get(tabId) ?? {
-        browser: detectBrowserName(),
+        browser: detectRuntimeBrowser(),
         window_id: 0,
         tab_id: tabId,
         url: resolvedUrl,
@@ -380,11 +381,10 @@ export default defineBackground(() => {
       await browser.tabs.sendMessage(tabId, { type: 'PING_EXTRACT' });
     } catch {
       try {
-        const files =
-          browser.runtime.getManifest().content_scripts?.at(0)?.js ?? ['content-scripts/content.js'];
+        const manifestScripts = browser.runtime.getManifest().content_scripts?.at(0)?.js;
         await browser.scripting.executeScript({
           target: { tabId },
-          files,
+          files: (manifestScripts && manifestScripts.length > 0 ? manifestScripts : ['content-scripts/content.js']) as never,
         });
       } catch {}
     }
@@ -460,10 +460,45 @@ function appendAutoDownloadLog(entry: Record<string, unknown>) {
   }
 }
 
+async function verifyRemoteZipBeforeDownload(url: string): Promise<{ valid: boolean; reason: string }> {
+  if (!isDirectZipDownloadUrl(url)) {
+    return { valid: false, reason: 'blocked_spa_internal_path' };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Range: 'bytes=0-63' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      return { valid: false, reason: `http_status_${res.status}` };
+    }
+    const mime = res.headers.get('content-type') || '';
+    const buf = new Uint8Array(await res.arrayBuffer());
+    return validateZipDownloadPayload({ url, mime, firstBytes: buf });
+  } catch {
+    return { valid: true, reason: 'cors_or_network_bypass' };
+  }
+}
+
 function triggerBackgroundZipDownload(
   url: string,
-  meta: { pageUrl?: string; hidden?: boolean } = {},
+  meta: { pageUrl?: string; hidden?: boolean; source?: string; tabId?: number } = {},
 ) {
+  if (!isDirectZipDownloadUrl(url)) {
+    void appendAutoDownloadLog({
+      ts: new Date().toISOString(),
+      source: "background",
+      event: "rejected_non_zip_url",
+      url,
+      ...meta,
+    });
+    return;
+  }
   const now = Date.now();
   const prev = recentDownloadUrls.get(url);
   if (prev && now - prev < 60_000) {
@@ -478,7 +513,7 @@ function triggerBackgroundZipDownload(
   }
   recentDownloadUrls.set(url, now);
 
-  if (!browser.downloads?.download) {
+  if (typeof browser.downloads?.download !== 'function') {
     void appendAutoDownloadLog({
       ts: new Date().toISOString(),
       source: "background",
@@ -489,12 +524,25 @@ function triggerBackgroundZipDownload(
     return;
   }
 
-  void browser.downloads
-    .download({
-      url,
-      conflictAction: "uniquify",
-      saveAs: false,
-    })
+  void verifyRemoteZipBeforeDownload(url).then((check) => {
+    if (!check.valid) {
+      void appendAutoDownloadLog({
+        ts: new Date().toISOString(),
+        source: "background",
+        event: "rejected_invalid_zip_payload",
+        reason: check.reason,
+        url,
+        ...meta,
+      });
+      return;
+    }
+
+    void browser.downloads
+      .download({
+        url,
+        conflictAction: "uniquify",
+        saveAs: false,
+      })
     .then((downloadId) => {
       void appendAutoDownloadLog({
         ts: new Date().toISOString(),
@@ -505,16 +553,34 @@ function triggerBackgroundZipDownload(
         ...meta,
       });
     })
-    .catch((err: unknown) => {
+      .catch((err: unknown) => {
+        void appendAutoDownloadLog({
+          ts: new Date().toISOString(),
+          source: "background",
+          event: "download_failed",
+          error: String(err),
+          url,
+          ...meta,
+        });
+      });
+  });
+}
+
+if (browser.downloads?.onChanged) {
+  browser.downloads.onChanged.addListener((delta) => {
+    const mime = (delta.mime?.current || '').toLowerCase();
+    if (mime.includes('text/html') || mime.includes('application/xhtml')) {
       void appendAutoDownloadLog({
         ts: new Date().toISOString(),
-        source: "background",
-        event: "download_failed",
-        error: String(err),
-        url,
-        ...meta,
+        source: 'background',
+        event: 'cancelled_html_download',
+        downloadId: delta.id,
+        mime,
       });
-    });
+      browser.downloads.cancel(delta.id).catch(() => {});
+      browser.downloads.erase({ id: delta.id }).catch(() => {});
+    }
+  });
 }
 
 browser.runtime.onMessage.addListener((msg, sender) => {
