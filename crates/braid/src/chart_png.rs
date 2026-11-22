@@ -250,7 +250,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     }
 
     let w: usize = 720;
-    let h: usize = 84;
+    let h: usize = 100;
     if out_path.metadata().map(|m| m.len() > 0).unwrap_or(false) {
         return Some(out_path.to_string_lossy().into_owned());
     }
@@ -342,7 +342,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     }
 
     let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
-    let neutral_text = Rgba { r: 132, g: 136, b: 144, alpha: 0.62 };
+    let neutral_text = Rgba { r: 120, g: 125, b: 134, alpha: 0.80 };
     let base_row = (h - 6) as i32;
     let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
     let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
@@ -378,17 +378,17 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
     }
 
     // Micro-labels typographiques adaptatifs Light/Dark Mode (`30D` à gauche, `PEAK N/D` à droite)
-    canvas.draw_micro_label(left_x, 4, "30D", neutral_text);
+    canvas.draw_micro_label(left_x, 5, "30D", neutral_text);
     let peak_label = if max_val > 0 {
         format!("PEAK {}/D", max_val)
     } else {
         "IDLE".to_string()
     };
     let label_w = (peak_label.len() as i32) * 8;
-    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 4, &peak_label, neutral_text);
+    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 5, &peak_label, neutral_text);
 
     let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
-    let neutral_text = Rgba { r: 132, g: 136, b: 144, alpha: 0.62 };
+    let neutral_text = Rgba { r: 120, g: 125, b: 134, alpha: 0.80 };
     let base_row = (h - 6) as i32;
     let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
     let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
@@ -421,14 +421,14 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         }
     }
 
-    canvas.draw_micro_label(left_x, 4, "30D", neutral_text);
+    canvas.draw_micro_label(left_x, 5, "30D", neutral_text);
     let peak_label = if max_val > 0 {
         format!("PEAK {}/D", max_val)
     } else {
         "IDLE".to_string()
     };
     let label_w = (peak_label.len() as i32) * 8;
-    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 4, &peak_label, neutral_text);
+    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 5, &peak_label, neutral_text);
 
     if let Some(&(lx, ly)) = anchors.last() {
         canvas.draw_disc_aa(lx, ly, 6.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.14 });
