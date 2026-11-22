@@ -114,25 +114,9 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     ]
     .join("");
     let info_plist = format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "{}">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIdentifier</key>
-    <string>com.contextbraid.app</string>
-    <key>CFBundleName</key>
-    <string>ContextBraid</string>
-    <key>CFBundleDisplayName</key>
-    <string>ContextBraid</string>
-    <key>CFBundleExecutable</key>
-    <string>braid</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>LSUIElement</key>
-    <true/>
-</dict>
-</plist>"#,
-        dtd
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"{dtd}\">
+<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>com.contextbraid.app</string><key>CFBundleName</key><string>ContextBraid</string><key>CFBundleDisplayName</key><string>ContextBraid</string><key>CFBundleExecutable</key><string>braid</string><key>CFBundleIconFile</key><string>AppIcon</string><key>LSUIElement</key><true/></dict></plist>"
     );
     fs::write(app_contents.join("Info.plist"), info_plist)?;
 
@@ -143,6 +127,18 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
             .output();
     }
 
+    let home = dirs::home_dir().context("Home dir introuvable")?;
+    register_native_messaging_hosts(&app_support, &app_dir, &host_link, extra_ext_ids)?;
+    install_launchd_agent(&home, &app_exec)?;
+    Ok(())
+}
+
+fn register_native_messaging_hosts(
+    app_support: &Path,
+    app_dir: &Path,
+    host_link: &Path,
+    extra_ext_ids: &[String],
+) -> Result<()> {
     let browser_dirs = [
         "Google/Chrome/NativeMessagingHosts",
         "BraveSoftware/Brave-Browser/NativeMessagingHosts",
@@ -162,7 +158,7 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     for id in extra_ext_ids {
         let clean = id.trim().trim_matches('/');
         if !clean.is_empty() {
-            origins.insert(format!("chrome-extension://{}/", clean));
+            origins.insert(format!("chrome-extension://{clean}/"));
         }
     }
 
@@ -195,7 +191,6 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
         serde_json::to_string_pretty(&ff_manifest)?,
     )?;
 
-    let home = dirs::home_dir().context("HOME introuvable")?;
     let _ = std::process::Command::new("codesign")
         .args([
             "--force",
@@ -212,6 +207,10 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
             .status();
     }
 
+    Ok(())
+}
+
+fn install_launchd_agent(home: &Path, app_exec: &Path) -> Result<()> {
     let launch_agents = home.join("Library/LaunchAgents");
     fs::create_dir_all(&launch_agents)?;
     let plist_path = launch_agents.join("com.contextbraid.daemon.plist");
@@ -251,13 +250,13 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
 
     let uid_out = Command::new("id").arg("-u").output()?;
     let uid = String::from_utf8_lossy(&uid_out.stdout).trim().to_string();
-    let domain_target = format!("gui/{}", uid);
-    let service_target = format!("gui/{}/com.contextbraid.daemon", uid);
+    let domain_target = format!("gui/{uid}");
+    let service_target = format!("gui/{uid}/com.contextbraid.daemon");
 
     let kick = Command::new("launchctl")
         .args(["kickstart", "-k", &service_target])
         .output();
-    if kick.map(|o| !o.status.success()).unwrap_or(true) {
+    if kick.map_or(true, |o| !o.status.success()) {
         let _ = Command::new("launchctl")
             .args(["bootstrap", &domain_target, &plist_path.to_string_lossy()])
             .output();
