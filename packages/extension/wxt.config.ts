@@ -9,7 +9,6 @@ export default defineConfig({
     name: '__MSG_extName__',
     description: '__MSG_extDesc__',
     default_locale: 'en',
-    description: 'Auto-pair your local Git repos, editor windows, and AI browser tabs.',
     version: '0.1.0',
     icons: {
       16: 'icon/16.png',
