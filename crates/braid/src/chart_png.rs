@@ -22,14 +22,19 @@ impl<'a> Canvas<'a> {
             return;
         }
         let idx = ((y as usize) * self.w + (x as usize)) * 4;
-        let a = color.alpha.clamp(0.0, 1.0);
-        let inv = 1.0 - a;
-        self.buf[idx] = (color.r as f32 * a + self.buf[idx] as f32 * inv).round() as u8;
-        self.buf[idx + 1] = (color.g as f32 * a + self.buf[idx + 1] as f32 * inv).round() as u8;
-        self.buf[idx + 2] = (color.b as f32 * a + self.buf[idx + 2] as f32 * inv).round() as u8;
+        let src_a = color.alpha.clamp(0.0, 1.0);
         let dst_a = self.buf[idx + 3] as f32 / 255.0;
-        let out_a = (a + dst_a * inv).clamp(0.0, 1.0);
-        self.buf[idx + 3] = (out_a * 255.0).round() as u8;
+        let out_a = src_a + dst_a * (1.0 - src_a);
+        if out_a <= 0.0001 {
+            return;
+        }
+        let r = (color.r as f32 * src_a + self.buf[idx] as f32 * dst_a * (1.0 - src_a)) / out_a;
+        let g = (color.g as f32 * src_a + self.buf[idx + 1] as f32 * dst_a * (1.0 - src_a)) / out_a;
+        let b = (color.b as f32 * src_a + self.buf[idx + 2] as f32 * dst_a * (1.0 - src_a)) / out_a;
+        self.buf[idx] = r.round().clamp(0.0, 255.0) as u8;
+        self.buf[idx + 1] = g.round().clamp(0.0, 255.0) as u8;
+        self.buf[idx + 2] = b.round().clamp(0.0, 255.0) as u8;
+        self.buf[idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
     }
 
     fn draw_disc_aa(&mut self, cx: f32, cy: f32, radius: f32, color: Rgba) {
@@ -283,7 +288,7 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
             let span = (end_y - start_y).max(1) as f32;
             for py in start_y..=end_y {
                 let rel: f32 = 1.0 - ((py - start_y) as f32 / span);
-                let fill_alpha = 0.14 * rel.powf(1.7);
+                let fill_alpha = 0.07 * rel.powf(1.8);
                 canvas.blend_pixel(px, py, Rgba { r: ar, g: ag, b: ab, alpha: fill_alpha });
             }
         }
