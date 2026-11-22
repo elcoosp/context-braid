@@ -200,11 +200,30 @@ export default defineBackground(() => {
 
   // Interroge l'API storage & subagents z.ai DANS le contexte de l'onglet (avec localStorage.token)
   // pour détecter tout `.zip` dès sa création serveur même lorsque la fenêtre est minimisée !
-  const probeZaiServerStorage = async (tabId: number, tabUrl?: string) => {
+    const pendingZipRetries = new Map<string, ReturnType<typeof setTimeout>>();
+  const scheduleBackgroundZipRetry = (tabId: number, chatId: string, attempt = 0) => {
+    const retryKey = `${tabId}|${chatId}`;
+    if (pendingZipRetries.has(retryKey) || attempt >= 4) return;
+    const delays = [2500, 3500, 4500, 6000];
+    const timer = setTimeout(() => {
+      pendingZipRetries.delete(retryKey);
+      const cached = tabCache.get(tabId);
+      if (!cached) return;
+      void probeZaiServerStorage(tabId, cached.url, true).then(() => {
+        const hasDownloadedUrl = Array.from(downloadedZipKeys).some((k) => k.startsWith(`${tabId}|http`));
+        if (!hasDownloadedUrl) {
+          scheduleBackgroundZipRetry(tabId, chatId, attempt + 1);
+        }
+      });
+    }, delays[attempt] ?? 5000);
+    pendingZipRetries.set(retryKey, timer);
+  };
+
+  const probeZaiServerStorage = async (tabId: number, tabUrl?: string, bypassThrottle = false) => {
     const resolvedUrl = tabUrl || (tabCache.get(tabId)?.url as string | undefined) || '';
     if (!resolvedUrl.includes('chat.z.ai/c/')) return;
     const now = Date.now();
-    if (now - (lastServerProbeAt.get(tabId) ?? 0) < 6000) return;
+    if (!bypassThrottle && now - (lastServerProbeAt.get(tabId) ?? 0) < 6000) return;
     lastServerProbeAt.set(tabId, now);
     const chatId = new URL(resolvedUrl).pathname.match(/^\/c\/([^/?#]+)/)?.at(1);
     if (!chatId || chatId.length < 8) return;
@@ -316,8 +335,12 @@ export default defineBackground(() => {
           if (urlMatch) {
             zipDownloadUrl = urlMatch.at(0) ?? '';
           }
-          const dedupKey = `${tabId}|${zipDownloadUrl || chatId}`;
-          triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+          if (zipDownloadUrl) {
+            const dedupKey = `${tabId}|${zipDownloadUrl}`;
+            triggerZipDownload(tabId, zipDownloadUrl, dedupKey);
+          } else {
+            scheduleBackgroundZipRetry(tabId, chatId);
+          }
           const latestCached = tabCache.get(tabId) ?? existing;
           tabCache.set(tabId, {
             ...latestCached,
