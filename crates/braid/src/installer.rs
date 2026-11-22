@@ -1,4 +1,4 @@
-const APP_ICON_PNG: &[u8] = include_bytes!("../../../docs/logo.png");
+const APP_ICON_PNG: &[u8] = include_bytes!("../../../docs/icon-squircle.png");
 use anyhow::{Context, Result};
 use std::collections::BTreeSet;
 use std::fs;

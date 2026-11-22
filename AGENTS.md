@@ -112,5 +112,6 @@ launchctl bootstrap "gui/(id -u)" "PLIST"
 - **Reloading after extension build:** Reloading the extension (`↻`) on `brave://extensions` automatically re-injects the updated content script into all open AI tabs via `probeAllOpenAiTabs()` — no need to refresh open browser tabs.
 
 ## Icon Asset Single Source of Truth
-- `docs/logo.png` (1024x1024 transparent PNG) is the single source of truth for all Raycast icons, browser extension icons, Store icons, and macOS notification `AppIcon.icns`.
-- Run `pnpm icons:sync` after any change to `docs/logo.png`.
+- `docs/logo.png` (1024x1024 transparent PNG) is the raw logo mark used in README/docs.
+- `docs/icons/{main,cockpit,cycle,alert}.png` (1024x1024 master artworks on `#0D1628`) are the single sources of truth for all macOS squircle icons (Raycast commands, Menu Bar, browser extension, Store listings, and `docs/icon-squircle.png` embedded in `crates/braid/src/installer.rs` for `AppIcon.icns`).
+- Run `pnpm icons:sync` (or `just icons`) after any change to `docs/icons/*.png`.
