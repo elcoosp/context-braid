@@ -21,3 +21,6 @@ build:
 
 screenshots:
     ./scripts/capture-store-screenshots.sh
+
+icons:
+    ./scripts/sync-icons.sh

@@ -110,3 +110,7 @@ launchctl bootstrap "gui/(id -u)" "PLIST"
   chrome.storage.local.get('cb_autodownload_logs', (d) => console.table(d.cb_autodownload_logs));
   ```
 - **Reloading after extension build:** Reloading the extension (`↻`) on `brave://extensions` automatically re-injects the updated content script into all open AI tabs via `probeAllOpenAiTabs()` — no need to refresh open browser tabs.
+
+## Icon Asset Single Source of Truth
+- `docs/logo.png` (1024x1024 transparent PNG) is the single source of truth for all Raycast icons, browser extension icons, Store icons, and macOS notification `AppIcon.icns`.
+- Run `pnpm icons:sync` after any change to `docs/logo.png`.

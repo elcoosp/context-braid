@@ -12,7 +12,8 @@
     "store:sync": "extship",
     "store:sync:chrome": "pnpm --filter @context-braid/extension zip && extship --target chrome",
     "store:sync:edge": "pnpm --filter @context-braid/extension zip && extship --target edge",
-    "store:sync:firefox": "pnpm --filter @context-braid/extension zip:firefox && extship --target firefox"
+    "store:sync:firefox": "pnpm --filter @context-braid/extension zip:firefox && extship --target firefox",
+    "icons:sync": "./scripts/sync-icons.sh"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev",
@@ -21,7 +22,3 @@
   },
   "packageManager": "pnpm@12.18.0"
 }
-
-
-
-
