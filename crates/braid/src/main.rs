@@ -1,4 +1,5 @@
 mod chart_png;
+mod drop_inbox;
 mod host;
 mod installer;
 mod macos;
@@ -215,8 +216,11 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
             _ => None,
         };
 
-        if t.status != AgentStatus::Working {
-            st.confirmed_working.remove(&key);
+        if t.status != AgentStatus::Working
+            && st.confirmed_working.remove(&key)
+            && matches!(t.status, AgentStatus::Completed | AgentStatus::Idle)
+        {
+            drop_inbox::spawn_sync_drop_inbox();
         }
 
         if let Some((kind, subtitle)) = alert_kind {
