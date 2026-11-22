@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://cdn.jsdelivr.net/gh/elcoosp/context-braid@a2b2daf8542a2ba04d6e82639fc0c24937d9119a/docs/logo.png" alt="ContextBraid Logo" width="300"/>
+  <img src="https://cdn.jsdelivr.net/gh/elcoosp/context-braid@d1e7a9de40a92e7c5733d2db9dbd0916f3f1d6cf/docs/logo.png" alt="ContextBraid Logo" width="300"/>
   <p>
     <strong>A local macOS workspace cockpit for Raycast that links your Git repositories, code editors, and browser AI agents over a Unix domain socket.</strong><br/>
     ContextBraid pairs a native Rust daemon with a WXT browser extension and a Raycast interface so you can inspect live agent status, switch to the exact tab or editor window, and auto-download generated ZIP archives without cloud relays. Built for macOS developers running multiple repositories alongside Z.ai, Qwen, Gemini, Google AI, or DeepSeek sessions across Chrome, Brave, Edge, and Firefox.
