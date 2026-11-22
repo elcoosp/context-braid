@@ -79,11 +79,21 @@ impl Default for BraidConfig {
 }
 
 impl BraidConfig {
+    /// Returns the configuration file path for `ContextBraid`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration path cannot be constructed.
     pub fn config_path() -> Result<PathBuf> {
         let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("~/.config"));
         Ok(base.join("contextbraid").join("config.toml"))
     }
 
+    /// Loads the configuration from disk, creating a default file if absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading, serializing, or parsing the configuration file fails.
     pub fn load_or_default() -> Result<Self> {
         let path = Self::config_path()?;
         if !path.exists() {
@@ -98,6 +108,7 @@ impl BraidConfig {
         Ok(toml::from_str(&raw)?)
     }
 
+    #[must_use]
     pub fn resolved_repos_root(&self) -> PathBuf {
         if let Some(stripped) = self.repos.root_dir.strip_prefix("~/")
             && let Some(home) = dirs::home_dir()
@@ -108,6 +119,11 @@ impl BraidConfig {
     }
 }
 
+/// Scans `root` for Git repositories while skipping directory names in `ignore`.
+///
+/// # Errors
+///
+/// Returns an error if `root` cannot be read.
 pub fn scan_repos(root: &Path, ignore: &[String]) -> Result<Vec<(String, PathBuf)>> {
     let mut repos = Vec::new();
     if !root.exists() {
@@ -158,8 +174,7 @@ fn count_leaf_path_hits(text: &str, repo_lower: &str) -> usize {
                 .trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '-' && c != '_');
             clean
                 .rsplit_once('/')
-                .map(|(_, leaf)| leaf.trim_matches('.') == repo_lower)
-                .unwrap_or(false)
+                .is_some_and(|(_, leaf)| leaf.trim_matches('.') == repo_lower)
         })
         .count()
 }
@@ -205,10 +220,11 @@ fn score_repo_candidate(tab: &TabContextPayload, repo_name: &str) -> usize {
     score
 }
 
-pub fn match_tab_to_repo(
+#[must_use]
+pub fn match_tab_to_repo<S: std::hash::BuildHasher>(
     tab: &TabContextPayload,
     repos: &[(String, PathBuf)],
-    inherited: &HashMap<(String, i64), String>,
+    inherited: &HashMap<(String, i64), String, S>,
 ) -> Option<String> {
     let mut best_repo: Option<(String, usize)> = None;
     for (name, _) in repos {
