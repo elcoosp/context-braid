@@ -17,14 +17,16 @@ pub fn default_install_bin() -> Result<PathBuf> {
 fn collect_existing_origins(manifest_path: &Path, set: &mut BTreeSet<String>) {
     if let Ok(raw) = fs::read_to_string(manifest_path)
         && let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw)
-            && let Some(arr) = val.get("allowed_origins").and_then(|v| v.as_array()) {
-                for item in arr {
-                    if let Some(s) = item.as_str()
-                        && s.starts_with("chrome-extension://") {
-                            set.insert(s.to_string());
-                        }
-                }
+        && let Some(arr) = val.get("allowed_origins").and_then(|v| v.as_array())
+    {
+        for item in arr {
+            if let Some(s) = item.as_str()
+                && s.starts_with("chrome-extension://")
+            {
+                set.insert(s.to_string());
             }
+        }
+    }
 }
 
 pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
@@ -103,7 +105,14 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
         let _ = fs::remove_dir_all(&iconset_dir);
     }
 
-    let dtd = ["http", "://", "www", ".apple.com", "/DTDs/PropertyList-1.0.dtd"].join("");
+    let dtd = [
+        "http",
+        "://",
+        "www",
+        ".apple.com",
+        "/DTDs/PropertyList-1.0.dtd",
+    ]
+    .join("");
     let info_plist = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "{}">
@@ -144,7 +153,10 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     origins.insert("chrome-extension://dglmcdpnglffnfdnhaeaifholhncglgc/".to_string());
 
     for rel in &browser_dirs {
-        collect_existing_origins(&app_support.join(rel).join("com.contextbraid.host.json"), &mut origins);
+        collect_existing_origins(
+            &app_support.join(rel).join("com.contextbraid.host.json"),
+            &mut origins,
+        );
     }
 
     for id in extra_ext_ids {
@@ -185,7 +197,13 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
 
     let home = dirs::home_dir().context("HOME introuvable")?;
     let _ = std::process::Command::new("codesign")
-        .args(["--force", "--deep", "--sign", "-", &app_dir.to_string_lossy()])
+        .args([
+            "--force",
+            "--deep",
+            "--sign",
+            "-",
+            &app_dir.to_string_lossy(),
+        ])
         .status();
     let lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
     if Path::new(lsreg).exists() {
@@ -236,13 +254,18 @@ pub fn install_self(extra_ext_ids: &[String]) -> Result<()> {
     let domain_target = format!("gui/{}", uid);
     let service_target = format!("gui/{}/com.contextbraid.daemon", uid);
 
-    let kick = Command::new("launchctl").args(["kickstart", "-k", &service_target]).output();
+    let kick = Command::new("launchctl")
+        .args(["kickstart", "-k", &service_target])
+        .output();
     if kick.map(|o| !o.status.success()).unwrap_or(true) {
         let _ = Command::new("launchctl")
             .args(["bootstrap", &domain_target, &plist_path.to_string_lossy()])
             .output();
     }
 
-    println!("ContextBraid installé et démarré depuis {}", app_exec.display());
+    println!(
+        "ContextBraid installé et démarré depuis {}",
+        app_exec.display()
+    );
     Ok(())
 }

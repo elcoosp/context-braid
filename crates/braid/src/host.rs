@@ -38,7 +38,11 @@ fn connect_with_retry(sock_path: &str) -> Result<UnixStream> {
             }
         }
     }
-    Err(anyhow::anyhow!("Socket inaccessible ({}): {:?}", sock_path, last_err))
+    Err(anyhow::anyhow!(
+        "Socket inaccessible ({}): {:?}",
+        sock_path,
+        last_err
+    ))
 }
 
 pub fn run_host() -> Result<()> {
@@ -49,25 +53,28 @@ pub fn run_host() -> Result<()> {
     // Dedicated push subscription stream for instant (< 1ms) focus_tab commands
     let push_sock_path = sock_path.clone();
     let push_stdout = Arc::clone(&stdout_lock);
-    thread::spawn(move || loop {
-        if let Ok(mut sub) = connect_with_retry(&push_sock_path) {
-            let _ = writeln!(sub, r#"{{"type":"subscribe_host","browser":"all"}}"#);
-            let _ = sub.flush();
-            let mut reader = BufReader::new(sub);
-            let mut line = String::new();
-            while let Ok(n) = reader.read_line(&mut line) {
-                if n == 0 {
-                    break;
-                }
-                let trimmed = line.trim();
-                if !trimmed.is_empty()
-                    && let Ok(mut out) = push_stdout.lock() {
+    thread::spawn(move || {
+        loop {
+            if let Ok(mut sub) = connect_with_retry(&push_sock_path) {
+                let _ = writeln!(sub, r#"{{"type":"subscribe_host","browser":"all"}}"#);
+                let _ = sub.flush();
+                let mut reader = BufReader::new(sub);
+                let mut line = String::new();
+                while let Ok(n) = reader.read_line(&mut line) {
+                    if n == 0 {
+                        break;
+                    }
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty()
+                        && let Ok(mut out) = push_stdout.lock()
+                    {
                         let _ = write_frame(&mut *out, trimmed);
                     }
-                line.clear();
+                    line.clear();
+                }
             }
+            thread::sleep(Duration::from_millis(200));
         }
-        thread::sleep(Duration::from_millis(200));
     });
 
     let mut sock = connect_with_retry(&sock_path)?;
@@ -81,10 +88,12 @@ pub fn run_host() -> Result<()> {
             if writeln!(sock, "{}", msg.trim()).is_ok() && sock.flush().is_ok() {
                 let mut line = String::new();
                 if let Ok(n) = reader.read_line(&mut line)
-                    && n > 0 && !line.trim().is_empty() {
-                        resp = line.trim().to_string();
-                        break;
-                    }
+                    && n > 0
+                    && !line.trim().is_empty()
+                {
+                    resp = line.trim().to_string();
+                    break;
+                }
             }
             sock = connect_with_retry(&sock_path)?;
             reader = BufReader::new(sock.try_clone()?);

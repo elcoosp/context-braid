@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_void};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -18,7 +18,8 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     }
 
     let sel_str_utf8 = unsafe { sel_registerName(c"stringWithUTF8String:".as_ptr()) };
-    let sel_running_by_id = unsafe { sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr()) };
+    let sel_running_by_id =
+        unsafe { sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr()) };
     let sel_count = unsafe { sel_registerName(c"count".as_ptr()) };
     let sel_obj_at = unsafe { sel_registerName(c"objectAtIndex:".as_ptr()) };
     let sel_activate = unsafe { sel_registerName(c"activateWithOptions:".as_ptr()) };
@@ -26,7 +27,8 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     let c_bundle = CString::new(bundle_id).unwrap();
 
     type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
-    type MsgArr = unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
+    type MsgArr =
+        unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
     type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
     type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
     type MsgAct = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> bool;
@@ -50,7 +52,6 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     // NSApplicationActivateIgnoringOtherApps = 1 << 1 = 2
     unsafe { fn_act(app, sel_activate, 2) }
 }
-
 
 pub struct EditorSpec {
     pub id: &'static str,
@@ -105,8 +106,17 @@ unsafe extern "C" {
     fn CFArrayGetCount(the_array: *const c_void) -> isize;
     fn CFArrayGetValueAtIndex(the_array: *const c_void, idx: isize) -> *const c_void;
     fn CFDictionaryGetValue(the_dict: *const c_void, key: *const c_void) -> *const c_void;
-    fn CFStringCreateWithCString(alloc: *const c_void, c_str: *const i8, encoding: u32) -> *const c_void;
-    fn CFStringGetCString(the_string: *const c_void, buffer: *mut i8, buffer_size: isize, encoding: u32) -> bool;
+    fn CFStringCreateWithCString(
+        alloc: *const c_void,
+        c_str: *const i8,
+        encoding: u32,
+    ) -> *const c_void;
+    fn CFStringGetCString(
+        the_string: *const c_void,
+        buffer: *mut i8,
+        buffer_size: isize,
+        encoding: u32,
+    ) -> bool;
     fn CFNumberGetValue(number: *const c_void, the_type: isize, value_ptr: *mut c_void) -> bool;
 }
 
@@ -119,13 +129,16 @@ fn running_pids_for_bundle(bundle_id: &str) -> Vec<i32> {
             return pids;
         }
         let sel_str_utf8 = sel_registerName(c"stringWithUTF8String:".as_ptr());
-        let sel_running_by_id = sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr());
+        let sel_running_by_id =
+            sel_registerName(c"runningApplicationsWithBundleIdentifier:".as_ptr());
         let sel_count = sel_registerName(c"count".as_ptr());
         let sel_obj_at = sel_registerName(c"objectAtIndex:".as_ptr());
         let sel_pid = sel_registerName(c"processIdentifier".as_ptr());
 
-        type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
-        type MsgArr = unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
+        type MsgStr =
+            unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
+        type MsgArr =
+            unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
         type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
         type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
         type MsgPid = unsafe extern "C" fn(*const c_void, *const c_void) -> i32;
@@ -166,9 +179,12 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             return titles;
         }
         // kCFStringEncodingUTF8 = 0x08000100
-        let k_pid = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowOwnerPID".as_ptr(), 0x08000100);
-        let k_name = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowName".as_ptr(), 0x08000100);
-        let k_layer = CFStringCreateWithCString(std::ptr::null(), c"kCGWindowLayer".as_ptr(), 0x08000100);
+        let k_pid =
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowOwnerPID".as_ptr(), 0x08000100);
+        let k_name =
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowName".as_ptr(), 0x08000100);
+        let k_layer =
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowLayer".as_ptr(), 0x08000100);
 
         let count = CFArrayGetCount(list);
         for i in 0..count {
@@ -179,7 +195,9 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             let pid_ref = CFDictionaryGetValue(dict, k_pid);
             let mut pid: i32 = 0;
             // kCFNumberSInt32Type = 3
-            if pid_ref.is_null() || !CFNumberGetValue(pid_ref, 3, &mut pid as *mut i32 as *mut c_void) {
+            if pid_ref.is_null()
+                || !CFNumberGetValue(pid_ref, 3, &mut pid as *mut i32 as *mut c_void)
+            {
                 continue;
             }
             if !target_pids.contains(&pid) {
@@ -197,7 +215,10 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             if !name_ref.is_null() {
                 let mut buf = [0i8; 512];
                 if CFStringGetCString(name_ref, buf.as_mut_ptr(), buf.len() as isize, 0x08000100) {
-                    let s = CStr::from_ptr(buf.as_ptr()).to_string_lossy().trim().to_string();
+                    let s = CStr::from_ptr(buf.as_ptr())
+                        .to_string_lossy()
+                        .trim()
+                        .to_string();
                     if !s.is_empty() {
                         titles.push(s);
                     }
@@ -321,15 +342,16 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
     };
 
     if let Some(bin) = cli_bin
-        && Path::new(bin).exists() {
-            let status = std::process::Command::new(bin)
-                .arg("-n")
-                .arg(repo_path)
-                .status()?;
-            if status.success() {
-                return Ok(());
-            }
+        && Path::new(bin).exists()
+    {
+        let status = std::process::Command::new(bin)
+            .arg("-n")
+            .arg(repo_path)
+            .status()?;
+        if status.success() {
+            return Ok(());
         }
+    }
 
     let status = std::process::Command::new("open")
         .args(["-na", spec.cli_app, "--args", "-n"])
@@ -342,7 +364,9 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
 }
 
 pub fn open_in_terminal(repo_path: &str) -> Result<()> {
-    let _ = Command::new("open").args(["-a", "Terminal", repo_path]).spawn();
+    let _ = Command::new("open")
+        .args(["-a", "Terminal", repo_path])
+        .spawn();
     Ok(())
 }
 
@@ -399,9 +423,10 @@ fn pr_inflight() -> &'static Mutex<HashSet<String>> {
 fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
     let key = format!("{}@{}", repo_path.display(), head_sha);
     if let Ok(mut set) = pr_inflight().lock()
-        && !set.insert(key.clone()) {
-            return;
-        }
+        && !set.insert(key.clone())
+    {
+        return;
+    }
 
     std::thread::spawn(move || {
         let mut fetched = Vec::new();
@@ -432,7 +457,8 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
             && let Ok(val) = serde_json::from_slice::<serde_json::Value>(&out.stdout)
         {
             if let Some(nodes) = val.pointer("/data/repository/pullRequests/nodes")
-                && let Ok(prs) = serde_json::from_value::<Vec<braid_core::ipc::MergedPr>>(nodes.clone())
+                && let Ok(prs) =
+                    serde_json::from_value::<Vec<braid_core::ipc::MergedPr>>(nodes.clone())
             {
                 fetched = prs;
             }
@@ -537,11 +563,15 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             let cutoff = now_sec - 30 * 86_400;
             if let Ok(walk) = repo
                 .rev_walk([head_commit.id()])
-                .sorting(gix::revision::walk::Sorting::ByCommitTime(Default::default()))
+                .sorting(gix::revision::walk::Sorting::ByCommitTime(
+                    Default::default(),
+                ))
                 .all()
             {
                 for info in walk.flatten().take(25000) {
-                    let Some(ts) = info.commit_time else { continue; };
+                    let Some(ts) = info.commit_time else {
+                        continue;
+                    };
                     if ts < cutoff {
                         break;
                     }
@@ -553,12 +583,19 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
                 }
             }
             if let Ok(mut g) = sparkline_cache().lock() {
-                g.insert(cache_key.clone(), (commit_sha.clone(), today_bucket, sparkline.clone()));
+                g.insert(
+                    cache_key.clone(),
+                    (commit_sha.clone(), today_bucket, sparkline.clone()),
+                );
             }
         }
 
         // 2. Merged PRs (Merge, Squash, AND Rebase/reapply) via non-blocking gh CLI worker cached by HEAD SHA
-        if let Some((cached_sha, cached_prs, cached_ci)) = pr_cache().lock().ok().and_then(|g| g.get(&cache_key).cloned()) {
+        if let Some((cached_sha, cached_prs, cached_ci)) = pr_cache()
+            .lock()
+            .ok()
+            .and_then(|g| g.get(&cache_key).cloned())
+        {
             recent_prs = cached_prs;
             main_ci_status = cached_ci;
             if cached_sha != commit_sha {
@@ -586,9 +623,18 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         })
         .unwrap_or_default();
 
-    let repo_label = repo_path.file_name().and_then(|s| s.to_str()).unwrap_or("repo");
-    let accent = if dirty > 0 { (255, 159, 10) } else { (10, 132, 255) };
-    let sparkline_png_path = crate::chart_png::render_velocity_chart_png(repo_label, &sparkline, accent).unwrap_or_default();
+    let repo_label = repo_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("repo");
+    let accent = if dirty > 0 {
+        (255, 159, 10)
+    } else {
+        (10, 132, 255)
+    };
+    let sparkline_png_path =
+        crate::chart_png::render_velocity_chart_png(repo_label, &sparkline, accent)
+            .unwrap_or_default();
     GitRepoMeta {
         branch,
         dirty,
@@ -604,7 +650,8 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
 }
 
 #[cfg(test)]
-static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<(String, String, String)>>> = std::sync::OnceLock::new();
+static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<(String, String, String)>>> =
+    std::sync::OnceLock::new();
 
 #[cfg(test)]
 pub fn take_test_notifications() -> Vec<(String, String, String)> {
@@ -613,7 +660,14 @@ pub fn take_test_notifications() -> Vec<(String, String, String)> {
     std::mem::take(&mut *guard)
 }
 
-pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab_id: i64, subtitle: &str, title: &str) {
+pub fn notify_agent_alert(
+    repo_name: &str,
+    _browser: &str,
+    _window_id: i64,
+    _tab_id: i64,
+    subtitle: &str,
+    title: &str,
+) {
     let msg = if title.trim().is_empty() {
         "Agent needs attention"
     } else {
@@ -623,7 +677,9 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
     #[cfg(test)]
     {
         let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-        lock.lock().unwrap().push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
+        lock.lock()
+            .unwrap()
+            .push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
     }
 
     #[cfg(not(test))]
@@ -634,9 +690,7 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
             "/System/Library/Sounds/Funk.aiff"
         };
         if Path::new(sound_file).exists() {
-            let _ = std::process::Command::new("afplay")
-                .arg(sound_file)
-                .spawn();
+            let _ = std::process::Command::new("afplay").arg(sound_file).spawn();
         }
 
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
@@ -661,9 +715,9 @@ pub fn notify_agent_alert(repo_name: &str, _browser: &str, _window_id: i64, _tab
 
 pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &str) {
     use block2::RcBlock;
+    use objc2::MainThreadMarker;
     use objc2::rc::Retained;
     use objc2::runtime::Bool;
-    use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
     use objc2_foundation::{NSDate, NSError, NSRunLoop, NSString};
     use objc2_user_notifications::{
@@ -695,13 +749,19 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
             done_c.set(true);
             if !err.is_null() {
                 let desc = unsafe { (&*err).localizedDescription().to_string() };
-                if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/braid-notif.log") {
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/braid-notif.log")
+                {
                     let _ = writeln!(f, "AUTH_ERR: {}", desc);
                 }
             }
         });
 
-        let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
+        let opts = UNAuthorizationOptions::Alert
+            | UNAuthorizationOptions::Sound
+            | UNAuthorizationOptions::Badge;
         center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
 
         let run_loop = NSRunLoop::currentRunLoop();
@@ -714,11 +774,17 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
         }
 
         if let Some(f) = log.as_mut() {
-            let _ = writeln!(f, "AUTH_RESULT: done={} granted={}", done.get(), granted_flag.get());
+            let _ = writeln!(
+                f,
+                "AUTH_RESULT: done={} granted={}",
+                done.get(),
+                granted_flag.get()
+            );
         }
 
         if granted_flag.get() {
-            let content: Retained<UNMutableNotificationContent> = UNMutableNotificationContent::new();
+            let content: Retained<UNMutableNotificationContent> =
+                UNMutableNotificationContent::new();
             content.setTitle(&NSString::from_str(&full_title));
             content.setSubtitle(&NSString::from_str(subtitle));
             content.setBody(&NSString::from_str(message));
@@ -745,7 +811,11 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
                 sent_c.set(true);
                 if !err.is_null() {
                     let desc = unsafe { (&*err).localizedDescription().to_string() };
-                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/braid-notif.log") {
+                    if let Ok(mut f) = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("/tmp/braid-notif.log")
+                    {
                         let _ = writeln!(f, "ADD_ERR: {}", desc);
                     }
                 }
@@ -779,7 +849,6 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
         .spawn();
 }
 
-
 pub fn frontmost_app_and_window() -> (String, String) {
     use objc2_core_foundation::{
         CFArray, CFDictionary, CFNumber, CFNumberType, CFRetained, CFString,
@@ -790,9 +859,8 @@ pub fn frontmost_app_and_window() -> (String, String) {
     if raw_list.is_null() {
         return (String::new(), String::new());
     }
-    let list: CFRetained<CFArray> = unsafe {
-        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(raw_list as *mut CFArray))
-    };
+    let list: CFRetained<CFArray> =
+        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(raw_list as *mut CFArray)) };
 
     let k_layer = CFString::from_static_str("kCGWindowLayer");
     let k_owner = CFString::from_static_str("kCGWindowOwnerName");
@@ -811,7 +879,12 @@ pub fn frontmost_app_and_window() -> (String, String) {
         let mut layer: i64 = -1;
         if !layer_ptr.is_null() {
             let num = unsafe { &*(layer_ptr as *const CFNumber) };
-            unsafe { num.value(CFNumberType::SInt64Type, &mut layer as *mut i64 as *mut c_void) };
+            unsafe {
+                num.value(
+                    CFNumberType::SInt64Type,
+                    &mut layer as *mut i64 as *mut c_void,
+                )
+            };
         }
         if layer != 0 {
             continue;
@@ -843,7 +916,12 @@ pub fn frontmost_app_and_window() -> (String, String) {
             let mut pid: i32 = 0;
             if !pid_ptr.is_null() {
                 let num = unsafe { &*(pid_ptr as *const CFNumber) };
-                unsafe { num.value(CFNumberType::SInt32Type, &mut pid as *mut i32 as *mut c_void) };
+                unsafe {
+                    num.value(
+                        CFNumberType::SInt32Type,
+                        &mut pid as *mut i32 as *mut c_void,
+                    )
+                };
             }
             if pid > 0 {
                 win_name = ax_focused_window_title(pid).unwrap_or_default();
@@ -878,9 +956,7 @@ fn ax_focused_window_title(pid: i32) -> Option<String> {
 
     let attr_focused = CFString::from_static_str("AXFocusedWindow");
     let mut win_el: *const c_void = std::ptr::null();
-    let err1 = unsafe {
-        AXUIElementCopyAttributeValue(app_el, attr_focused.as_ref(), &mut win_el)
-    };
+    let err1 = unsafe { AXUIElementCopyAttributeValue(app_el, attr_focused.as_ref(), &mut win_el) };
     unsafe { CFRelease(app_el) };
     if err1 != 0 || win_el.is_null() {
         return None;
@@ -888,9 +964,7 @@ fn ax_focused_window_title(pid: i32) -> Option<String> {
 
     let attr_title = CFString::from_static_str("AXTitle");
     let mut title_cf: *const c_void = std::ptr::null();
-    let err2 = unsafe {
-        AXUIElementCopyAttributeValue(win_el, attr_title.as_ref(), &mut title_cf)
-    };
+    let err2 = unsafe { AXUIElementCopyAttributeValue(win_el, attr_title.as_ref(), &mut title_cf) };
     unsafe { CFRelease(win_el) };
     if err2 != 0 || title_cf.is_null() {
         return None;
@@ -940,9 +1014,8 @@ pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::
         return Ok(());
     }
 
-    let wins: CFRetained<CFArray> = unsafe {
-        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray))
-    };
+    let wins: CFRetained<CFArray> =
+        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray)) };
     let attr_title = CFString::from_static_str("AXTitle");
     let act_raise = CFString::from_static_str("AXRaise");
     let target_low = repo_name.to_lowercase();
@@ -953,7 +1026,8 @@ pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::
             continue;
         }
         let mut title_cf: *const c_void = std::ptr::null();
-        let t_err = unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+        let t_err =
+            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
         if t_err == 0 && !title_cf.is_null() {
             let title_str: CFRetained<CFString> = unsafe {
                 CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
@@ -1006,9 +1080,8 @@ fn ax_all_window_titles(pid: i32) -> Vec<String> {
         return out;
     }
 
-    let wins: CFRetained<CFArray> = unsafe {
-        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray))
-    };
+    let wins: CFRetained<CFArray> =
+        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray)) };
     let attr_title = CFString::from_static_str("AXTitle");
     for i in 0..wins.len() {
         let w_ptr = unsafe { wins.value_at_index(i as isize) };
@@ -1016,7 +1089,8 @@ fn ax_all_window_titles(pid: i32) -> Vec<String> {
             continue;
         }
         let mut title_cf: *const c_void = std::ptr::null();
-        let t_err = unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+        let t_err =
+            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
         if t_err == 0 && !title_cf.is_null() {
             let title_str: CFRetained<CFString> = unsafe {
                 CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))

@@ -1,12 +1,12 @@
+mod chart_png;
 mod host;
 mod installer;
-mod chart_png;
 mod macos;
 
 use anyhow::Result;
 use braid_core::{
-    match_tab_to_repo, scan_repos, AgentStatus, BraidConfig, IpcMessage,
-    ProjectWorkspace, TabContextPayload,
+    AgentStatus, BraidConfig, IpcMessage, ProjectWorkspace, TabContextPayload, match_tab_to_repo,
+    scan_repos,
 };
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 use tracing::{error, info};
 
 struct DaemonState {
@@ -228,33 +228,34 @@ async fn handle_client(stream: UnixStream, state: Arc<RwLock<DaemonState>>) -> R
                 {
                     break;
                 }
-}
-return Ok(());
-}
-let response = match msg {
-IpcMessage::NotifyTabFocused {
+            }
+            return Ok(());
+        }
+        let response = match msg {
+            IpcMessage::NotifyTabFocused {
                 browser,
                 window_id,
                 tab_id,
             } => {
                 let mut st = state.write().await;
                 tracing::info!(
-    browser = %browser,
-    window_id = window_id,
-    tab_id = tab_id,
-    prev_active_repo = ?st.active_repo,
-    mapped_repo = ?st.tab_repo_history.get(&(browser.clone(), tab_id)),
-    "CYCLE_INSTR_TAB_FOCUSED"
-);
-st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
+                    browser = %browser,
+                    window_id = window_id,
+                    tab_id = tab_id,
+                    prev_active_repo = ?st.active_repo,
+                    mapped_repo = ?st.tab_repo_history.get(&(browser.clone(), tab_id)),
+                    "CYCLE_INSTR_TAB_FOCUSED"
+                );
+                st.last_focused_tab = Some((browser.clone(), window_id, tab_id));
                 if let Some(repo) = st.tab_repo_history.get(&(browser, tab_id)).cloned()
-                    && st.active_repo.as_deref() != Some(&repo) {
-                        st.active_repo = Some(repo);
-                        st.cycle_cursor = 0;
-                    }
+                    && st.active_repo.as_deref() != Some(&repo)
+                {
+                    st.active_repo = Some(repo);
+                    st.cycle_cursor = 0;
+                }
                 IpcMessage::Ack
             }
-IpcMessage::SyncTabs { tabs, .. } => {
+            IpcMessage::SyncTabs { tabs, .. } => {
                 let mut st = state.write().await;
                 let now = now_ms();
                 let root = st.config.resolved_repos_root();
@@ -269,7 +270,9 @@ IpcMessage::SyncTabs { tabs, .. } => {
 
                     let was_confirmed_working = st.confirmed_working.contains(&key);
                     let alert_kind = match t.status {
-                        AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
+                        AgentStatus::NeedsAttention => {
+                            Some((1u8, format!("Alerte sur {}", t.browser)))
+                        }
                         AgentStatus::Completed if was_confirmed_working => {
                             Some((2u8, format!("ZIP prêt sur {}", t.browser)))
                         }
@@ -292,7 +295,11 @@ IpcMessage::SyncTabs { tabs, .. } => {
                         let alert_key = (t.browser.clone(), t.window_id, t.tab_id, dedup_kind, sig);
                         if st.notified_alerts.insert(alert_key) && !is_first_seen {
                             let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
-                                .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
+                                .or_else(|| {
+                                    st.tab_repo_history
+                                        .get(&(t.browser.clone(), t.tab_id))
+                                        .cloned()
+                                })
                                 .unwrap_or_else(|| "Workspace".into());
                             let is_muted = st
                                 .muted_until_ms
@@ -301,12 +308,22 @@ IpcMessage::SyncTabs { tabs, .. } => {
                                 .map(|until| until > now)
                                 .unwrap_or(false);
                             if !is_muted {
-                                macos::notify_agent_alert(&repo_label, &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
+                                macos::notify_agent_alert(
+                                    &repo_label,
+                                    &t.browser,
+                                    t.window_id,
+                                    t.tab_id,
+                                    &subtitle,
+                                    &t.title,
+                                );
                             }
                         }
                     } else if t.status == AgentStatus::Working && was_confirmed_working {
                         st.notified_alerts.retain(|(b, w, tid, k, _)| {
-                            !(b == &t.browser && *w == t.window_id && *tid == t.tab_id && (*k == 1 || *k == 2))
+                            !(b == &t.browser
+                                && *w == t.window_id
+                                && *tid == t.tab_id
+                                && (*k == 1 || *k == 2))
                         });
                     }
                     st.tabs.insert(key, (t, now));
@@ -314,34 +331,34 @@ IpcMessage::SyncTabs { tabs, .. } => {
                 IpcMessage::Ack
             }
             IpcMessage::GetDashboard => {
-let mut st = state.write().await;
-let projects = st.build_dashboard()?;
-IpcMessage::DashboardResponse { projects }
-}
-IpcMessage::FocusTarget {
-browser,
-window_id,
-tab_id,
-} => {
-let mut st = state.write().await;
-let projects = st.build_dashboard()?;
-for p in &projects {
-if let Some(t) = p
-.tabs
-.iter()
-.find(|t| t.browser == browser && t.window_id == window_id && t.tab_id == tab_id)
-{
-st.active_repo = Some(p.repo_name.clone());
-if let Some(pos) = p.tabs.iter().position(|x| x.browser == browser && x.window_id == window_id && x.tab_id == tab_id) {
-st.cycle_cursor = pos + 1;
-}
-st.focus_tab(t)?;
-break;
-}
-}
-IpcMessage::Ack
-}
-IpcMessage::OpenEditor { repo_path } => {
+                let mut st = state.write().await;
+                let projects = st.build_dashboard()?;
+                IpcMessage::DashboardResponse { projects }
+            }
+            IpcMessage::FocusTarget {
+                browser,
+                window_id,
+                tab_id,
+            } => {
+                let mut st = state.write().await;
+                let projects = st.build_dashboard()?;
+                for p in &projects {
+                    if let Some(t) = p.tabs.iter().find(|t| {
+                        t.browser == browser && t.window_id == window_id && t.tab_id == tab_id
+                    }) {
+                        st.active_repo = Some(p.repo_name.clone());
+                        if let Some(pos) = p.tabs.iter().position(|x| {
+                            x.browser == browser && x.window_id == window_id && x.tab_id == tab_id
+                        }) {
+                            st.cycle_cursor = pos + 1;
+                        }
+                        st.focus_tab(t)?;
+                        break;
+                    }
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::OpenEditor { repo_path } => {
                 let fav = state.read().await.config.editor.favorite.clone();
                 macos::open_in_favorite_editor(&fav, &repo_path)?;
                 IpcMessage::Ack
@@ -350,7 +367,10 @@ IpcMessage::OpenEditor { repo_path } => {
                 macos::open_in_terminal(&repo_path)?;
                 IpcMessage::Ack
             }
-IpcMessage::ToggleRepoMute { repo_name, duration_ms } => {
+            IpcMessage::ToggleRepoMute {
+                repo_name,
+                duration_ms,
+            } => {
                 let mut st = state.write().await;
                 let now = now_ms();
                 let currently_muted = st
@@ -362,30 +382,35 @@ IpcMessage::ToggleRepoMute { repo_name, duration_ms } => {
                 if currently_muted {
                     st.muted_until_ms.remove(&repo_name);
                 } else {
-                    st.muted_until_ms.insert(repo_name, now.saturating_add(duration_ms));
+                    st.muted_until_ms
+                        .insert(repo_name, now.saturating_add(duration_ms));
                 }
                 IpcMessage::Ack
             }
             IpcMessage::JumpNextAlert => {
-let mut st = state.write().await;
-let projects = st.build_dashboard()?;
-if let Some((proj_name, tab)) = projects.iter().filter(|p| p.muted_until_ms == 0).find_map(|p| {
-p.tabs
-.iter()
-.find(|t| {
-matches!(
-t.status,
-AgentStatus::NeedsAttention | AgentStatus::Completed
-)
-})
-.map(|t| (p.repo_name.clone(), t.clone()))
-}) {
-st.active_repo = Some(proj_name);
-st.focus_tab(&tab)?;
-}
-IpcMessage::Ack
-}
-IpcMessage::CycleProject { repo_name } => {
+                let mut st = state.write().await;
+                let projects = st.build_dashboard()?;
+                if let Some((proj_name, tab)) = projects
+                    .iter()
+                    .filter(|p| p.muted_until_ms == 0)
+                    .find_map(|p| {
+                        p.tabs
+                            .iter()
+                            .find(|t| {
+                                matches!(
+                                    t.status,
+                                    AgentStatus::NeedsAttention | AgentStatus::Completed
+                                )
+                            })
+                            .map(|t| (p.repo_name.clone(), t.clone()))
+                    })
+                {
+                    st.active_repo = Some(proj_name);
+                    st.focus_tab(&tab)?;
+                }
+                IpcMessage::Ack
+            }
+            IpcMessage::CycleProject { repo_name } => {
                 let mut st = state.write().await;
                 let projects = st.build_dashboard()?;
                 let (front_owner, cg_win_title) = macos::frontmost_app_and_window();
@@ -410,7 +435,12 @@ IpcMessage::CycleProject { repo_name } => {
                     let surfaces: Vec<String> = p
                         .tabs
                         .iter()
-                        .map(|t| format!("{}[w={},t={},title={:?}]", t.browser, t.window_id, t.tab_id, t.title))
+                        .map(|t| {
+                            format!(
+                                "{}[w={},t={},title={:?}]",
+                                t.browser, t.window_id, t.tab_id, t.title
+                            )
+                        })
                         .collect();
                     tracing::info!(repo = %p.repo_name, surfaces = ?surfaces, "CYCLE_E2E_DASHBOARD_REPO");
                 }
@@ -475,14 +505,16 @@ IpcMessage::CycleProject { repo_name } => {
                     // Saute la surface qui est déjà au premier plan
                     if len > 1 && is_editor_front && candidate_is_editor {
                         idx = (idx + 1) % len;
-                    } else if len > 1 && !is_editor_front && !candidate_is_editor
+                    } else if len > 1
+                        && !is_editor_front
+                        && !candidate_is_editor
                         && let Some((fb, fw, ftid)) = &st.last_focused_tab
-                            && candidate.browser.eq_ignore_ascii_case(fb)
-                                && candidate.window_id == *fw
-                                && candidate.tab_id == *ftid
-                            {
-                                idx = (idx + 1) % len;
-                            }
+                        && candidate.browser.eq_ignore_ascii_case(fb)
+                        && candidate.window_id == *fw
+                        && candidate.tab_id == *ftid
+                    {
+                        idx = (idx + 1) % len;
+                    }
 
                     st.cycle_cursor = (idx + 1) % len;
                     let target = p.tabs[idx].clone();
@@ -500,14 +532,14 @@ IpcMessage::CycleProject { repo_name } => {
                 IpcMessage::Ack
             }
             IpcMessage::SubscribeHost { .. } => unreachable!(),
-_ => IpcMessage::Ack,
-};
-let out = serde_json::to_string(&response)?;
-writer.write_all(out.as_bytes()).await?;
-writer.write_all(b"\n").await?;
-writer.flush().await?;
-}
-Ok(())
+            _ => IpcMessage::Ack,
+        };
+        let out = serde_json::to_string(&response)?;
+        writer.write_all(out.as_bytes()).await?;
+        writer.write_all(b"\n").await?;
+        writer.flush().await?;
+    }
+    Ok(())
 }
 async fn run_daemon() -> Result<()> {
     use std::os::unix::io::AsRawFd;
@@ -523,76 +555,76 @@ async fn run_daemon() -> Result<()> {
     }
     let _daemon_lock = lock_file;
 
-tracing_subscriber::fmt::init();
-let config = BraidConfig::load_or_default()?;
-let sock_path = Path::new(&config.daemon.socket_path);
-if sock_path.exists() {
-let _ = fs::remove_file(sock_path);
-}
-let listener = UnixListener::bind(sock_path)?;
-let (push_tx, _) = broadcast::channel(64);
-info!("braid daemon prêt sur {}", sock_path.display());
-let state = Arc::new(RwLock::new(DaemonState::new(config, push_tx)));
-loop {
-let (stream, _) = listener.accept().await?;
-let st = Arc::clone(&state);
-tokio::spawn(async move {
-if let Err(e) = handle_client(stream, st).await {
-error!("Erreur IPC: {}", e);
-}
-});
-}
+    tracing_subscriber::fmt::init();
+    let config = BraidConfig::load_or_default()?;
+    let sock_path = Path::new(&config.daemon.socket_path);
+    if sock_path.exists() {
+        let _ = fs::remove_file(sock_path);
+    }
+    let listener = UnixListener::bind(sock_path)?;
+    let (push_tx, _) = broadcast::channel(64);
+    info!("braid daemon prêt sur {}", sock_path.display());
+    let state = Arc::new(RwLock::new(DaemonState::new(config, push_tx)));
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let st = Arc::clone(&state);
+        tokio::spawn(async move {
+            if let Err(e) = handle_client(stream, st).await {
+                error!("Erreur IPC: {}", e);
+            }
+        });
+    }
 }
 fn main() -> Result<()> {
-let args: Vec<String> = std::env::args().collect();
-let invoked_as_host = args
-.first()
-.map(|a| a.ends_with("braid-host"))
-.unwrap_or(false);
-if invoked_as_host {
-host::run_host_entry();
-return Ok(());
-}
-match args.get(1).map(|s| s.as_str()) {
-Some("host") => {
-host::run_host_entry();
-Ok(())
-}
-Some("notify") => {
-let repo = args.get(2).map(|s| s.as_str()).unwrap_or("ContextBraid");
-let subtitle = args.get(3).map(|s| s.as_str()).unwrap_or("Agent Alert");
-let message = args.get(4).map(|s| s.as_str()).unwrap_or("");
-macos::deliver_un_notification_gui(repo, subtitle, message);
-Ok(())
-}
-Some("install") => {
-let extra: Vec<String> = args.iter().skip(2).cloned().collect();
-installer::install_self(&extra)
-}
-Some("daemon") | None => {
-let rt = tokio::runtime::Runtime::new()?;
-rt.block_on(run_daemon())
-}
-Some(_other) => {
-eprintln!("Usage: braid [daemon|host|install <optional_ext_id>]");
-std::process::exit(2);
-}
-}
+    let args: Vec<String> = std::env::args().collect();
+    let invoked_as_host = args
+        .first()
+        .map(|a| a.ends_with("braid-host"))
+        .unwrap_or(false);
+    if invoked_as_host {
+        host::run_host_entry();
+        return Ok(());
+    }
+    match args.get(1).map(|s| s.as_str()) {
+        Some("host") => {
+            host::run_host_entry();
+            Ok(())
+        }
+        Some("notify") => {
+            let repo = args.get(2).map(|s| s.as_str()).unwrap_or("ContextBraid");
+            let subtitle = args.get(3).map(|s| s.as_str()).unwrap_or("Agent Alert");
+            let message = args.get(4).map(|s| s.as_str()).unwrap_or("");
+            macos::deliver_un_notification_gui(repo, subtitle, message);
+            Ok(())
+        }
+        Some("install") => {
+            let extra: Vec<String> = args.iter().skip(2).cloned().collect();
+            installer::install_self(&extra)
+        }
+        Some("daemon") | None => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(run_daemon())
+        }
+        Some(_other) => {
+            eprintln!("Usage: braid [daemon|host|install <optional_ext_id>]");
+            std::process::exit(2);
+        }
+    }
 }
 #[cfg(test)]
 mod tests {
+    use super::host::{read_frame, write_frame};
     use super::*;
-use super::host::{read_frame, write_frame};
-use std::io::Cursor;
-#[test]
-fn test_u32_framing_roundtrip() {
-let mut buf = Vec::new();
-let sample = r#"{"type":"get_dashboard"}"#;
-write_frame(&mut buf, sample).unwrap();
-let mut cur = Cursor::new(buf);
-let decoded = read_frame(&mut cur).unwrap().unwrap();
-assert_eq!(decoded, sample);
-}
+    use std::io::Cursor;
+    #[test]
+    fn test_u32_framing_roundtrip() {
+        let mut buf = Vec::new();
+        let sample = r#"{"type":"get_dashboard"}"#;
+        write_frame(&mut buf, sample).unwrap();
+        let mut cur = Cursor::new(buf);
+        let decoded = read_frame(&mut cur).unwrap().unwrap();
+        assert_eq!(decoded, sample);
+    }
 
     #[test]
     fn test_alert_transition_dedup_and_rearm() {
@@ -626,18 +658,31 @@ assert_eq!(decoded, sample);
                 for t in tabs {
                     let key = (t.browser.clone(), t.window_id, t.tab_id);
                     let alert_kind = match t.status {
-                        AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
-                        AgentStatus::Completed => Some((2u8, format!("ZIP prêt sur {}", t.browser))),
+                        AgentStatus::NeedsAttention => {
+                            Some((1u8, format!("Alerte sur {}", t.browser)))
+                        }
+                        AgentStatus::Completed => {
+                            Some((2u8, format!("ZIP prêt sur {}", t.browser)))
+                        }
                         _ => None,
                     };
                     let is_first_seen = st.seen_tabs.insert(key.clone());
                     if let Some((kind, subtitle)) = alert_kind {
                         let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, 0);
                         if st.notified_alerts.insert(alert_key) && !is_first_seen {
-                            crate::macos::notify_agent_alert("context-braid", &t.browser, t.window_id, t.tab_id, &subtitle, &t.title);
+                            crate::macos::notify_agent_alert(
+                                "context-braid",
+                                &t.browser,
+                                t.window_id,
+                                t.tab_id,
+                                &subtitle,
+                                &t.title,
+                            );
                         }
                     } else {
-                        st.notified_alerts.retain(|(b, w, tid, _, _)| !(b == &t.browser && *w == t.window_id && *tid == t.tab_id));
+                        st.notified_alerts.retain(|(b, w, tid, _, _)| {
+                            !(b == &t.browser && *w == t.window_id && *tid == t.tab_id)
+                        });
                     }
                     st.tabs.insert(key, (t, now));
                 }
