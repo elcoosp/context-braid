@@ -7,7 +7,14 @@
 
 /* eslint-disable @typescript-eslint/ban-types */
 
-type ExtensionPreferences = {}
+type ExtensionPreferences = {
+  /** Auto-Download ZIP Artifacts - Synced live with the local ContextBraid daemon and browser extension. */
+  "autoDownloadZip": boolean,
+  /** Favorite Code Editor - Default editor used when opening repositories from the cockpit. */
+  "favoriteEditor": "zed" | "cursor" | "vscode" | "windsurf" | "neovim",
+  /** Default Alert Mute Duration - Duration used when muting repository notifications (Cmd+M). */
+  "muteDurationMinutes": "15" | "30" | "60" | "240"
+}
 
 /** Preferences accessible in all the extension's commands */
 declare type Preferences = ExtensionPreferences
