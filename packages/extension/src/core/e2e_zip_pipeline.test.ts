@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { JSDOM } from 'jsdom';
+import { parseHTML } from 'linkedom';
 import { extractPageState } from './extractor';
 
 describe('E2E Extension DOM + Multi-ZIP lifecycle', () => {
   it('détecte working -> completed -> premier ZIP puis second ZIP dans le même onglet', () => {
-    const dom1 = new JSDOM(`
+    const dom1 = parseHTML(`
       <main>
         <div data-user-bubble="true">Build archive v1</div>
         <div data-scope-id="turn">
@@ -12,11 +12,11 @@ describe('E2E Extension DOM + Multi-ZIP lifecycle', () => {
         </div>
       </main>
     `);
-    const s1 = extractPageState(dom1.window.document);
+    const s1 = extractPageState(dom1.document as unknown as Document);
     expect(s1.status).toBe('working');
     expect(s1.zipDownloadUrl).toBeUndefined();
 
-    const dom2 = new JSDOM(`
+    const dom2 = parseHTML(`
       <main>
         <div data-user-bubble="true">Build archive v1</div>
         <div data-scope-id="turn">
@@ -25,12 +25,12 @@ describe('E2E Extension DOM + Multi-ZIP lifecycle', () => {
         </div>
       </main>
     `);
-    const s2 = extractPageState(dom2.window.document);
+    const s2 = extractPageState(dom2.document as unknown as Document);
     expect(s2.status).toBe('completed');
     expect(s2.zipDownloadUrl).toBe('https://z.ai');
 
     // Second tour dans le même onglet : nouvel artefact ZIP
-    const dom3 = new JSDOM(`
+    const dom3 = parseHTML(`
       <main>
         <div data-user-bubble="true">Build archive v1</div>
         <div data-scope-id="turn">
@@ -43,7 +43,7 @@ describe('E2E Extension DOM + Multi-ZIP lifecycle', () => {
         </div>
       </main>
     `);
-    const s3 = extractPageState(dom3.window.document);
+    const s3 = extractPageState(dom3.document as unknown as Document);
     expect(s3.status).toBe('completed');
     expect(s3.zipDownloadUrl).toBe('https://z.ai');
   });
