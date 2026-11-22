@@ -179,26 +179,26 @@ importers:
   packages/extension:
     dependencies:
       wxt:
-        specifier: ^0.21.0
+        specifier: ^0.21.5
         version: 0.21.5(esbuild@0.28.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@8.1.1))(rolldown@1.2.19)(typescript@5.9.3)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0))
     devDependencies:
       '@playwright/test':
-        specifier: ^1.58.0
+        specifier: ^1.65.1
         version: 1.65.1
       '@types/node':
-        specifier: ^22.15.0
+        specifier: ^22.20.5
         version: 22.20.5
       '@vitest/browser-playwright':
-        specifier: ^5.1.0
+        specifier: ^5.1.1
         version: 5.1.1(playwright@1.65.1)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0))(vitest@5.1.1)
       linkedom:
-        specifier: ^0.18.0
+        specifier: ^0.18.15
         version: 0.18.15
       vite:
-        specifier: ^8.3.0
+        specifier: ^8.3.8
         version: 8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)
       vitest:
-        specifier: ^5.1.0
+        specifier: ^5.1.1
         version: 5.1.1(@types/node@22.20.5)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0))
 
   packages/raycast:
@@ -210,7 +210,7 @@ importers:
         specifier: ^2.13.1
         version: 2.13.1(@types/node@22.20.5)(@types/react@19.3.0)(supports-color@8.1.1)
       '@raycast/utils':
-        specifier: ^2.3.0
+        specifier: ^2.3.3
         version: 2.3.3(@raycast/api@2.13.1(@types/node@22.20.5)(@types/react@19.3.0)(supports-color@8.1.1))(react@19.3.1)
     devDependencies:
       '@lingui/cli':
@@ -232,10 +232,10 @@ importers:
         specifier: ^1.16.22
         version: 1.16.22
       '@types/node':
-        specifier: ^22.15.0
+        specifier: ^22.20.5
         version: 22.20.5
       '@types/react':
-        specifier: ^19.0.0
+        specifier: ^19.3.0
         version: 19.3.0
       eslint:
         specifier: ^10.15.0
@@ -244,10 +244,10 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1
       simple-icons:
-        specifier: ^16.38.0
-        version: 16.38.0
+        specifier: ^16.38.1
+        version: 16.38.1
       typescript:
-        specifier: ^5.8.0
+        specifier: ^5.9.3
         version: 5.9.3
 
 packages:
@@ -3227,8 +3227,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-icons@16.38.0:
-    resolution: {integrity: sha512-B0Wws90eL0Fm65aH35CA8kM+7/Zzgsaytt0DndBx7VFm3+o9HurVIVRQZ1hvqqYYIyNJq7ycn3kQm2v2FhiWSQ==}
+  simple-icons@16.38.1:
+    resolution: {integrity: sha512-q4JnGp1cgeASp4jzEsmSh/7BD/e2y7aYO8XST+QBEvOJ5wzZ/9WRmKsI+QUwkfPUSiXC+sfh2+QetD38zl3N0g==}
     engines: {node: '>=0.12.18'}
 
   sirv@3.0.2:
@@ -6419,7 +6419,7 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-icons@16.38.0: {}
+  simple-icons@16.38.1: {}
 
   sirv@3.0.2:
     dependencies:
