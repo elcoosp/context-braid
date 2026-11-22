@@ -1,11 +1,15 @@
 import { i18n } from "./i18n";
 import "./i18n";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { useEffect, useRef, useState } from "react";
 import {
   getPreferenceValues,
   openExtensionPreferences,
   Action,
   ActionPanel,
+  Clipboard,
   Color,
   Icon,
   Image,
@@ -253,6 +257,56 @@ function statusMeta(tab: TabContext): { label: string; color: Color } {
         color: Color.SecondaryText,
       };
   }
+}
+
+function buildAgentZipDropPrompt(repoName: string): string {
+  const safeRepo = repoName.replace(/[^a-zA-Z0-9._-]+/g, "-") || "project";
+  const cfgPath = path.join(
+    os.homedir(),
+    "Library",
+    "Application Support",
+    "ContextBraid",
+    "drop.json",
+  );
+  let repo = "<OWNER/REPO>";
+  let releaseId = "<RELEASE_ID>";
+  let token = "<GITHUB_TOKEN>";
+  try {
+    const raw = fs.readFileSync(cfgPath, "utf8");
+    const parsed = JSON.parse(raw) as {
+      repo?: string;
+      release_id?: number | string;
+      token?: string;
+    };
+    if (parsed.repo) repo = parsed.repo.replace(/^\/+/, "");
+    if (parsed.release_id) releaseId = String(parsed.release_id);
+    if (parsed.token) token = parsed.token;
+  } catch {
+    // Fallback placeholders when drop.json is not yet configured
+  }
+
+  const curlCmd = [
+    "curl -fsSL -X POST",
+    `  -H "Authorization: Bearer ${token}"`,
+    '  -H "Accept: application/vnd.github+json"',
+    '  -H "X-GitHub-Api-Version: 2022-11-28"',
+    '  -H "Content-Type: application/zip"',
+    '  --data-binary "@/tmp/$ZIP_NAME"',
+    `  ["https", ":", "//", "uploads", ".github.com", "/repos/", repo, "/releases/", releaseId, "/assets?name=$ZIP_NAME"].join("")`,
+  ].join(" \\\n");
+
+  return [
+    `When you finish generating the deliverable archive for project **${repoName}**, package it as a standard \`.zip\` file named \`${safeRepo}--$(date +%Y%m%d-%H%M%S).zip\` and upload it to the dedicated **ContextBraid Drop Inbox** repository (\`${repo}\`, release ID \`${releaseId}\`) — DO NOT change the upload repository to \`${repoName}\`:`,
+    "",
+    "```bash",
+    `ZIP_NAME="${safeRepo}--$(date +%Y%m%d-%H%M%S).zip"`,
+    `# Package your deliverable into /tmp/$ZIP_NAME excluding .git (example: zip -r "/tmp/$ZIP_NAME" . -x "*.git*")`,
+    `# IMPORTANT: Upload strictly to ${repo} release ${releaseId} (not the ${repoName} repo)`,
+    curlCmd,
+    "```",
+    "",
+    "ContextBraid will automatically detect turn completion, download the ZIP into `~/Downloads`, delete the temporary release asset, and trigger a macOS notification.",
+  ].join("\n");
 }
 
 export default function Command() {
@@ -962,6 +1016,27 @@ export default function Command() {
                             icon={Icon.Sidebar}
                             shortcut={{ modifiers: ["cmd"], key: "i" }}
                             onAction={() => setShowDetail((prev) => !prev)}
+                          />
+                          <Action
+                            title={i18n._({
+                              id: "dropZipPromptCmd",
+                              message: "Copy Agent ZIP Drop Prompt",
+                            })}
+                            icon={Icon.Upload}
+                            shortcut={{ modifiers: ["cmd"], key: "u" }}
+                            onAction={async () => {
+                              await Clipboard.copy(
+                                buildAgentZipDropPrompt(proj.repo_name),
+                              );
+                              await showToast({
+                                style: Toast.Style.Success,
+                                title: i18n._({
+                                  id: "dropZipPromptCopied",
+                                  message: "Copied ZIP Drop Prompt ({0})",
+                                  values: { 0: proj.repo_name },
+                                }),
+                              });
+                            }}
                           />
                           <Action.CopyToClipboard
                             title={i18n._({
