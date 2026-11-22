@@ -1,5 +1,5 @@
+import { i18n } from "./i18n";
 import { useState } from "react";
-import { t } from "@lingui/core/macro";
 import {
   Action,
   ActionPanel,
@@ -20,34 +20,52 @@ export function PairBrowserForm({ onDone }: { onDone: () => void }) {
     if (!/^[a-p]{32}$/.test(clean)) {
       await showToast({
         style: Toast.Style.Failure,
-        title: t`Invalid ID (32 lowercase letters expected)`,
+        title: i18n._({
+          id: "Wo6Rfr",
+          message: "Invalid ID (32 lowercase letters expected)",
+        }),
       });
       return;
     }
     const toast = await showToast({
       style: Toast.Style.Animated,
-      title: t`Registering extension...`,
+      title: i18n._({
+        id: "Q_agIs",
+        message: "Registering extension...",
+      }),
     });
     try {
       await runBraidInstall(clean);
       toast.style = Toast.Style.Success;
-      toast.title = t`Extension registered! Click Reload (↻) in your browser.`;
+      toast.title = i18n._({
+        id: "QCxG5o",
+        message: "Extension registered! Click Reload (↻) in your browser.",
+      });
       onDone();
       pop();
     } catch (err) {
       toast.style = Toast.Style.Failure;
-      toast.title = t`Error`;
+      toast.title = i18n._({
+        id: "SlfejT",
+        message: "Error",
+      });
       toast.message = err instanceof Error ? err.message : String(err);
     }
   };
 
   return (
     <Form
-      navigationTitle={t`Register Local Browser Extension ID`}
+      navigationTitle={i18n._({
+        id: "e5M56e",
+        message: "Register Local Browser Extension ID",
+      })}
       actions={
         <ActionPanel>
           <Action.SubmitForm
-            title={t`Save and Reconnect`}
+            title={i18n._({
+              id: "Vcjiat",
+              message: "Save and Reconnect",
+            })}
             onSubmit={handleSubmit}
           />
         </ActionPanel>
@@ -55,14 +73,24 @@ export function PairBrowserForm({ onDone }: { onDone: () => void }) {
     >
       <Form.TextField
         id="extId"
-        title={t`32-character Extension ID`}
+        title={i18n._({
+          id: "Uu52G6",
+          message: "32-character Extension ID",
+        })}
         placeholder="npejknmlpfojkmpniiklpndcjhpjehaf"
         value={extId}
         onChange={setExtId}
       />
       <Form.Description
-        title={t`How to find it`}
-        text={t`1. Open chrome://extensions or brave://extensions\n2. Enable Developer Mode\n3. Copy the ID displayed under ContextBraid`}
+        title={i18n._({
+          id: "WN8Hf4",
+          message: "How to find it",
+        })}
+        text={i18n._({
+          id: "pHJwW9",
+          message:
+            "1. Open chrome://extensions or brave://extensions\n2. Enable Developer Mode\n3. Copy the ID displayed under ContextBraid",
+        })}
       />
     </Form>
   );

@@ -1,6 +1,6 @@
+import { i18n } from "./i18n";
 import "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { plural, t } from "@lingui/core/macro";
 import {
   getPreferenceValues,
   openExtensionPreferences,
@@ -123,23 +123,64 @@ function extractCleanIntent(
 function formatRelativeAge(updatedAtMs: number): string {
   if (!updatedAtMs || updatedAtMs <= 0) return "";
   const diffSec = Math.max(0, Math.floor((Date.now() - updatedAtMs) / 1000));
-  if (diffSec < 60) return t`just now`;
+  if (diffSec < 60)
+    return i18n._({
+      id: "xOTzt5",
+      message: "just now",
+    });
   const mins = Math.floor(diffSec / 60);
-  if (mins < 60) return t`${mins}m ago`;
+  if (mins < 60)
+    return i18n._({
+      id: "Mq2B8E",
+      message: "{mins}m ago",
+      values: {
+        mins: mins,
+      },
+    });
   const hrs = Math.floor(mins / 60);
-  return t`${hrs}h ago`;
+  return i18n._({
+    id: "wXO4Tg",
+    message: "{hrs}h ago",
+    values: {
+      hrs: hrs,
+    },
+  });
 }
 
 function formatCommitAge(unixSec: number): string {
   if (!unixSec || unixSec <= 0) return "";
   const diffSec = Math.max(0, Math.floor(Date.now() / 1000 - unixSec));
-  if (diffSec < 60) return t`just now`;
+  if (diffSec < 60)
+    return i18n._({
+      id: "xOTzt5",
+      message: "just now",
+    });
   const mins = Math.floor(diffSec / 60);
-  if (mins < 60) return t`${mins}m ago`;
+  if (mins < 60)
+    return i18n._({
+      id: "Mq2B8E",
+      message: "{mins}m ago",
+      values: {
+        mins: mins,
+      },
+    });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return t`${hrs}h ago`;
+  if (hrs < 24)
+    return i18n._({
+      id: "wXO4Tg",
+      message: "{hrs}h ago",
+      values: {
+        hrs: hrs,
+      },
+    });
   const days = Math.floor(hrs / 24);
-  return t`${days}d ago`;
+  return i18n._({
+    id: "LPAv9E",
+    message: "{days}d ago",
+    values: {
+      days: days,
+    },
+  });
 }
 
 function shortenHomePath(fullPath: string): string {
@@ -170,17 +211,47 @@ function mainCiIcon(status: string): Image.ImageLike | undefined {
 
 function statusMeta(tab: TabContext): { label: string; color: Color } {
   if (tab.browser === "editor" || tab.browser === "zed") {
-    return { label: t`Active`, color: Color.Blue };
+    return {
+      label: i18n._({
+        id: "F6pfE9",
+        message: "Active",
+      }),
+      color: Color.Blue,
+    };
   }
   switch (tab.status) {
     case "needs_attention":
-      return { label: t`Needs Help`, color: Color.Red };
+      return {
+        label: i18n._({
+          id: "fAuN2i",
+          message: "Needs Help",
+        }),
+        color: Color.Red,
+      };
     case "completed":
-      return { label: t`ZIP Ready`, color: Color.Green };
+      return {
+        label: i18n._({
+          id: "Zqqk3p",
+          message: "ZIP Ready",
+        }),
+        color: Color.Green,
+      };
     case "working":
-      return { label: t`Working`, color: Color.Blue };
+      return {
+        label: i18n._({
+          id: "b4itZn",
+          message: "Working",
+        }),
+        color: Color.Blue,
+      };
     default:
-      return { label: t`Ready`, color: Color.SecondaryText };
+      return {
+        label: i18n._({
+          id: "ckH3fT",
+          message: "Ready",
+        }),
+        color: Color.SecondaryText,
+      };
   }
 }
 
@@ -236,16 +307,25 @@ export default function Command() {
   const installEngine = async () => {
     const toast = await showToast({
       style: Toast.Style.Animated,
-      title: t`Starting ContextBraid engine...`,
+      title: i18n._({
+        id: "13MsVT",
+        message: "Starting ContextBraid engine...",
+      }),
     });
     try {
       await ensureBraidInstalledAndRunning();
       toast.style = Toast.Style.Success;
-      toast.title = t`ContextBraid engine active`;
+      toast.title = i18n._({
+        id: "nRAiAG",
+        message: "ContextBraid engine active",
+      });
       revalidate();
     } catch (err) {
       toast.style = Toast.Style.Failure;
-      toast.title = t`Installation error`;
+      toast.title = i18n._({
+        id: "3VczXj",
+        message: "Installation error",
+      });
       toast.message = err instanceof Error ? err.message : String(err);
     }
   };
@@ -260,8 +340,21 @@ export default function Command() {
     await showToast({
       style: Toast.Style.Success,
       title: isMuted
-        ? t`Alerts unmuted for ${proj.repo_name}`
-        : t`Muted ${proj.repo_name} for ${muteMinutes}m`,
+        ? i18n._({
+            id: "mEyGmz",
+            message: "Alerts unmuted for {0}",
+            values: {
+              0: proj.repo_name,
+            },
+          })
+        : i18n._({
+            id: "rRzI8x",
+            message: "Muted {0} for {muteMinutes}m",
+            values: {
+              0: proj.repo_name,
+              muteMinutes: muteMinutes,
+            },
+          }),
     });
     revalidate();
   };
@@ -301,30 +394,48 @@ export default function Command() {
     <List
       isLoading={isLoading}
       isShowingDetail={showDetail}
-      searchBarPlaceholder={t`Search a repo, branch, AI agent, or editor...`}
+      searchBarPlaceholder={i18n._({
+        id: "KVBM8V",
+        message: "Search a repo, branch, AI agent, or editor...",
+      })}
       searchBarAccessory={
         <List.Dropdown
-          tooltip={t`Filter by status`}
+          tooltip={i18n._({
+            id: "KwybLi",
+            message: "Filter by status",
+          })}
           value={filter}
           onChange={(v) => setFilter(v as StatusFilter)}
         >
           <List.Dropdown.Item
-            title={t`All contexts`}
+            title={i18n._({
+              id: "dKqrLj",
+              message: "All contexts",
+            })}
             value="all"
             icon={Icon.AppWindowGrid2x2}
           />
           <List.Dropdown.Item
-            title={t`Alerts & Ready ZIPs`}
+            title={i18n._({
+              id: "J9_E9D",
+              message: "Alerts & Ready ZIPs",
+            })}
             value="attention"
             icon={Icon.Bell}
           />
           <List.Dropdown.Item
-            title={t`Generating`}
+            title={i18n._({
+              id: "0uESxc",
+              message: "Generating",
+            })}
             value="working"
             icon={Icon.Clock}
           />
           <List.Dropdown.Item
-            title={t`Open editors`}
+            title={i18n._({
+              id: "qFAOGF",
+              message: "Open editors",
+            })}
             value="editor"
             icon={Icon.Code}
           />
@@ -333,18 +444,27 @@ export default function Command() {
       actions={
         <ActionPanel>
           <Action
-            title={t`Install / Start Engine`}
+            title={i18n._({
+              id: "cyuks0",
+              message: "Install / Start Engine",
+            })}
             icon={Icon.Download}
             onAction={installEngine}
           />
           <Action
-            title={t`Open Extension Preferences`}
+            title={i18n._({
+              id: "4UQiFn",
+              message: "Open Extension Preferences",
+            })}
             icon={Icon.Gear}
             shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
             onAction={openExtensionPreferences}
           />
           <Action.Push
-            title={t`Connect Browser Extension ID`}
+            title={i18n._({
+              id: "faid0A",
+              message: "Connect Browser Extension ID",
+            })}
             icon={Icon.Plug}
             target={<PairBrowserForm onDone={revalidate} />}
           />
@@ -354,17 +474,30 @@ export default function Command() {
       {error && (
         <List.EmptyView
           icon={{ source: Icon.Download, tintColor: Color.Blue }}
-          title={t`ContextBraid local engine is not running`}
-          description={t`Press Enter to automatically install and start the local background service.`}
+          title={i18n._({
+            id: "0YEPcH",
+            message: "ContextBraid local engine is not running",
+          })}
+          description={i18n._({
+            id: "Xl2781",
+            message:
+              "Press Enter to automatically install and start the local background service.",
+          })}
           actions={
             <ActionPanel>
               <Action
-                title={t`Install and Start Now`}
+                title={i18n._({
+                  id: "Us7jY4",
+                  message: "Install and Start Now",
+                })}
                 icon={Icon.Download}
                 onAction={installEngine}
               />
               <Action.Push
-                title={t`Configure Extension ID`}
+                title={i18n._({
+                  id: "wmVzS_",
+                  message: "Configure Extension ID",
+                })}
                 icon={Icon.Plug}
                 target={<PairBrowserForm onDone={revalidate} />}
               />
@@ -378,14 +511,23 @@ export default function Command() {
           const favEditor = editorMeta(proj.favorite_editor);
           const dirtyLabel =
             proj.dirty_files > 0
-              ? plural(proj.dirty_files, {
-                  one: "# modified",
-                  other: "# modified",
+              ? i18n._({
+                  id: "oPhHLf",
+                  message: "{0, plural, one {# modified} other {# modified}}",
+                  values: {
+                    0: proj.dirty_files,
+                  },
                 })
-              : t`clean`;
-          const windowsLabel = plural(proj.tabs.length, {
-            one: "# window",
-            other: "# windows",
+              : i18n._({
+                  id: "tcceNK",
+                  message: "clean",
+                });
+          const windowsLabel = i18n._({
+            id: "qvv8aA",
+            message: "{0, plural, one {# window} other {# windows}}",
+            values: {
+              0: proj.tabs.length,
+            },
           });
           const mutedRemainingMin =
             (proj.muted_until_ms ?? 0) > Date.now()
@@ -395,7 +537,15 @@ export default function Command() {
                 )
               : 0;
           const mutedLabel =
-            mutedRemainingMin > 0 ? t`Muted ${mutedRemainingMin}m` : "";
+            mutedRemainingMin > 0
+              ? i18n._({
+                  id: "8gx77c",
+                  message: "Muted {mutedRemainingMin}m",
+                  values: {
+                    mutedRemainingMin: mutedRemainingMin,
+                  },
+                })
+              : "";
           const sectionParts = [
             proj.git_branch ? `⎇ ${proj.git_branch}` : "",
             dirtyLabel,
@@ -428,7 +578,13 @@ export default function Command() {
 
                 const accessories: List.Item.Accessory[] = [];
                 if (age && !showDetail) {
-                  accessories.push({ text: age, tooltip: t`Last activity` });
+                  accessories.push({
+                    text: age,
+                    tooltip: i18n._({
+                      id: "4AKv0-",
+                      message: "Last activity",
+                    }),
+                  });
                 }
                 if (tab.incognito) {
                   accessories.push({
@@ -436,7 +592,10 @@ export default function Command() {
                       source: Icon.EyeDisabled,
                       tintColor: Color.SecondaryText,
                     },
-                    tooltip: t`Private window`,
+                    tooltip: i18n._({
+                      id: "t1Asbz",
+                      message: "Private window",
+                    }),
                   });
                 }
                 accessories.push({ icon: bBadge.icon, tooltip: bBadge.label });
@@ -458,11 +617,18 @@ export default function Command() {
 
                 const gitStatusLabel =
                   proj.dirty_files > 0
-                    ? plural(proj.dirty_files, {
-                        one: "# modified",
-                        other: "# modified",
+                    ? i18n._({
+                        id: "oPhHLf",
+                        message:
+                          "{0, plural, one {# modified} other {# modified}}",
+                        values: {
+                          0: proj.dirty_files,
+                        },
                       })
-                    : t`Clean`;
+                    : i18n._({
+                        id: "FsGJXJ",
+                        message: "Clean",
+                      });
 
                 const activityCallout =
                   tab.browser === "editor" || tab.browser === "zed"
@@ -486,7 +652,10 @@ export default function Command() {
                 const prsBlock =
                   proj.recent_prs && proj.recent_prs.length > 0
                     ? [
-                        `**${t`Recently Merged PRs`}**`,
+                        `**${i18n._({
+                          id: "so-RxJ",
+                          message: "Recently Merged PRs",
+                        })}**`,
                         ...proj.recent_prs.slice(0, 3).map((pr) => {
                           const rawPr = sanitizeMarkdownText(pr.title, 44);
                           return pr.url
@@ -535,7 +704,10 @@ export default function Command() {
                           <List.Item.Detail.Metadata>
                             {workingAction && (
                               <List.Item.Detail.Metadata.Label
-                                title={t`Current Step`}
+                                title={i18n._({
+                                  id: "poZmDH",
+                                  message: "Current Step",
+                                })}
                                 text={workingAction}
                                 icon={{
                                   source: Icon.Bolt,
@@ -543,7 +715,12 @@ export default function Command() {
                                 }}
                               />
                             )}
-                            <List.Item.Detail.Metadata.TagList title={t`Git`}>
+                            <List.Item.Detail.Metadata.TagList
+                              title={i18n._({
+                                id: "MpZRQy",
+                                message: "Git",
+                              })}
+                            >
                               {proj.git_branch && (
                                 <List.Item.Detail.Metadata.TagList.Item
                                   text={`⎇ ${proj.git_branch}`}
@@ -567,7 +744,10 @@ export default function Command() {
                               )}
                             </List.Item.Detail.Metadata.TagList>
                             <List.Item.Detail.Metadata.TagList
-                              title={t`Session`}
+                              title={i18n._({
+                                id: "CqO9qC",
+                                message: "Session",
+                              })}
                             >
                               <List.Item.Detail.Metadata.TagList.Item
                                 text={bBadge.label}
@@ -591,16 +771,31 @@ export default function Command() {
                     }
                     actions={
                       <ActionPanel>
-                        <ActionPanel.Section title={t`Navigation`}>
+                        <ActionPanel.Section
+                          title={i18n._({
+                            id: "UxKoFf",
+                            message: "Navigation",
+                          })}
+                        >
                           <Action
-                            title={t`Switch to ${proj.repo_name} (${role.name})`}
+                            title={i18n._({
+                              id: "CSREUX",
+                              message: "Switch to {0} ({1})",
+                              values: {
+                                0: proj.repo_name,
+                                1: role.name,
+                              },
+                            })}
                             icon={Icon.ArrowRight}
                             onAction={() =>
                               focusTab(proj.repo_name, role.name, tab)
                             }
                           />
                           <Action
-                            title={t`Cycle Project Windows`}
+                            title={i18n._({
+                              id: "T51bMr",
+                              message: "Cycle Project Windows",
+                            })}
                             icon={Icon.Switch}
                             shortcut={{ modifiers: ["opt"], key: "tab" }}
                             onAction={async () => {
@@ -612,7 +807,10 @@ export default function Command() {
                             }}
                           />
                           <Action
-                            title={t`Jump to Next Agent Alert`}
+                            title={i18n._({
+                              id: "nHdPm9",
+                              message: "Jump to Next Agent Alert",
+                            })}
                             icon={Icon.Bolt}
                             shortcut={{ modifiers: ["opt"], key: "a" }}
                             onAction={async () => {
@@ -622,10 +820,21 @@ export default function Command() {
                           />
                         </ActionPanel.Section>
 
-                        <ActionPanel.Section title={t`Git & GitHub`}>
+                        <ActionPanel.Section
+                          title={i18n._({
+                            id: "UsyU-l",
+                            message: "Git & GitHub",
+                          })}
+                        >
                           {latestPr && latestPr.url && (
                             <Action.OpenInBrowser
-                              title={t`Open Latest PR (#${latestPr.number})`}
+                              title={i18n._({
+                                id: "MB7Bqw",
+                                message: "Open Latest PR (#{0})",
+                                values: {
+                                  0: latestPr.number,
+                                },
+                              })}
                               url={latestPr.url}
                               icon={Icon.Globe}
                               shortcut={{ modifiers: ["cmd"], key: "g" }}
@@ -633,7 +842,10 @@ export default function Command() {
                           )}
                           {proj.repo_url && (
                             <Action.OpenInBrowser
-                              title={t`Open Repository on GitHub`}
+                              title={i18n._({
+                                id: "b2C2hd",
+                                message: "Open Repository on GitHub",
+                              })}
                               url={proj.repo_url}
                               icon={Icon.Link}
                               shortcut={{
@@ -644,7 +856,13 @@ export default function Command() {
                           )}
                           {proj.last_commit_sha && (
                             <Action.CopyToClipboard
-                              title={t`Copy HEAD Commit SHA (${proj.last_commit_sha})`}
+                              title={i18n._({
+                                id: "_EYfiL",
+                                message: "Copy HEAD Commit SHA ({0})",
+                                values: {
+                                  0: proj.last_commit_sha,
+                                },
+                              })}
                               content={proj.last_commit_sha}
                               shortcut={{
                                 modifiers: ["cmd", "shift"],
@@ -654,9 +872,20 @@ export default function Command() {
                           )}
                         </ActionPanel.Section>
 
-                        <ActionPanel.Section title={t`Workspace`}>
+                        <ActionPanel.Section
+                          title={i18n._({
+                            id: "pmUArF",
+                            message: "Workspace",
+                          })}
+                        >
                           <Action
-                            title={t`Open in ${favEditor.label}`}
+                            title={i18n._({
+                              id: "Z5IrB3",
+                              message: "Open in {0}",
+                              values: {
+                                0: favEditor.label,
+                              },
+                            })}
                             icon={favEditor.icon}
                             shortcut={Keyboard.Shortcut.Common.Edit}
                             onAction={async () => {
@@ -666,15 +895,31 @@ export default function Command() {
                               });
                               await showToast({
                                 style: Toast.Style.Success,
-                                title: t`Opened in ${favEditor.label}`,
+                                title: i18n._({
+                                  id: "uc2X47",
+                                  message: "Opened in {0}",
+                                  values: {
+                                    0: favEditor.label,
+                                  },
+                                }),
                               });
                             }}
                           />
                           <Action
                             title={
                               (proj.muted_until_ms ?? 0) > Date.now()
-                                ? t`Unmute Repo Alerts`
-                                : t`Mute Repo Alerts (${muteMinutes}m)`
+                                ? i18n._({
+                                    id: "3lMESr",
+                                    message: "Unmute Repo Alerts",
+                                  })
+                                : i18n._({
+                                    id: "6fzWH-",
+                                    message:
+                                      "Mute Repo Alerts ({muteMinutes}m)",
+                                    values: {
+                                      muteMinutes: muteMinutes,
+                                    },
+                                  })
                             }
                             icon={
                               (proj.muted_until_ms ?? 0) > Date.now()
@@ -685,7 +930,10 @@ export default function Command() {
                             onAction={() => toggleRepoMute(proj)}
                           />
                           <Action
-                            title={t`Open in Terminal`}
+                            title={i18n._({
+                              id: "BJpGCq",
+                              message: "Open in Terminal",
+                            })}
                             icon={Icon.Terminal}
                             shortcut={{ modifiers: ["cmd"], key: "t" }}
                             onAction={async () => {
@@ -702,21 +950,33 @@ export default function Command() {
                           <Action
                             title={
                               showDetail
-                                ? t`Hide Detail Pane`
-                                : t`Show Detail Pane`
+                                ? i18n._({
+                                    id: "IJOMB_",
+                                    message: "Hide Detail Pane",
+                                  })
+                                : i18n._({
+                                    id: "DcYffY",
+                                    message: "Show Detail Pane",
+                                  })
                             }
                             icon={Icon.Sidebar}
                             shortcut={{ modifiers: ["cmd"], key: "i" }}
                             onAction={() => setShowDetail((prev) => !prev)}
                           />
                           <Action.CopyToClipboard
-                            title={t`Copy Repository Path`}
+                            title={i18n._({
+                              id: "EP87tx",
+                              message: "Copy Repository Path",
+                            })}
                             content={proj.repo_path}
                             shortcut={Keyboard.Shortcut.Common.Copy}
                           />
                           <Action.ShowInFinder path={proj.repo_path} />
                           <Action.Push
-                            title={t`Connect Browser Extension ID`}
+                            title={i18n._({
+                              id: "faid0A",
+                              message: "Connect Browser Extension ID",
+                            })}
                             icon={Icon.Plug}
                             target={<PairBrowserForm onDone={revalidate} />}
                           />

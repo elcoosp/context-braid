@@ -39,3 +39,5 @@ export function initI18n(): string {
 }
 
 initI18n();
+
+export { i18n };
