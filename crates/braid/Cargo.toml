@@ -21,3 +21,6 @@ objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCen
 block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSRunningApplication"] }
 objc2-core-foundation = { version = "0.3", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFString"] }
+
+[lints]
+workspace = true
