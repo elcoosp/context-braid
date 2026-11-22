@@ -66,5 +66,72 @@
     "prettier": "^3.10.1",
     "simple-icons": "^16.38.0",
     "typescript": "^5.8.0"
-  }
+  },
+  "preferences": [
+    {
+      "name": "autoDownloadZip",
+      "type": "checkbox",
+      "title": "Auto-Download ZIP Artifacts",
+      "label": "Automatically download newly generated .zip files from AI agent tabs",
+      "description": "Synced live with the local ContextBraid daemon and browser extension.",
+      "default": true,
+      "required": false
+    },
+    {
+      "name": "favoriteEditor",
+      "type": "dropdown",
+      "title": "Favorite Code Editor",
+      "description": "Default editor used when opening repositories from the cockpit.",
+      "default": "zed",
+      "required": false,
+      "data": [
+        {
+          "title": "Zed",
+          "value": "zed"
+        },
+        {
+          "title": "Cursor",
+          "value": "cursor"
+        },
+        {
+          "title": "Visual Studio Code",
+          "value": "vscode"
+        },
+        {
+          "title": "Windsurf",
+          "value": "windsurf"
+        },
+        {
+          "title": "Neovim",
+          "value": "neovim"
+        }
+      ]
+    },
+    {
+      "name": "muteDurationMinutes",
+      "type": "dropdown",
+      "title": "Default Alert Mute Duration",
+      "description": "Duration used when muting repository notifications (Cmd+M).",
+      "default": "30",
+      "required": false,
+      "data": [
+        {
+          "title": "15 minutes",
+          "value": "15"
+        },
+        {
+          "title": "30 minutes",
+          "value": "30"
+        },
+        {
+          "title": "1 hour",
+          "value": "60"
+        },
+        {
+          "title": "4 hours",
+          "value": "240"
+        }
+      ]
+    }
+  ]
 }
