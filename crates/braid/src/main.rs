@@ -547,7 +547,7 @@ async fn run_daemon() -> Result<()> {
         .create(true)
         .write(true)
         .truncate(false)
-        .open("/tmp/braid.daemon.lock")?;
+        .open(std::env::var("CONTEXT_BRAID_LOCK_FILE").unwrap_or_else(|_| "/tmp/braid.daemon.lock".to_string()))?;
     let rc = unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc != 0 {
         tracing::info!("Un autre daemon braid est déjà actif — arrêt propre de ce doublon.");
