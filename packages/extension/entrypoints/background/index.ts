@@ -201,17 +201,39 @@ export default defineBackground(() => {
   // Interroge l'API storage & subagents z.ai DANS le contexte de l'onglet (avec localStorage.token)
   // pour détecter tout `.zip` dès sa création serveur même lorsque la fenêtre est minimisée !
     const pendingZipRetries = new Map<string, ReturnType<typeof setTimeout>>();
+  const awaitingZipTabs = new Map<number, { chatId: string; baselineCount: number; attempts: number }>();
+  const countDownloadedForTab = (tabId: number) =>
+    Array.from(downloadedZipKeys).filter((k) => k.startsWith(`${tabId}|http`)).length;
+
   const scheduleBackgroundZipRetry = (tabId: number, chatId: string, attempt = 0) => {
     const retryKey = `${tabId}|${chatId}`;
-    if (pendingZipRetries.has(retryKey) || attempt >= 4) return;
-    const delays = [2500, 3500, 4500, 6000];
+    const state = awaitingZipTabs.get(tabId) ?? {
+      chatId,
+      baselineCount: countDownloadedForTab(tabId),
+      attempts: 0,
+    };
+    state.chatId = chatId;
+    state.attempts = attempt;
+    awaitingZipTabs.set(tabId, state);
+
+    if (pendingZipRetries.has(retryKey) || attempt >= 6) {
+      if (attempt >= 6) awaitingZipTabs.delete(tabId);
+      return;
+    }
+    const delays = Array.from({ length: 6 }, (_, i) => (i + 1) * 2500);
     const timer = setTimeout(() => {
       pendingZipRetries.delete(retryKey);
       const cached = tabCache.get(tabId);
-      if (!cached) return;
+      if (!cached) {
+        awaitingZipTabs.delete(tabId);
+        return;
+      }
       void probeZaiServerStorage(tabId, cached.url, true).then(() => {
-        const hasDownloadedUrl = Array.from(downloadedZipKeys).some((k) => k.startsWith(`${tabId}|http`));
-        if (!hasDownloadedUrl) {
+        const cur = awaitingZipTabs.get(tabId);
+        if (!cur) return;
+        if (countDownloadedForTab(tabId) > cur.baselineCount) {
+          awaitingZipTabs.delete(tabId);
+        } else {
           scheduleBackgroundZipRetry(tabId, chatId, attempt + 1);
         }
       });
