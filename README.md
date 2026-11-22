@@ -82,6 +82,6 @@ flowchart LR
 ## Status
 
 > [!NOTE]
-> Active beta on macOS (`v0.1.7`). Tested with Node.js 24, Rust stable, Raycast API `1.104+`, Chrome/Brave MV3, and Firefox MV2 (`140.0+`).
+> Active beta on macOS (`v0.1.8`). Tested with Node.js 24, Rust stable, Raycast API `1.104+`, Chrome/Brave MV3, and Firefox MV2 (`140.0+`).
 
 For architectural invariants and local binary deployment steps, see [`AGENTS.md`](AGENTS.md) and [`PRIVACY.md`](PRIVACY.md).
