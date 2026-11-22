@@ -8,27 +8,27 @@ msgstr ""
 "Language: zh-CN\n"
 
 #. placeholder {0}: proj.dirty_files
-#: src/index.tsx:334
-#: src/index.tsx:414
+#: src/index.tsx:381
+#: src/index.tsx:461
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {# 个已修改} other {# 个已修改}}"
 
 #. placeholder {0}: proj.tabs.length
-#: src/index.tsx:339
+#: src/index.tsx:386
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# 个窗口} other {# 个窗口}}"
 
-#: src/index.tsx:134
+#: src/index.tsx:142
 msgid "{days}d ago"
 msgstr "{days}天前"
 
-#: src/index.tsx:122
-#: src/index.tsx:132
+#: src/index.tsx:130
+#: src/index.tsx:140
 msgid "{hrs}h ago"
 msgstr "{hrs}小时前"
 
-#: src/index.tsx:120
-#: src/index.tsx:130
+#: src/index.tsx:128
+#: src/index.tsx:138
 msgid "{mins}m ago"
 msgstr "{mins}分钟前"
 
@@ -36,86 +36,68 @@ msgstr "{mins}分钟前"
 msgid "1. Open chrome://extensions or brave://extensions\n"
 "2. Enable Developer Mode\n"
 "3. Copy the ID displayed under ContextBraid"
-msgstr "1. 打开 chrome://extensions 或 brave://extensions
-"
-"2. 开启开发者模式
-"
-"3. 复制 ContextBraid 下方显示的 ID"
+msgstr "3. 复制 ContextBraid 下方显示的 ID"
 
 #: src/PairBrowserForm.tsx:58
 msgid "32-character Extension ID"
 msgstr "32 位扩展程序 ID"
 
-#: src/menu-bar.tsx:196
-msgid "Action"
-msgstr "操作"
-
-#: src/index.tsx:165
-#: src/menu-bar.tsx:274
+#: src/index.tsx:173
 msgid "Active"
 msgstr "活跃"
 
-#: src/index.tsx:276
+#: src/index.tsx:317
 msgid "Alerts & Ready ZIPs"
 msgstr "提醒与已就绪 ZIP"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:222
+#: src/index.tsx:263
 msgid "Alerts unmuted for {0}"
 msgstr "已取消 {0} 的提醒静音"
 
-#: src/index.tsx:271
+#: src/index.tsx:312
 msgid "All contexts"
 msgstr "所有上下文"
 
-#: src/index.tsx:338
+#: src/index.tsx:385
 msgid "clean"
 msgstr "干净"
 
-#: src/index.tsx:418
-#: src/menu-bar.tsx:175
+#: src/index.tsx:465
 msgid "Clean"
 msgstr "干净"
 
-#: src/index.tsx:320
+#: src/index.tsx:367
 msgid "Configure Extension ID"
 msgstr "配置扩展 ID"
 
-#: src/index.tsx:300
-#: src/index.tsx:658
+#: src/index.tsx:347
+#: src/index.tsx:719
 msgid "Connect Browser Extension ID"
 msgstr "连接浏览器扩展 ID"
 
-#: src/menu-bar.tsx:245
-msgid "ContextBraid"
-msgstr "ContextBraid"
-
-#: src/index.tsx:203
+#: src/index.tsx:244
 msgid "ContextBraid engine active"
 msgstr "ContextBraid 引擎运行中"
 
-#: src/menu-bar.tsx:249
-msgid "ContextBraid Engine Offline"
-msgstr "ContextBraid 引擎离线"
-
-#: src/index.tsx:310
+#: src/index.tsx:357
 msgid "ContextBraid local engine is not running"
 msgstr "ContextBraid 本地引擎未运行"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:586
+#: src/index.tsx:647
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "复制 HEAD 提交 SHA ({0})"
 
-#: src/index.tsx:652
+#: src/index.tsx:713
 msgid "Copy Repository Path"
 msgstr "复制仓库路径"
 
-#: src/index.tsx:477
+#: src/index.tsx:538
 msgid "Current Step"
 msgstr "当前步骤"
 
-#: src/index.tsx:542
+#: src/index.tsx:603
 msgid "Cycle Project Windows"
 msgstr "切换项目窗口"
 
@@ -127,23 +109,23 @@ msgstr "错误"
 msgid "Extension registered! Click Reload (↻) in your browser."
 msgstr "扩展已注册！请在浏览器中点击重新加载 (↻)。"
 
-#: src/index.tsx:266
+#: src/index.tsx:307
 msgid "Filter by status"
 msgstr "按状态筛选"
 
-#: src/index.tsx:281
+#: src/index.tsx:322
 msgid "Generating"
 msgstr "生成中"
 
-#: src/index.tsx:485
+#: src/index.tsx:546
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:564
+#: src/index.tsx:625
 msgid "Git & GitHub"
 msgstr "Git 与 GitHub"
 
-#: src/index.tsx:644
+#: src/index.tsx:705
 msgid "Hide Detail Pane"
 msgstr "隐藏详情面板"
 
@@ -151,15 +133,15 @@ msgstr "隐藏详情面板"
 msgid "How to find it"
 msgstr "如何查找"
 
-#: src/index.tsx:295
+#: src/index.tsx:336
 msgid "Install / Start Engine"
 msgstr "安装 / 启动引擎"
 
-#: src/index.tsx:315
+#: src/index.tsx:362
 msgid "Install and Start Now"
 msgstr "立即安装并启动"
 
-#: src/index.tsx:207
+#: src/index.tsx:248
 msgid "Installation error"
 msgstr "安装错误"
 
@@ -167,8 +149,7 @@ msgstr "安装错误"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "无效 ID（需要 32 个小写字母）"
 
-#: src/index.tsx:554
-#: src/menu-bar.tsx:266
+#: src/index.tsx:615
 msgid "Jump to Next Agent Alert"
 msgstr "跳转到下一个代理提醒"
 
@@ -176,91 +157,82 @@ msgstr "跳转到下一个代理提醒"
 msgid "Jumped to next agent alert"
 msgstr "已跳转到下一个代理提醒"
 
-#: src/index.tsx:118
-#: src/index.tsx:128
+#: src/index.tsx:126
+#: src/index.tsx:136
 msgid "just now"
 msgstr "刚刚"
 
-#: src/index.tsx:384
+#: src/index.tsx:431
 msgid "Last activity"
 msgstr "最近活动"
 
-#: src/index.tsx:616
-#: src/menu-bar.tsx:225
-msgid "Mute Repo Alerts (30m)"
-msgstr "静音仓库提醒 (30分钟)"
+#: src/index.tsx:677
+msgid "Mute Repo Alerts ({muteMinutes}m)"
+msgstr "静音仓库通知 ({muteMinutes}分钟)"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:223
-#: src/menu-bar.tsx:233
-msgid "Muted {0} for 30m"
-msgstr "已将 {0} 静音 30 分钟"
+#: src/index.tsx:264
+msgid "Muted {0} for {muteMinutes}m"
+msgstr "已将 {0} 静音 {muteMinutes} 分钟"
 
-#: src/index.tsx:351
+#: src/index.tsx:398
 msgid "Muted {mutedRemainingMin}m"
 msgstr "已静音 {mutedRemainingMin}分钟"
 
-#: src/index.tsx:533
+#: src/index.tsx:594
 msgid "Navigation"
 msgstr "导航"
 
-#: src/index.tsx:169
+#: src/index.tsx:177
 msgid "Needs Help"
 msgstr "需要协助"
 
-#: src/index.tsx:286
+#: src/index.tsx:327
 msgid "Open editors"
 msgstr "打开的编辑器"
 
+#: src/index.tsx:341
+msgid "Open Extension Preferences"
+msgstr "打开扩展偏好设置"
+
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:598
+#: src/index.tsx:659
 msgid "Open in {0}"
 msgstr "在 {0} 中打开"
 
-#: src/menu-bar.tsx:198
-msgid "Open in Editor"
-msgstr "在编辑器中打开"
-
-#: src/menu-bar.tsx:212
-msgid "Open in Finder"
-msgstr "在访达中打开"
-
-#: src/index.tsx:627
-#: src/menu-bar.tsx:205
+#: src/index.tsx:688
 msgid "Open in Terminal"
 msgstr "在终端中打开"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:567
+#: src/index.tsx:628
 msgid "Open Latest PR (#{0})"
 msgstr "打开最新 PR (#{0})"
 
-#: src/menu-bar.tsx:251
-#: src/menu-bar.tsx:287
-msgid "Open Project Cockpit"
-msgstr "打开项目驾驶舱"
-
-#: src/index.tsx:575
-#: src/menu-bar.tsx:218
+#: src/index.tsx:636
 msgid "Open Repository on GitHub"
 msgstr "在 GitHub 上打开仓库"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:608
+#: src/index.tsx:669
 msgid "Opened in {0}"
 msgstr "已在 {0} 中打开"
 
-#: src/index.tsx:311
+#: src/index.tsx:358
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "按回车键自动安装并启动本地后台服务。"
 
-#: src/index.tsx:392
+#: src/index.tsx:439
 msgid "Private window"
 msgstr "无痕窗口"
 
-#: src/index.tsx:175
+#: src/index.tsx:183
 msgid "Ready"
 msgstr "就绪"
+
+#: src/index.tsx:489
+msgid "Recently Merged PRs"
+msgstr "最近合并的 PR"
 
 #: src/PairBrowserForm.tsx:46
 msgid "Register Local Browser Extension ID"
@@ -270,48 +242,44 @@ msgstr "注册本地浏览器扩展 ID"
 msgid "Registering extension..."
 msgstr "正在注册扩展..."
 
-#: src/menu-bar.tsx:280
-msgid "Repositories"
-msgstr "仓库"
-
 #: src/PairBrowserForm.tsx:50
 msgid "Save and Reconnect"
 msgstr "保存并重新连接"
 
-#: src/index.tsx:263
+#: src/index.tsx:304
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "搜索仓库、分支、AI 代理或编辑器..."
 
-#: src/index.tsx:509
+#: src/index.tsx:570
 msgid "Session"
 msgstr "会话"
 
-#: src/index.tsx:645
+#: src/index.tsx:706
 msgid "Show Detail Pane"
 msgstr "显示详情面板"
 
-#: src/index.tsx:198
+#: src/index.tsx:239
 msgid "Starting ContextBraid engine..."
 msgstr "正在启动 ContextBraid 引擎..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:535
+#: src/index.tsx:596
 msgid "Switch to {0} ({1})"
 msgstr "切换到 {0} ({1})"
 
-#: src/index.tsx:615
+#: src/index.tsx:676
 msgid "Unmute Repo Alerts"
 msgstr "取消仓库提醒静音"
 
-#: src/index.tsx:173
+#: src/index.tsx:181
 msgid "Working"
 msgstr "运行中"
 
-#: src/index.tsx:596
+#: src/index.tsx:657
 msgid "Workspace"
 msgstr "工作区"
 
-#: src/index.tsx:171
+#: src/index.tsx:179
 msgid "ZIP Ready"
 msgstr "ZIP 已就绪"
