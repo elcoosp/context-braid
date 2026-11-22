@@ -21,7 +21,8 @@ pub fn read_frame<R: Read>(r: &mut R) -> Result<Option<String>> {
 
 pub fn write_frame<W: Write>(w: &mut W, json: &str) -> Result<()> {
     let b = json.as_bytes();
-    w.write_all(&(b.len() as u32).to_le_bytes())?;
+    let len = u32::try_from(b.len())?;
+    w.write_all(&len.to_le_bytes())?;
     w.write_all(b)?;
     w.flush()?;
     Ok(())
@@ -39,9 +40,7 @@ fn connect_with_retry(sock_path: &str) -> Result<UnixStream> {
         }
     }
     Err(anyhow::anyhow!(
-        "Socket inaccessible ({}): {:?}",
-        sock_path,
-        last_err
+        "Socket inaccessible ({sock_path}): {last_err:?}"
     ))
 }
 
@@ -107,7 +106,7 @@ pub fn run_host() -> Result<()> {
 
 pub fn run_host_entry() {
     if let Err(e) = run_host() {
-        eprintln!("[braid-host] fatal: {:?}", e);
+        eprintln!("[braid-host] fatal: {e:?}");
         std::process::exit(1);
     }
 }
