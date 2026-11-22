@@ -48,8 +48,8 @@ def squircle_mask(w: int, inset: int = 0, power: float = 4.6) -> Image.Image:
     return mask
 
 OUTER_INSET = int(34 * SCALE)
-BEVEL_INSET = OUTER_INSET + int(5 * SCALE)
-INNER_INSET = OUTER_INSET + int(8 * SCALE)
+BEVEL_INSET = OUTER_INSET + int(22 * SCALE)
+INNER_INSET = OUTER_INSET + int(26 * SCALE)
 
 BASE_MASK = squircle_mask(W, inset=OUTER_INSET)
 BEVEL_MASK = squircle_mask(W, inset=BEVEL_INSET)
@@ -67,7 +67,7 @@ def make_dual_tone_rim(w: int) -> Image.Image:
             r = int(245 * (1.0 - t) + 115 * t)
             g = int(120 * (1.0 - t) + 215 * t)
             b = int(140 * (1.0 - t) + 255 * t)
-            rpx[x, y] = (r, g, b, 215)
+            rpx[x, y] = (min(255, r + 15), min(255, g + 15), min(255, b + 15), 250)
     return rim
 
 RIM_IMG = make_dual_tone_rim(W)
