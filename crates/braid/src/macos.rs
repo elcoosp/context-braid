@@ -1,7 +1,16 @@
 use anyhow::Result;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{CStr, CString, c_void};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+
+type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
+type MsgArr = unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
+type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
+type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
+type MsgTrigger = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> bool;
+type MsgPid = unsafe extern "C" fn(*const c_void, *const c_void) -> i32;
 
 #[link(name = "AppKit", kind = "framework")]
 unsafe extern "C" {
@@ -24,20 +33,15 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     let sel_obj_at = unsafe { sel_registerName(c"objectAtIndex:".as_ptr()) };
     let sel_activate = unsafe { sel_registerName(c"activateWithOptions:".as_ptr()) };
 
-    let c_bundle = CString::new(bundle_id).unwrap();
-
-    type MsgStr = unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
-    type MsgArr =
-        unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
-    type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
-    type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
-    type MsgAct = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> bool;
+    let Ok(c_bundle) = CString::new(bundle_id) else {
+        return false;
+    };
 
     let fn_str: MsgStr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
     let fn_arr: MsgArr = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
     let fn_count: MsgCount = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
     let fn_at: MsgAt = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
-    let fn_act: MsgAct = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
+    let fn_trigger: MsgTrigger = unsafe { std::mem::transmute(objc_msgSend as *const ()) };
 
     let ns_bundle = unsafe { fn_str(cls_ns_str, sel_str_utf8, c_bundle.as_ptr()) };
     let apps = unsafe { fn_arr(cls_ns_running, sel_running_by_id, ns_bundle) };
@@ -50,7 +54,7 @@ unsafe fn activate_bundle_id(bundle_id: &str) -> bool {
     }
     let app = unsafe { fn_at(apps, sel_obj_at, 0) };
     // NSApplicationActivateIgnoringOtherApps = 1 << 1 = 2
-    unsafe { fn_act(app, sel_activate, 2) }
+    unsafe { fn_trigger(app, sel_activate, 2) }
 }
 
 pub struct EditorSpec {
@@ -135,21 +139,15 @@ fn running_pids_for_bundle(bundle_id: &str) -> Vec<i32> {
         let sel_obj_at = sel_registerName(c"objectAtIndex:".as_ptr());
         let sel_pid = sel_registerName(c"processIdentifier".as_ptr());
 
-        type MsgStr =
-            unsafe extern "C" fn(*const c_void, *const c_void, *const i8) -> *const c_void;
-        type MsgArr =
-            unsafe extern "C" fn(*const c_void, *const c_void, *const c_void) -> *const c_void;
-        type MsgCount = unsafe extern "C" fn(*const c_void, *const c_void) -> usize;
-        type MsgAt = unsafe extern "C" fn(*const c_void, *const c_void, usize) -> *const c_void;
-        type MsgPid = unsafe extern "C" fn(*const c_void, *const c_void) -> i32;
-
         let fn_str: MsgStr = std::mem::transmute(objc_msgSend as *const ());
         let fn_arr: MsgArr = std::mem::transmute(objc_msgSend as *const ());
         let fn_count: MsgCount = std::mem::transmute(objc_msgSend as *const ());
         let fn_at: MsgAt = std::mem::transmute(objc_msgSend as *const ());
         let fn_pid: MsgPid = std::mem::transmute(objc_msgSend as *const ());
 
-        let c_bundle = CString::new(bundle_id).unwrap();
+        let Ok(c_bundle) = CString::new(bundle_id) else {
+            return pids;
+        };
         let ns_bundle = fn_str(cls_ns_str, sel_str_utf8, c_bundle.as_ptr());
         let apps = fn_arr(cls_ns_running, sel_running_by_id, ns_bundle);
         if apps.is_null() {
@@ -178,13 +176,13 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
         if list.is_null() {
             return titles;
         }
-        // kCFStringEncodingUTF8 = 0x08000100
+        // kCFStringEncodingUTF8 = 0x0800_0100
         let k_pid =
-            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowOwnerPID".as_ptr(), 0x08000100);
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowOwnerPID".as_ptr(), 0x0800_0100);
         let k_name =
-            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowName".as_ptr(), 0x08000100);
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowName".as_ptr(), 0x0800_0100);
         let k_layer =
-            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowLayer".as_ptr(), 0x08000100);
+            CFStringCreateWithCString(std::ptr::null(), c"kCGWindowLayer".as_ptr(), 0x0800_0100);
 
         let count = CFArrayGetCount(list);
         for i in 0..count {
@@ -195,9 +193,7 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             let pid_ref = CFDictionaryGetValue(dict, k_pid);
             let mut pid: i32 = 0;
             // kCFNumberSInt32Type = 3
-            if pid_ref.is_null()
-                || !CFNumberGetValue(pid_ref, 3, &mut pid as *mut i32 as *mut c_void)
-            {
+            if pid_ref.is_null() || !CFNumberGetValue(pid_ref, 3, (&raw mut pid).cast::<c_void>()) {
                 continue;
             }
             if !target_pids.contains(&pid) {
@@ -206,7 +202,7 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             let layer_ref = CFDictionaryGetValue(dict, k_layer);
             let mut layer: i32 = 0;
             if !layer_ref.is_null() {
-                CFNumberGetValue(layer_ref, 3, &mut layer as *mut i32 as *mut c_void);
+                CFNumberGetValue(layer_ref, 3, (&raw mut layer).cast::<c_void>());
             }
             if layer != 0 {
                 continue;
@@ -214,7 +210,12 @@ fn list_window_titles_for_pids(target_pids: &[i32]) -> Vec<String> {
             let name_ref = CFDictionaryGetValue(dict, k_name);
             if !name_ref.is_null() {
                 let mut buf = [0i8; 512];
-                if CFStringGetCString(name_ref, buf.as_mut_ptr(), buf.len() as isize, 0x08000100) {
+                if CFStringGetCString(
+                    name_ref,
+                    buf.as_mut_ptr(),
+                    buf.len().cast_signed(),
+                    0x0800_0100,
+                ) {
                     let s = CStr::from_ptr(buf.as_ptr())
                         .to_string_lossy()
                         .trim()
@@ -309,11 +310,11 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
         let matched = win_titles.iter().any(|t| {
             let tl = t.to_lowercase();
             tl == name
-                || tl.starts_with(&format!("{} ", name))
-                || tl.starts_with(&format!("{} —", name))
-                || tl.starts_with(&format!("{} -", name))
-                || tl.ends_with(&format!(" — {}", name))
-                || tl.ends_with(&format!(" - {}", name))
+                || tl.starts_with(&format!("{name} "))
+                || tl.starts_with(&format!("{name} —"))
+                || tl.starts_with(&format!("{name} -"))
+                || tl.ends_with(&format!(" — {name}"))
+                || tl.ends_with(&format!(" - {name}"))
         });
         if matched {
             open_paths.push(path);
@@ -322,12 +323,11 @@ pub fn list_editor_windows(repos_root: &Path, favorite: &str) -> Vec<PathBuf> {
     open_paths
 }
 
-pub fn focus_editor_app(favorite: &str) -> Result<()> {
+pub fn focus_editor_app(favorite: &str) {
     let spec = resolve_editor_spec(favorite);
     unsafe {
         activate_bundle_id(spec.bundle_id);
     }
-    Ok(())
 }
 
 pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> Result<()> {
@@ -363,11 +363,10 @@ pub fn open_in_favorite_editor(favorite: &str, repo_path: impl AsRef<Path>) -> R
     Ok(())
 }
 
-pub fn open_in_terminal(repo_path: &str) -> Result<()> {
+pub fn open_in_terminal(repo_path: &str) {
     let _ = Command::new("open")
         .args(["-a", "Terminal", repo_path])
         .spawn();
-    Ok(())
 }
 
 pub fn activate_browser_app(browser: &str) {
@@ -382,9 +381,6 @@ pub fn activate_browser_app(browser: &str) {
         activate_bundle_id(bundle);
     }
 }
-
-use std::collections::{HashMap, HashSet};
-use std::sync::{Mutex, OnceLock};
 
 #[derive(Clone)]
 pub struct GitRepoMeta {
@@ -488,15 +484,64 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
 fn remote_to_github_url(raw: &str) -> String {
     let trimmed = raw.trim().trim_end_matches(".git");
     if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
-        return format!("https://github.com{}", rest);
+        return format!("https://github.com{rest}");
     }
     if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
-        return format!("https://github.com{}", rest);
+        return format!("https://github.com{rest}");
     }
     if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://github.com") {
         return trimmed.replace("http://", "https://");
     }
     String::new()
+}
+
+fn compute_repo_sparkline(
+    repo: &gix::Repository,
+    head_id: gix::Id<'_>,
+    cache_key: &str,
+    commit_sha: &str,
+    now_sec: i64,
+) -> Vec<u32> {
+    let today_bucket = now_sec / 86_400;
+    if let Some((_, _, cached_spark)) = sparkline_cache()
+        .lock()
+        .ok()
+        .and_then(|g| g.get(cache_key).cloned())
+        .filter(|(sha, day, _)| sha == commit_sha && *day == today_bucket)
+    {
+        return cached_spark;
+    }
+    let mut sparkline = vec![0u32; 30];
+    let cutoff = now_sec - 30 * 86_400;
+    if let Ok(walk) = repo
+        .rev_walk([head_id])
+        .sorting(gix::revision::walk::Sorting::ByCommitTime(
+            gix::traverse::commit::simple::CommitTimeOrder::default(),
+        ))
+        .all()
+    {
+        for info in walk.flatten().take(25_000) {
+            let Some(ts) = info.commit_time else {
+                continue;
+            };
+            if ts < cutoff {
+                break;
+            }
+            if let Ok(age_days) = usize::try_from((now_sec - ts).max(0) / 86_400)
+                && age_days < 30
+            {
+                let bucket = 29 - age_days;
+                sparkline[bucket] = sparkline[bucket].saturating_add(1);
+            }
+        }
+    }
+    if let Ok(mut g) = sparkline_cache().lock() {
+        g.insert(
+            cache_key.to_string(),
+            (commit_sha.to_string(), today_bucket, sparkline.clone()),
+        );
+    }
+    sparkline
 }
 
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
@@ -515,17 +560,15 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         };
     };
 
-    let branch = repo
-        .head_name()
-        .ok()
-        .flatten()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_else(|| {
+    let branch = repo.head_name().ok().flatten().map_or_else(
+        || {
             repo.head_id()
                 .ok()
                 .map(|id| id.to_hex_with_len(7).to_string())
                 .unwrap_or_default()
-        });
+        },
+        |n| n.shorten().to_string(),
+    );
 
     let mut commit_sha = String::new();
     let mut commit_msg = String::new();
@@ -541,54 +584,16 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
             .ok()
             .map(|m| m.summary().to_string())
             .unwrap_or_default();
-        commit_ts = head_commit.time().map(|t| t.seconds).unwrap_or(0);
+        commit_ts = head_commit.time().map_or(0, |t| t.seconds);
 
         let sys_now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(commit_ts);
+            .map_or(commit_ts, |d| d.as_secs().cast_signed());
         let now_sec = sys_now.max(commit_ts);
-        let today_bucket = now_sec / 86_400;
         let cache_key = repo_path.to_string_lossy().into_owned();
 
-        // 1. 30-day commit sparkline cached in O(1) by (HEAD SHA, day)
-        if let Some((_, _, cached_spark)) = sparkline_cache()
-            .lock()
-            .ok()
-            .and_then(|g| g.get(&cache_key).cloned())
-            .filter(|(sha, day, _)| sha == &commit_sha && *day == today_bucket)
-        {
-            sparkline = cached_spark;
-        } else {
-            let cutoff = now_sec - 30 * 86_400;
-            if let Ok(walk) = repo
-                .rev_walk([head_commit.id()])
-                .sorting(gix::revision::walk::Sorting::ByCommitTime(
-                    Default::default(),
-                ))
-                .all()
-            {
-                for info in walk.flatten().take(25000) {
-                    let Some(ts) = info.commit_time else {
-                        continue;
-                    };
-                    if ts < cutoff {
-                        break;
-                    }
-                    let age_days = ((now_sec - ts).max(0) / 86_400) as usize;
-                    if age_days < 30 {
-                        let bucket = 29 - age_days;
-                        sparkline[bucket] = sparkline[bucket].saturating_add(1);
-                    }
-                }
-            }
-            if let Ok(mut g) = sparkline_cache().lock() {
-                g.insert(
-                    cache_key.clone(),
-                    (commit_sha.clone(), today_bucket, sparkline.clone()),
-                );
-            }
-        }
+        sparkline =
+            compute_repo_sparkline(&repo, head_commit.id(), &cache_key, &commit_sha, now_sec);
 
         // 2. Merged PRs (Merge, Squash, AND Rebase/reapply) via non-blocking gh CLI worker cached by HEAD SHA
         if let Some((cached_sha, cached_prs, cached_ci)) = pr_cache()
@@ -610,8 +615,7 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
         .status(gix::progress::Discard)
         .ok()
         .and_then(|platform| platform.into_index_worktree_iter(Vec::new()).ok())
-        .map(|iter| iter.filter_map(Result::ok).count())
-        .unwrap_or(0);
+        .map_or(0, |iter| iter.filter_map(Result::ok).count());
 
     let repo_url = std::fs::read_to_string(repo_path.join(".git/config"))
         .ok()
@@ -656,8 +660,9 @@ static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<(String, Str
 #[cfg(test)]
 pub fn take_test_notifications() -> Vec<(String, String, String)> {
     let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-    let mut guard = lock.lock().unwrap();
-    std::mem::take(&mut *guard)
+    lock.lock()
+        .map(|mut guard| std::mem::take(&mut *guard))
+        .unwrap_or_default()
 }
 
 pub fn notify_agent_alert(
@@ -677,9 +682,9 @@ pub fn notify_agent_alert(
     #[cfg(test)]
     {
         let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-        lock.lock()
-            .unwrap()
-            .push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
+        if let Ok(mut guard) = lock.lock() {
+            guard.push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
+        }
     }
 
     #[cfg(not(test))]
@@ -713,76 +718,87 @@ pub fn notify_agent_alert(
     }
 }
 
+fn request_notification_auth(
+    center: &objc2_user_notifications::UNUserNotificationCenter,
+    run_loop: &objc2_foundation::NSRunLoop,
+) -> bool {
+    use block2::RcBlock;
+    use objc2::runtime::Bool;
+    use objc2_foundation::{NSDate, NSError};
+    use objc2_user_notifications::UNAuthorizationOptions;
+    use std::cell::Cell;
+    use std::io::Write;
+    use std::rc::Rc;
+
+    let done = Rc::new(Cell::new(false));
+    let granted_flag = Rc::new(Cell::new(false));
+    let done_c = Rc::clone(&done);
+    let granted_c = Rc::clone(&granted_flag);
+
+    let auth_block = RcBlock::new(move |granted: Bool, err: *mut NSError| {
+        granted_c.set(granted.as_bool());
+        done_c.set(true);
+        if !err.is_null() {
+            let desc = unsafe { (&*err).localizedDescription().to_string() };
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/braid-notif.log")
+            {
+                let _ = writeln!(f, "AUTH_ERR: {desc}");
+            }
+        }
+    });
+
+    let opts = UNAuthorizationOptions::Alert
+        | UNAuthorizationOptions::Sound
+        | UNAuthorizationOptions::Badge;
+    center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+
+    for _ in 0..30 {
+        if done.get() {
+            break;
+        }
+        let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
+        run_loop.runUntilDate(&next);
+    }
+
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/braid-notif.log")
+    {
+        let _ = writeln!(
+            f,
+            "AUTH_RESULT: done={} granted={}",
+            done.get(),
+            granted_flag.get()
+        );
+    }
+    granted_flag.get()
+}
+
 pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &str) {
     use block2::RcBlock;
     use objc2::MainThreadMarker;
     use objc2::rc::Retained;
-    use objc2::runtime::Bool;
     use objc2_app_kit::NSApplication;
     use objc2_foundation::{NSDate, NSError, NSRunLoop, NSString};
     use objc2_user_notifications::{
-        UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
-        UNUserNotificationCenter,
+        UNMutableNotificationContent, UNNotificationRequest, UNUserNotificationCenter,
     };
     use std::cell::Cell;
     use std::io::Write;
     use std::rc::Rc;
 
-    let full_title = format!("ContextBraid • {}", repo_name);
-    let mut log = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/braid-notif.log")
-        .ok();
+    let full_title = format!("ContextBraid • {repo_name}");
 
     if let Some(mtm) = MainThreadMarker::new() {
         let _app = NSApplication::sharedApplication(mtm);
         let center = UNUserNotificationCenter::currentNotificationCenter();
 
-        let done = Rc::new(Cell::new(false));
-        let granted_flag = Rc::new(Cell::new(false));
-        let done_c = Rc::clone(&done);
-        let granted_c = Rc::clone(&granted_flag);
-
-        let auth_block = RcBlock::new(move |granted: Bool, err: *mut NSError| {
-            granted_c.set(granted.as_bool());
-            done_c.set(true);
-            if !err.is_null() {
-                let desc = unsafe { (&*err).localizedDescription().to_string() };
-                if let Ok(mut f) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open("/tmp/braid-notif.log")
-                {
-                    let _ = writeln!(f, "AUTH_ERR: {}", desc);
-                }
-            }
-        });
-
-        let opts = UNAuthorizationOptions::Alert
-            | UNAuthorizationOptions::Sound
-            | UNAuthorizationOptions::Badge;
-        center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
-
         let run_loop = NSRunLoop::currentRunLoop();
-        for _ in 0..30 {
-            if done.get() {
-                break;
-            }
-            let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
-            run_loop.runUntilDate(&next);
-        }
-
-        if let Some(f) = log.as_mut() {
-            let _ = writeln!(
-                f,
-                "AUTH_RESULT: done={} granted={}",
-                done.get(),
-                granted_flag.get()
-            );
-        }
-
-        if granted_flag.get() {
+        if request_notification_auth(&center, &run_loop) {
             let content: Retained<UNMutableNotificationContent> =
                 UNMutableNotificationContent::new();
             content.setTitle(&NSString::from_str(&full_title));
@@ -816,7 +832,7 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
                         .append(true)
                         .open("/tmp/braid-notif.log")
                     {
-                        let _ = writeln!(f, "ADD_ERR: {}", desc);
+                        let _ = writeln!(f, "ADD_ERR: {desc}");
                     }
                 }
             });
@@ -840,10 +856,8 @@ pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &st
     }
 
     // Fallback garanti si l'utilisateur n'a pas encore cliqué Autoriser
-    let script = format!(
-        "display notification {:?} with title {:?} subtitle {:?}",
-        message, full_title, subtitle
-    );
+    let script =
+        format!("display notification {message:?} with title {full_title:?} subtitle {subtitle:?}");
     let _ = std::process::Command::new("/usr/bin/osascript")
         .args(["-e", &script])
         .spawn();
@@ -859,8 +873,11 @@ pub fn frontmost_app_and_window() -> (String, String) {
     if raw_list.is_null() {
         return (String::new(), String::new());
     }
-    let list: CFRetained<CFArray> =
-        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(raw_list as *mut CFArray)) };
+    let list: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+            raw_list.cast_mut().cast::<CFArray>(),
+        ))
+    };
 
     let k_layer = CFString::from_static_str("kCGWindowLayer");
     let k_owner = CFString::from_static_str("kCGWindowOwnerName");
@@ -869,32 +886,31 @@ pub fn frontmost_app_and_window() -> (String, String) {
 
     let count = list.len();
     for i in 0..count {
-        let ptr = unsafe { list.value_at_index(i as isize) };
+        let ptr = unsafe { list.value_at_index(i.cast_signed()) };
         if ptr.is_null() {
             continue;
         }
-        let dict = unsafe { &*(ptr as *const CFDictionary) };
+        let dict = unsafe { &*(ptr.cast::<CFDictionary>()) };
 
-        let layer_ptr = unsafe { dict.value(k_layer.as_ref() as *const CFString as *const c_void) };
+        let layer_ptr = unsafe {
+            dict.value(std::ptr::from_ref::<CFString>(k_layer.as_ref()).cast::<c_void>())
+        };
         let mut layer: i64 = -1;
         if !layer_ptr.is_null() {
-            let num = unsafe { &*(layer_ptr as *const CFNumber) };
-            unsafe {
-                num.value(
-                    CFNumberType::SInt64Type,
-                    &mut layer as *mut i64 as *mut c_void,
-                )
-            };
+            let num = unsafe { &*(layer_ptr.cast::<CFNumber>()) };
+            unsafe { num.value(CFNumberType::SInt64Type, (&raw mut layer).cast::<c_void>()) };
         }
         if layer != 0 {
             continue;
         }
 
-        let owner_ptr = unsafe { dict.value(k_owner.as_ref() as *const CFString as *const c_void) };
-        let owner = if !owner_ptr.is_null() {
-            unsafe { &*(owner_ptr as *const CFString) }.to_string()
-        } else {
+        let owner_ptr = unsafe {
+            dict.value(std::ptr::from_ref::<CFString>(k_owner.as_ref()).cast::<c_void>())
+        };
+        let owner = if owner_ptr.is_null() {
             String::new()
+        } else {
+            unsafe { &*(owner_ptr.cast::<CFString>()) }.to_string()
         };
         let owner_low = owner.to_lowercase();
         if owner_low.is_empty()
@@ -906,22 +922,20 @@ pub fn frontmost_app_and_window() -> (String, String) {
         }
 
         let mut win_name = String::new();
-        let name_ptr = unsafe { dict.value(k_name.as_ref() as *const CFString as *const c_void) };
+        let name_ptr =
+            unsafe { dict.value(std::ptr::from_ref::<CFString>(k_name.as_ref()).cast::<c_void>()) };
         if !name_ptr.is_null() {
-            win_name = unsafe { &*(name_ptr as *const CFString) }.to_string();
+            win_name = unsafe { &*(name_ptr.cast::<CFString>()) }.to_string();
         }
 
         if win_name.is_empty() {
-            let pid_ptr = unsafe { dict.value(k_pid.as_ref() as *const CFString as *const c_void) };
+            let pid_ptr = unsafe {
+                dict.value(std::ptr::from_ref::<CFString>(k_pid.as_ref()).cast::<c_void>())
+            };
             let mut pid: i32 = 0;
             if !pid_ptr.is_null() {
-                let num = unsafe { &*(pid_ptr as *const CFNumber) };
-                unsafe {
-                    num.value(
-                        CFNumberType::SInt32Type,
-                        &mut pid as *mut i32 as *mut c_void,
-                    )
-                };
+                let num = unsafe { &*(pid_ptr.cast::<CFNumber>()) };
+                unsafe { num.value(CFNumberType::SInt32Type, (&raw mut pid).cast::<c_void>()) };
             }
             if pid > 0 {
                 win_name = ax_focused_window_title(pid).unwrap_or_default();
@@ -956,7 +970,8 @@ fn ax_focused_window_title(pid: i32) -> Option<String> {
 
     let attr_focused = CFString::from_static_str("AXFocusedWindow");
     let mut win_el: *const c_void = std::ptr::null();
-    let err1 = unsafe { AXUIElementCopyAttributeValue(app_el, attr_focused.as_ref(), &mut win_el) };
+    let err1 =
+        unsafe { AXUIElementCopyAttributeValue(app_el, attr_focused.as_ref(), &raw mut win_el) };
     unsafe { CFRelease(app_el) };
     if err1 != 0 || win_el.is_null() {
         return None;
@@ -964,20 +979,23 @@ fn ax_focused_window_title(pid: i32) -> Option<String> {
 
     let attr_title = CFString::from_static_str("AXTitle");
     let mut title_cf: *const c_void = std::ptr::null();
-    let err2 = unsafe { AXUIElementCopyAttributeValue(win_el, attr_title.as_ref(), &mut title_cf) };
+    let err2 =
+        unsafe { AXUIElementCopyAttributeValue(win_el, attr_title.as_ref(), &raw mut title_cf) };
     unsafe { CFRelease(win_el) };
     if err2 != 0 || title_cf.is_null() {
         return None;
     }
 
     let title_str: CFRetained<CFString> = unsafe {
-        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+            title_cf.cast_mut().cast::<CFString>(),
+        ))
     };
     let s = title_str.to_string();
     if s.is_empty() { None } else { Some(s) }
 }
 
-pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::Result<()> {
+pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) {
     use objc2_core_foundation::{CFArray, CFRetained, CFString};
     use std::ffi::c_void;
 
@@ -993,44 +1011,50 @@ pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::
         fn CFRelease(cf: *const c_void);
     }
 
-    focus_editor_app(favorite)?;
+    focus_editor_app(favorite);
     let spec = resolve_editor_spec(favorite);
 
     let pid = find_running_app_pid(spec.bundle_id).unwrap_or(0);
     if pid <= 0 {
-        return Ok(());
+        return;
     }
 
     let app_el = unsafe { AXUIElementCreateApplication(pid) };
     if app_el.is_null() {
-        return Ok(());
+        return;
     }
 
     let attr_windows = CFString::from_static_str("AXWindows");
     let mut wins_cf: *const c_void = std::ptr::null();
-    let err = unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &mut wins_cf) };
+    let err =
+        unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &raw mut wins_cf) };
     unsafe { CFRelease(app_el) };
     if err != 0 || wins_cf.is_null() {
-        return Ok(());
+        return;
     }
 
-    let wins: CFRetained<CFArray> =
-        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray)) };
+    let wins: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+            wins_cf.cast_mut().cast::<CFArray>(),
+        ))
+    };
     let attr_title = CFString::from_static_str("AXTitle");
     let act_raise = CFString::from_static_str("AXRaise");
     let target_low = repo_name.to_lowercase();
 
     for i in 0..wins.len() {
-        let w_ptr = unsafe { wins.value_at_index(i as isize) };
+        let w_ptr = unsafe { wins.value_at_index(i.cast_signed()) };
         if w_ptr.is_null() {
             continue;
         }
         let mut title_cf: *const c_void = std::ptr::null();
         let t_err =
-            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &raw mut title_cf) };
         if t_err == 0 && !title_cf.is_null() {
             let title_str: CFRetained<CFString> = unsafe {
-                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+                    title_cf.cast_mut().cast::<CFString>(),
+                ))
             };
             if title_str.to_string().to_lowercase().contains(&target_low) {
                 unsafe { AXUIElementPerformAction(w_ptr, act_raise.as_ref()) };
@@ -1038,8 +1062,6 @@ pub fn focus_specific_editor_window(favorite: &str, repo_name: &str) -> anyhow::
             }
         }
     }
-
-    Ok(())
 }
 
 fn find_running_app_pid(bundle_id: &str) -> Option<i32> {
@@ -1074,26 +1096,32 @@ fn ax_all_window_titles(pid: i32) -> Vec<String> {
 
     let attr_windows = CFString::from_static_str("AXWindows");
     let mut wins_cf: *const c_void = std::ptr::null();
-    let err = unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &mut wins_cf) };
+    let err =
+        unsafe { AXUIElementCopyAttributeValue(app_el, attr_windows.as_ref(), &raw mut wins_cf) };
     unsafe { CFRelease(app_el) };
     if err != 0 || wins_cf.is_null() {
         return out;
     }
 
-    let wins: CFRetained<CFArray> =
-        unsafe { CFRetained::from_raw(std::ptr::NonNull::new_unchecked(wins_cf as *mut CFArray)) };
+    let wins: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+            wins_cf.cast_mut().cast::<CFArray>(),
+        ))
+    };
     let attr_title = CFString::from_static_str("AXTitle");
     for i in 0..wins.len() {
-        let w_ptr = unsafe { wins.value_at_index(i as isize) };
+        let w_ptr = unsafe { wins.value_at_index(i.cast_signed()) };
         if w_ptr.is_null() {
             continue;
         }
         let mut title_cf: *const c_void = std::ptr::null();
         let t_err =
-            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &mut title_cf) };
+            unsafe { AXUIElementCopyAttributeValue(w_ptr, attr_title.as_ref(), &raw mut title_cf) };
         if t_err == 0 && !title_cf.is_null() {
             let title_str: CFRetained<CFString> = unsafe {
-                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(title_cf as *mut CFString))
+                CFRetained::from_raw(std::ptr::NonNull::new_unchecked(
+                    title_cf.cast_mut().cast::<CFString>(),
+                ))
             };
             let s = title_str.to_string().trim().to_string();
             if !s.is_empty() {
