@@ -37,6 +37,47 @@ impl<'a> Canvas<'a> {
         self.buf[idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
     }
 
+    fn draw_micro_label(&mut self, mut x: i32, y: i32, text: &str, color: Rgba) {
+        const GLYPHS: &[(char, [u8; 5])] = &[
+            ('0', [0b111, 0b101, 0b101, 0b101, 0b111]),
+            ('1', [0b010, 0b110, 0b010, 0b010, 0b111]),
+            ('2', [0b111, 0b001, 0b111, 0b100, 0b111]),
+            ('3', [0b111, 0b001, 0b111, 0b001, 0b111]),
+            ('4', [0b101, 0b101, 0b111, 0b001, 0b001]),
+            ('5', [0b111, 0b100, 0b111, 0b001, 0b111]),
+            ('6', [0b111, 0b100, 0b111, 0b101, 0b111]),
+            ('7', [0b111, 0b001, 0b010, 0b010, 0b010]),
+            ('8', [0b111, 0b101, 0b111, 0b101, 0b111]),
+            ('9', [0b111, 0b101, 0b111, 0b001, 0b111]),
+            ('A', [0b010, 0b101, 0b111, 0b101, 0b101]),
+            ('D', [0b110, 0b101, 0b101, 0b101, 0b110]),
+            ('M', [0b101, 0b111, 0b101, 0b101, 0b101]),
+            ('P', [0b110, 0b101, 0b110, 0b100, 0b100]),
+            ('K', [0b101, 0b101, 0b110, 0b101, 0b101]),
+            ('X', [0b101, 0b101, 0b010, 0b101, 0b101]),
+            ('/', [0b001, 0b001, 0b010, 0b100, 0b100]),
+            ('-', [0b000, 0b000, 0b111, 0b000, 0b000]),
+            (' ', [0b000, 0b000, 0b000, 0b000, 0b000]),
+        ];
+        let scale = 2;
+        for ch in text.chars() {
+            if let Some((_, rows)) = GLYPHS.iter().find(|(c, _)| *c == ch) {
+                for (ry, bits) in rows.iter().enumerate() {
+                    for rx in 0..3 {
+                        if (bits >> (2 - rx)) & 1 == 1 {
+                            for sy in 0..scale {
+                                for sx in 0..scale {
+                                    self.blend_pixel(x + rx * scale + sx, y + (ry as i32) * scale + sy, color);
+                                }
+                            }
+                        }
+                    }
+                }
+                x += 4 * scale;
+            }
+        }
+    }
+
     fn draw_disc_aa(&mut self, cx: f32, cy: f32, radius: f32, color: Rgba) {
         let min_x = (cx - radius - 1.5).floor() as i32;
         let max_x = (cx + radius + 1.5).ceil() as i32;
@@ -299,6 +340,95 @@ pub fn render_velocity_chart_png(repo_name: &str, counts: &[u32], accent: (u8, u
         let (x1, y1) = curve[idx + 1];
         canvas.draw_segment_aa((x0, y0), (x1, y1), 1.85, Rgba { r: ar, g: ag, b: ab, alpha: 0.88 });
     }
+
+    let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
+    let neutral_text = Rgba { r: 132, g: 136, b: 144, alpha: 0.62 };
+    let base_row = (h - 6) as i32;
+    let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
+    let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
+
+    // Ligne de base micro-pointillée + 4 repères hebdomadaires discrets
+    let mut gx = left_x;
+    while gx <= right_x {
+        canvas.blend_pixel(gx, base_row, neutral_line);
+        canvas.blend_pixel(gx + 1, base_row, neutral_line);
+        gx += 6;
+    }
+    for step in 0..=4 {
+        let tx = left_x + ((right_x - left_x) * step) / 4;
+        for ty in (base_row - 3)..=base_row {
+            canvas.blend_pixel(tx, ty, Rgba { r: 132, g: 136, b: 144, alpha: 0.32 });
+        }
+    }
+
+    // Repère vertical subtil du pic d'activité (si peak > 0)
+    let max_val = counts.iter().copied().max().unwrap_or(0);
+    if max_val > 0 {
+        if let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v) {
+            if let Some(&(px, py)) = anchors.get(peak_idx) {
+                let pxi = px.round() as i32;
+                let mut dy = (py.round() as i32) + 5;
+                while dy < base_row - 2 {
+                    canvas.blend_pixel(pxi, dy, Rgba { r: ar, g: ag, b: ab, alpha: 0.24 });
+                    dy += 4;
+                }
+                canvas.draw_disc_aa(px, py, 2.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.85 });
+            }
+        }
+    }
+
+    // Micro-labels typographiques adaptatifs Light/Dark Mode (`30D` à gauche, `PEAK N/D` à droite)
+    canvas.draw_micro_label(left_x, 4, "30D", neutral_text);
+    let peak_label = if max_val > 0 {
+        format!("PEAK {}/D", max_val)
+    } else {
+        "IDLE".to_string()
+    };
+    let label_w = (peak_label.len() as i32) * 8;
+    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 4, &peak_label, neutral_text);
+
+    let neutral_line = Rgba { r: 132, g: 136, b: 144, alpha: 0.22 };
+    let neutral_text = Rgba { r: 132, g: 136, b: 144, alpha: 0.62 };
+    let base_row = (h - 6) as i32;
+    let left_x = anchors.first().map(|p| p.0.round() as i32).unwrap_or(10);
+    let right_x = anchors.last().map(|p| p.0.round() as i32).unwrap_or((w - 10) as i32);
+
+    let mut gx = left_x;
+    while gx <= right_x {
+        canvas.blend_pixel(gx, base_row, neutral_line);
+        canvas.blend_pixel(gx + 1, base_row, neutral_line);
+        gx += 6;
+    }
+    for step in 0..=4 {
+        let tx = left_x + ((right_x - left_x) * step) / 4;
+        for ty in (base_row - 3)..=base_row {
+            canvas.blend_pixel(tx, ty, Rgba { r: 132, g: 136, b: 144, alpha: 0.32 });
+        }
+    }
+
+    let max_val = counts.iter().copied().max().unwrap_or(0);
+    if max_val > 0 {
+        if let Some((peak_idx, _)) = counts.iter().enumerate().max_by_key(|&(_, &v)| v) {
+            if let Some(&(px, py)) = anchors.get(peak_idx) {
+                let pxi = px.round() as i32;
+                let mut dy = (py.round() as i32) + 5;
+                while dy < base_row - 2 {
+                    canvas.blend_pixel(pxi, dy, Rgba { r: ar, g: ag, b: ab, alpha: 0.24 });
+                    dy += 4;
+                }
+                canvas.draw_disc_aa(px, py, 2.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.85 });
+            }
+        }
+    }
+
+    canvas.draw_micro_label(left_x, 4, "30D", neutral_text);
+    let peak_label = if max_val > 0 {
+        format!("PEAK {}/D", max_val)
+    } else {
+        "IDLE".to_string()
+    };
+    let label_w = (peak_label.len() as i32) * 8;
+    canvas.draw_micro_label((right_x - label_w).max(left_x + 40), 4, &peak_label, neutral_text);
 
     if let Some(&(lx, ly)) = anchors.last() {
         canvas.draw_disc_aa(lx, ly, 6.0, Rgba { r: ar, g: ag, b: ab, alpha: 0.14 });
