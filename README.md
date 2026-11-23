@@ -46,11 +46,29 @@ pnpm --filter @context-braid/extension build:firefox
 
 Load `packages/extension/.output/chrome-mv3` in `chrome://extensions` or `brave://extensions` (or `packages/extension/.output/firefox-mv2` in `about:debugging`), copy the 32-character Extension ID, and run **Connect Browser Extension ID** in Raycast.
 
+### 3. Optional: Configure the Agent ZIP Drop Inbox (`⌘U`)
+
+To let sandboxed browser AI agents push `.zip` deliverables straight to `~/Downloads` via a private GitHub Release:
+
+1. Create a private GitHub repository (for example `<owner>/context-braid-drops`) with a draft or published release, and generate a fine-grained Personal Access Token with **Contents: Read and write** on that repository.
+2. Save your configuration at `~/Library/Application Support/ContextBraid/drop.json`:
+
+```json
+{
+  "repo": "<owner>/context-braid-drops",
+  "release_id": 123456789,
+  "token": "github_pat_..."
+}
+```
+
+3. Select any repository in **Project Cockpit** and press **`⌘U`** (**Copy Agent ZIP Drop Prompt**) to copy a ready-to-paste `curl` upload snippet (excluding `.git`). When the agent finishes its turn, `braid daemon` automatically downloads the `.zip` into `~/Downloads`, deletes the temporary release asset, and sends a macOS notification.
+
 ## Features
 
 - **Unified project cockpit**: Aggregates local Git status (`branch`, dirty file count, HEAD SHA, commit sparkline, and recent merged PR receipts) alongside open editor windows (`Cursor`, `VS Code`, `Zed`, `Neovim`) in a single Raycast list.
 - **Multi-agent browser tracking**: Detects live session state (`working`, `completed`, `needs_attention`, `captcha`) across **Z.ai**, **Qwen**, **Gemini**, **Google AI**, and **DeepSeek** tabs in Chrome, Brave, Edge, and Firefox.
 - **Background ZIP auto-download**: Monitors newly generated `.zip` artifacts via DOM observers and 6-second background alarms, saving them directly to `~/Downloads` even when tabs are hidden or windows are minimized.
+- **Agent ZIP Drop Inbox (`⌘U`)**: Copies a pre-configured `curl` release-upload prompt for sandboxed AI agents and automatically pulls finished `.zip` deliverables into `~/Downloads` on turn completion.
 - **macOS menu bar extra**: Separates active workspaces from idle repositories with native Raycast status icons, truncated tab titles, one-click tab focus, and 30-minute repo alert muting.
 - **Zero-cloud local IPC**: All communication travels exclusively over `~/Library/Application Support/ContextBraid/braid.sock` via Chrome/Firefox Native Messaging (`braid-host`).
 - **7-language localization**: Ships complete translations for English (`en`), French (`fr`), Simplified Chinese (`zh-CN`), Japanese (`ja`), German (`de`), Spanish (`es`), and Korean (`ko`).
@@ -75,6 +93,8 @@ flowchart LR
 | **Workspace Menu Bar** (`menu-bar`) | Menu Bar | Monitor active agent sessions and alerts from the macOS menu bar with one-click switching. |
 | **Cycle Project Windows** (`cycle-project`) | No-view | Cycle focus across open project editor and browser windows. |
 | **Jump to Next Agent Alert** (`jump-alert`) | No-view | Immediately focus the next browser tab waiting for input or review. |
+
+Inside **Project Cockpit**, press **`⌘U`** to copy the **Agent ZIP Drop Prompt** for the selected repository, or **`⌘M`** to snooze repository alerts for 30 minutes.
 
 > [!TIP]
 > Inspect background ZIP auto-download diagnostics anytime from the ContextBraid Service Worker console by running `chrome.storage.local.get('cb_autodownload_logs', (d) => console.table(d.cb_autodownload_logs))`.

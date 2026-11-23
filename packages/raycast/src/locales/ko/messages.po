@@ -8,140 +8,151 @@ msgstr ""
 "Language: ko\n"
 
 #. placeholder {0}: proj.dirty_files
-#: src/index.tsx:381
-#: src/index.tsx:461
+#: src/index.tsx:568
+#: src/index.tsx:674
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {#개 수정됨} other {#개 수정됨}}"
 
 #. placeholder {0}: proj.tabs.length
-#: src/index.tsx:386
+#: src/index.tsx:579
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {#개 창} other {#개 창}}"
 
-#: src/index.tsx:142
+#: src/index.tsx:181
 msgid "{days}d ago"
 msgstr "{days}일 전"
 
-#: src/index.tsx:130
-#: src/index.tsx:140
+#: src/index.tsx:145
+#: src/index.tsx:173
 msgid "{hrs}h ago"
 msgstr "{hrs}시간 전"
 
-#: src/index.tsx:128
-#: src/index.tsx:138
+#: src/index.tsx:137
+#: src/index.tsx:164
 msgid "{mins}m ago"
 msgstr "{mins}분 전"
 
-#: src/PairBrowserForm.tsx:65
+#: src/PairBrowserForm.tsx:89
 msgid "1. Open chrome://extensions or brave://extensions\n"
 "2. Enable Developer Mode\n"
 "3. Copy the ID displayed under ContextBraid"
 msgstr "3. ContextBraid 아래에 표시된 ID 복사"
 
-#: src/PairBrowserForm.tsx:58
+#: src/PairBrowserForm.tsx:76
 msgid "32-character Extension ID"
 msgstr "32자 확장 프로그램 ID"
 
-#: src/index.tsx:173
+#: src/index.tsx:219
 msgid "Active"
 msgstr "활성"
 
-#: src/index.tsx:317
+#: src/index.tsx:473
 msgid "Alerts & Ready ZIPs"
 msgstr "알림 및 준비된 ZIP"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:263
+#: src/index.tsx:397
 msgid "Alerts unmuted for {0}"
 msgstr "{0} 알림 음소거 해제됨"
 
-#: src/index.tsx:312
+#: src/index.tsx:465
 msgid "All contexts"
 msgstr "모든 컨텍스트"
 
-#: src/index.tsx:385
+#: src/index.tsx:575
 msgid "clean"
 msgstr "깨끗함"
 
-#: src/index.tsx:465
+#: src/index.tsx:682
 msgid "Clean"
 msgstr "깨끗함"
 
-#: src/index.tsx:367
+#: src/index.tsx:551
 msgid "Configure Extension ID"
 msgstr "확장 프로그램 ID 구성"
 
-#: src/index.tsx:347
-#: src/index.tsx:719
+#: src/index.tsx:518
+#: src/index.tsx:1051
 msgid "Connect Browser Extension ID"
 msgstr "브라우저 확장 프로그램 ID 연결"
 
-#: src/index.tsx:244
+#: src/index.tsx:372
 msgid "ContextBraid engine active"
 msgstr "ContextBraid 엔진 활성"
 
-#: src/index.tsx:357
+#: src/index.tsx:531
 msgid "ContextBraid local engine is not running"
 msgstr "ContextBraid 로컬 엔진이 실행되고 있지 않습니다"
 
+#. js-lingui-explicit-id
+#. placeholder {0}: proj.repo_name
+#: src/index.tsx:1033
+msgid "dropZipPromptCopied"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/index.tsx:1021
+msgid "dropZipPromptCmd"
+msgstr ""
+
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:647
+#: src/index.tsx:913
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "HEAD 커밋 SHA 복사 ({0})"
 
-#: src/index.tsx:713
+#: src/index.tsx:1042
 msgid "Copy Repository Path"
 msgstr "저장소 경로 복사"
 
-#: src/index.tsx:538
+#: src/index.tsx:761
 msgid "Current Step"
 msgstr "현재 단계"
 
-#: src/index.tsx:603
+#: src/index.tsx:849
 msgid "Cycle Project Windows"
 msgstr "프로젝트 창 전환"
 
-#: src/PairBrowserForm.tsx:39
+#: src/PairBrowserForm.tsx:48
 msgid "Error"
 msgstr "오류"
 
-#: src/PairBrowserForm.tsx:34
+#: src/PairBrowserForm.tsx:40
 msgid "Extension registered! Click Reload (↻) in your browser."
 msgstr "확장 프로그램이 등록되었습니다! 브라우저에서 새로고침(↻)을 클릭하세요."
 
-#: src/index.tsx:307
+#: src/index.tsx:457
 msgid "Filter by status"
 msgstr "상태별 필터링"
 
-#: src/index.tsx:322
+#: src/index.tsx:481
 msgid "Generating"
 msgstr "생성 중"
 
-#: src/index.tsx:546
+#: src/index.tsx:773
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:625
+#: src/index.tsx:878
 msgid "Git & GitHub"
 msgstr "Git 및 GitHub"
 
-#: src/index.tsx:705
+#: src/index.tsx:1007
 msgid "Hide Detail Pane"
 msgstr "상세 패널 숨기기"
 
-#: src/PairBrowserForm.tsx:64
+#: src/PairBrowserForm.tsx:85
 msgid "How to find it"
 msgstr "찾는 방법"
 
-#: src/index.tsx:336
+#: src/index.tsx:501
 msgid "Install / Start Engine"
 msgstr "엔진 설치 / 시작"
 
-#: src/index.tsx:362
+#: src/index.tsx:543
 msgid "Install and Start Now"
 msgstr "지금 설치 및 시작"
 
-#: src/index.tsx:248
+#: src/index.tsx:379
 msgid "Installation error"
 msgstr "설치 오류"
 
@@ -149,137 +160,137 @@ msgstr "설치 오류"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "잘못된 ID입니다(소문자 32자 필요)"
 
-#: src/index.tsx:615
+#: src/index.tsx:864
 msgid "Jump to Next Agent Alert"
 msgstr "다음 에이전트 알림으로 이동"
 
-#: src/jump-alert.ts:8
+#: src/jump-alert.ts:9
 msgid "Jumped to next agent alert"
 msgstr "다음 에이전트 알림으로 이동했습니다"
 
-#: src/index.tsx:126
-#: src/index.tsx:136
+#: src/index.tsx:131
+#: src/index.tsx:158
 msgid "just now"
 msgstr "방금 전"
 
-#: src/index.tsx:431
+#: src/index.tsx:637
 msgid "Last activity"
 msgstr "최근 활동"
 
-#: src/index.tsx:677
+#: src/index.tsx:969
 msgid "Mute Repo Alerts ({muteMinutes}m)"
 msgstr "저장소 알림 음소거 ({muteMinutes}분)"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:264
+#: src/index.tsx:404
 msgid "Muted {0} for {muteMinutes}m"
 msgstr "{0} 알림을 {muteMinutes}분 동안 음소거했습니다"
 
-#: src/index.tsx:398
+#: src/index.tsx:595
 msgid "Muted {mutedRemainingMin}m"
 msgstr "음소거 {mutedRemainingMin}분 남음"
 
-#: src/index.tsx:594
+#: src/index.tsx:829
 msgid "Navigation"
 msgstr "탐색"
 
-#: src/index.tsx:177
+#: src/index.tsx:229
 msgid "Needs Help"
 msgstr "도움 필요"
 
-#: src/index.tsx:327
+#: src/index.tsx:489
 msgid "Open editors"
 msgstr "열린 편집기"
 
-#: src/index.tsx:341
+#: src/index.tsx:509
 msgid "Open Extension Preferences"
 msgstr "확장 프로그램 환경설정 열기"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:659
+#: src/index.tsx:936
 msgid "Open in {0}"
 msgstr "{0}에서 열기"
 
-#: src/index.tsx:688
+#: src/index.tsx:987
 msgid "Open in Terminal"
 msgstr "터미널에서 열기"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:628
+#: src/index.tsx:885
 msgid "Open Latest PR (#{0})"
 msgstr "최신 PR 열기 (#{0})"
 
-#: src/index.tsx:636
+#: src/index.tsx:899
 msgid "Open Repository on GitHub"
 msgstr "GitHub에서 저장소 열기"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:669
+#: src/index.tsx:952
 msgid "Opened in {0}"
 msgstr "{0}에서 열림"
 
-#: src/index.tsx:358
+#: src/index.tsx:535
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Enter 키를 눌러 로컬 백그라운드 서비스를 자동으로 설치하고 시작합니다."
 
-#: src/index.tsx:439
+#: src/index.tsx:649
 msgid "Private window"
 msgstr "시크릿 창"
 
-#: src/index.tsx:183
+#: src/index.tsx:253
 msgid "Ready"
 msgstr "준비 완료"
 
-#: src/index.tsx:489
+#: src/index.tsx:709
 msgid "Recently Merged PRs"
 msgstr "최근 병합된 PR"
 
-#: src/PairBrowserForm.tsx:46
+#: src/PairBrowserForm.tsx:58
 msgid "Register Local Browser Extension ID"
 msgstr "로컬 브라우저 확장 프로그램 ID 등록"
 
-#: src/PairBrowserForm.tsx:29
+#: src/PairBrowserForm.tsx:32
 msgid "Registering extension..."
 msgstr "확장 프로그램 등록 중..."
 
-#: src/PairBrowserForm.tsx:50
+#: src/PairBrowserForm.tsx:65
 msgid "Save and Reconnect"
 msgstr "저장 및 다시 연결"
 
-#: src/index.tsx:304
+#: src/index.tsx:451
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "저장소, 브랜치, AI 에이전트 또는 편집기 검색..."
 
-#: src/index.tsx:570
+#: src/index.tsx:801
 msgid "Session"
 msgstr "세션"
 
-#: src/index.tsx:706
+#: src/index.tsx:1011
 msgid "Show Detail Pane"
 msgstr "상세 패널 표시"
 
-#: src/index.tsx:239
+#: src/index.tsx:364
 msgid "Starting ContextBraid engine..."
 msgstr "ContextBraid 엔진 시작 중..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:596
+#: src/index.tsx:835
 msgid "Switch to {0} ({1})"
 msgstr "{0}({1})로 전환"
 
-#: src/index.tsx:676
+#: src/index.tsx:965
 msgid "Unmute Repo Alerts"
 msgstr "저장소 알림 음소거 해제"
 
-#: src/index.tsx:181
+#: src/index.tsx:245
 msgid "Working"
 msgstr "작업 중"
 
-#: src/index.tsx:657
+#: src/index.tsx:930
 msgid "Workspace"
 msgstr "작업 공간"
 
-#: src/index.tsx:179
+#: src/index.tsx:237
 msgid "ZIP Ready"
 msgstr "ZIP 준비 완료"
