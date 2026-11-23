@@ -10,10 +10,10 @@ ContextBraid is a local macOS workspace cockpit linking Git repositories, code e
 
 - **`crates/braid-core/`** — Shared Rust IPC protocol (`ipc.rs`), configuration, and domain models (`ProjectWorkspace`, `TabContext`, `MergedPr`).
 - **`crates/braid/`** — Native macOS Rust binary (`braid`) acting as:
-  - **`braid daemon`**: Unix-socket server (`~/Library/Application Support/ContextBraid/braid.sock`), Git/editor/window scanner (`macos.rs`), sparkline PNG renderer (`chart_png.rs`), and native `UNUserNotificationCenter` dispatcher.
+  - **`braid daemon`**: Unix-socket server (`~/Library/Application Support/ContextBraid/braid.sock`), Git/editor/window scanner (`macos.rs`), sparkline PNG renderer (`chart_png.rs`), GitHub Release ZIP drop receiver (`drop_inbox.rs`), and native `UNUserNotificationCenter` dispatcher.
   - **`braid host`** (also invoked via symlink/argv0 `braid-host`): Chrome/Brave/Firefox Native Messaging bridge forwarding browser tab state to the local daemon.
 - **`packages/raycast/`** — Raycast TypeScript/React extension (`@raycast/api`) with:
-  - `src/index.tsx` — Main cockpit (`List` + `Detail` + Git/PR/Agent actions).
+  - `src/index.tsx` — Main cockpit (`List` + `Detail` + Git/PR/Agent actions, including `⌘U` **Copy Agent ZIP Drop Prompt**).
   - `src/menu-bar.tsx` — macOS `MenuBarExtra` (grouped `Active` workspaces vs idle `Repositories`, semantic status icons, truncated tab titles).
   - `src/cycle-project.ts` & `src/jump-alert.ts` — Instant no-view commands.
   - `src/bootstrap.ts` — Downloads `braid-macos-universal` from GitHub Releases and installs `ContextBraid.app` + `com.contextbraid.daemon.plist`.
@@ -90,6 +90,10 @@ launchctl bootstrap "gui/(id -u)" "PLIST"
 5. **Menu Bar Submenu Width (`packages/raycast/src/menu-bar.tsx`):**
    - Always truncate tab titles (`<= 38 chars`) with full text in `tooltip` so long Google AI / search queries never stretch the macOS menu bar popover across the screen.
    - Note that `@raycast/api`'s `MenuBarExtra.Submenu` does **not** accept a `subtitle` prop; encode compact status badges (`●`, `⚡`, `✓`, `~dirty`) into `title`.
+
+6. **Agent ZIP Drop Inbox (`crates/braid/src/drop_inbox.rs`):**
+   - `spawn_sync_drop_inbox()` runs asynchronously on daemon startup and whenever a tracked AI session transitions out of `Working` (`confirmed_working`), executing two non-blocking passes (`0s` and `12s` delay) configured via `~/Library/Application Support/ContextBraid/drop.json`.
+   - Always stream downloads to a `.part` file before atomic rename into `~/Downloads`, delete processed GitHub release assets via `DELETE /repos/{repo}/releases/assets/{id}` so archives are never re-downloaded, and keep `-x "*.git*"` in the `⌘U` prompt template so downstream ship tools accept the archive cleanly.
 
 ---
 
