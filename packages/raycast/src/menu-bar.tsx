@@ -10,9 +10,8 @@ import {
   showHUD,
   Keyboard,
 } from "@raycast/api";
-import { t } from "@lingui/core/macro";
 import { useEffect, useState } from "react";
-import { initI18n } from "./i18n";
+import { i18n, initI18n } from "./i18n";
 import { ProjectWorkspace, TabContext, queryDaemon } from "./socketClient";
 
 initI18n();
@@ -182,7 +181,7 @@ export default function WorkspaceMenuBar() {
         title={
           proj.dirty_files > 0
             ? `${proj.git_branch} • ${proj.dirty_files} modified`
-            : `${proj.git_branch} • ${t`Clean`}`
+            : `${proj.git_branch} • ${i18n._("Clean")}`
         }
       >
         {proj.tabs.map((tab: TabContext) => (
@@ -203,36 +202,36 @@ export default function WorkspaceMenuBar() {
         ))}
       </MenuBarExtra.Section>
 
-      <MenuBarExtra.Section title={t`Action`}>
+      <MenuBarExtra.Section title={i18n._("Action")}>
         <MenuBarExtra.Item
-          title={t`Open in Editor`}
+          title={i18n._("Open in Editor")}
           icon={Icon.Code}
           onAction={() =>
             queryDaemon({ type: "open_editor", repo_path: proj.repo_path })
           }
         />
         <MenuBarExtra.Item
-          title={t`Open in Terminal`}
+          title={i18n._("Open in Terminal")}
           icon={Icon.Terminal}
           onAction={() =>
             queryDaemon({ type: "open_terminal", repo_path: proj.repo_path })
           }
         />
         <MenuBarExtra.Item
-          title={t`Open in Finder`}
+          title={i18n._("Open in Finder")}
           icon={Icon.Finder}
           onAction={() => open(proj.repo_path)}
         />
         {proj.repo_url && (
           <MenuBarExtra.Item
-            title={t`Open Repository on GitHub`}
+            title={i18n._("Open Repository on GitHub")}
             icon={Icon.Globe}
             onAction={() => open(proj.repo_url!)}
           />
         )}
         {proj.has_alert && (
           <MenuBarExtra.Item
-            title={t`Mute Repo Alerts (30m)`}
+            title={i18n._("Mute Repo Alerts (30m)")}
             icon={Icon.BellDisabled}
             onAction={async () => {
               await queryDaemon({
@@ -240,7 +239,7 @@ export default function WorkspaceMenuBar() {
                 repo_name: proj.repo_name,
                 duration_ms: 30 * 60 * 1000,
               });
-              await showHUD(t`Muted ${proj.repo_name} for 30m`);
+              await showHUD(`Muted ${proj.repo_name} for 30m`);
             }}
           />
         )}
@@ -252,13 +251,13 @@ export default function WorkspaceMenuBar() {
     <MenuBarExtra
       icon={menuIcon}
       title={menuTitle}
-      tooltip={t`ContextBraid`}
+      tooltip="ContextBraid"
       isLoading={isLoading}
     >
       {isOffline ? (
-        <MenuBarExtra.Section title={t`ContextBraid Engine Offline`}>
+        <MenuBarExtra.Section title={i18n._("ContextBraid Engine Offline")}>
           <MenuBarExtra.Item
-            title={t`Open Project Cockpit`}
+            title={i18n._("Open Project Cockpit")}
             icon={Icon.AppWindowSidebarLeft}
             onAction={() =>
               launchCommand({
@@ -273,7 +272,7 @@ export default function WorkspaceMenuBar() {
           {alertCount > 0 && (
             <MenuBarExtra.Section>
               <MenuBarExtra.Item
-                title={t`Jump to Next Agent Alert`}
+                title={i18n._("Jump to Next Agent Alert")}
                 icon={{ source: Icon.ExclamationMark, tintColor: Color.Red }}
                 onAction={() => queryDaemon({ type: "jump_next_alert" })}
               />
@@ -281,23 +280,23 @@ export default function WorkspaceMenuBar() {
           )}
 
           {activeProjects.length > 0 && (
-            <MenuBarExtra.Section title={t`Active`}>
+            <MenuBarExtra.Section title={i18n._("Active")}>
               {activeProjects.map(renderProjectSubmenu)}
             </MenuBarExtra.Section>
           )}
 
           {idleProjects.length > 0 && (
-            <MenuBarExtra.Section title={t`Repositories`}>
+            <MenuBarExtra.Section title={i18n._("Repositories")}>
               {idleProjects.map(renderProjectSubmenu)}
             </MenuBarExtra.Section>
           )}
 
-          <MenuBarExtra.Section title={t`Preferences`}>
+          <MenuBarExtra.Section title={i18n._("Preferences")}>
             <MenuBarExtra.Item
               title={
                 prefs.notifyWhenFocused
-                  ? t`Notifications: Always On`
-                  : t`Notifications: Focus-Aware`
+                  ? i18n._("Notifications: Always On")
+                  : i18n._("Notifications: Focus-Aware")
               }
               icon={
                 prefs.notifyWhenFocused ? Icon.Bell : Icon.BellDisabled
@@ -305,7 +304,7 @@ export default function WorkspaceMenuBar() {
               onAction={() => openExtensionPreferences()}
             />
             <MenuBarExtra.Item
-              title={t`Open Project Cockpit`}
+              title={i18n._("Open Project Cockpit")}
               icon={Icon.AppWindowSidebarLeft}
               shortcut={Keyboard.Shortcut.Common.Open}
               onAction={() =>
