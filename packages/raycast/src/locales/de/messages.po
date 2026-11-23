@@ -7,28 +7,104 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: de\n"
 
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:184
+msgid "Clean"
+msgstr "Sauber"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:205
+msgid "Action"
+msgstr "Aktion"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:207
+msgid "Open in Editor"
+msgstr "Im Editor öffnen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:214
+msgid "Open in Terminal"
+msgstr "Im Terminal öffnen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:221
+msgid "Open in Finder"
+msgstr "Im Finder öffnen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:227
+msgid "Open Repository on GitHub"
+msgstr "Repository auf GitHub öffnen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:234
+msgid "Mute Repo Alerts (30m)"
+msgstr "Repo-Benachrichtigungen stummschalten (30 Min.)"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:258
+msgid "ContextBraid Engine Offline"
+msgstr "ContextBraid-Engine offline"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:260
+#: src/menu-bar.tsx:307
+msgid "Open Project Cockpit"
+msgstr "Projekt-Cockpit öffnen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:275
+msgid "Jump to Next Agent Alert"
+msgstr "Zur nächsten Agenten-Benachrichtigung springen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:283
+msgid "Active"
+msgstr "Aktiv"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:289
+msgid "Repositories"
+msgstr "Repositories"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:294
+msgid "Preferences"
+msgstr "Einstellungen"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:298
+msgid "Notifications: Always On"
+msgstr "Benachrichtigungen: Immer aktiv"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:299
+msgid "Notifications: Focus-Aware"
+msgstr "Benachrichtigungen: Fokusabhängig"
+
 #. placeholder {0}: proj.dirty_files
-#: src/index.tsx:568
-#: src/index.tsx:674
+#: src/index.tsx:573
+#: src/index.tsx:679
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {# geändert} other {# geändert}}"
 
 #. placeholder {0}: proj.tabs.length
-#: src/index.tsx:579
+#: src/index.tsx:584
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {# Fenster} other {# Fenster}}"
 
-#: src/index.tsx:181
+#: src/index.tsx:182
 msgid "{days}d ago"
 msgstr "vor {days} T."
 
-#: src/index.tsx:145
-#: src/index.tsx:173
+#: src/index.tsx:146
+#: src/index.tsx:174
 msgid "{hrs}h ago"
 msgstr "vor {hrs} Std."
 
-#: src/index.tsx:137
-#: src/index.tsx:164
+#: src/index.tsx:138
+#: src/index.tsx:165
 msgid "{mins}m ago"
 msgstr "vor {mins} Min."
 
@@ -42,73 +118,73 @@ msgstr "3. Kopiere die unter ContextBraid angezeigte ID"
 msgid "32-character Extension ID"
 msgstr "32-stellige Erweiterungs-ID"
 
-#: src/index.tsx:219
+#: src/index.tsx:220
 msgid "Active"
 msgstr "Aktiv"
 
-#: src/index.tsx:473
+#: src/index.tsx:478
 msgid "Alerts & Ready ZIPs"
 msgstr "Warnungen & fertige ZIPs"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:397
+#: src/index.tsx:402
 msgid "Alerts unmuted for {0}"
 msgstr "Benachrichtigungen für {0} wieder aktiviert"
 
-#: src/index.tsx:465
+#: src/index.tsx:470
 msgid "All contexts"
 msgstr "Alle Kontexte"
 
-#: src/index.tsx:575
+#: src/index.tsx:580
 msgid "clean"
 msgstr "sauber"
 
-#: src/index.tsx:682
+#: src/index.tsx:687
 msgid "Clean"
 msgstr "Sauber"
 
-#: src/index.tsx:551
+#: src/index.tsx:556
 msgid "Configure Extension ID"
 msgstr "Erweiterungs-ID konfigurieren"
 
-#: src/index.tsx:518
-#: src/index.tsx:1051
+#: src/index.tsx:523
+#: src/index.tsx:1056
 msgid "Connect Browser Extension ID"
 msgstr "Browser-Erweiterungs-ID verbinden"
 
-#: src/index.tsx:372
+#: src/index.tsx:377
 msgid "ContextBraid engine active"
 msgstr "ContextBraid-Engine aktiv"
 
-#: src/index.tsx:531
+#: src/index.tsx:536
 msgid "ContextBraid local engine is not running"
 msgstr "Lokale ContextBraid-Engine läuft nicht"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:1033
+#: src/index.tsx:1038
 msgid "dropZipPromptCopied"
-msgstr ""
+msgstr "ZIP-Drop-Prompt kopiert ({0})"
 
 #. js-lingui-explicit-id
-#: src/index.tsx:1021
+#: src/index.tsx:1026
 msgid "dropZipPromptCmd"
-msgstr ""
+msgstr "Agenten-ZIP-Drop-Prompt kopieren"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:913
+#: src/index.tsx:918
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "HEAD-Commit-SHA kopieren ({0})"
 
-#: src/index.tsx:1042
+#: src/index.tsx:1047
 msgid "Copy Repository Path"
 msgstr "Repository-Pfad kopieren"
 
-#: src/index.tsx:761
+#: src/index.tsx:766
 msgid "Current Step"
 msgstr "Aktueller Schritt"
 
-#: src/index.tsx:849
+#: src/index.tsx:854
 msgid "Cycle Project Windows"
 msgstr "Projektfenster durchschalten"
 
@@ -120,23 +196,23 @@ msgstr "Fehler"
 msgid "Extension registered! Click Reload (↻) in your browser."
 msgstr "Erweiterung registriert! Klicke im Browser auf Neu laden (↻)."
 
-#: src/index.tsx:457
+#: src/index.tsx:462
 msgid "Filter by status"
 msgstr "Nach Status filtern"
 
-#: src/index.tsx:481
+#: src/index.tsx:486
 msgid "Generating"
 msgstr "Wird generiert"
 
-#: src/index.tsx:773
+#: src/index.tsx:778
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:878
+#: src/index.tsx:883
 msgid "Git & GitHub"
 msgstr "Git & GitHub"
 
-#: src/index.tsx:1007
+#: src/index.tsx:1012
 msgid "Hide Detail Pane"
 msgstr "Detailbereich ausblenden"
 
@@ -144,15 +220,15 @@ msgstr "Detailbereich ausblenden"
 msgid "How to find it"
 msgstr "So findest du sie"
 
-#: src/index.tsx:501
+#: src/index.tsx:506
 msgid "Install / Start Engine"
 msgstr "Engine installieren / starten"
 
-#: src/index.tsx:543
+#: src/index.tsx:548
 msgid "Install and Start Now"
 msgstr "Jetzt installieren und starten"
 
-#: src/index.tsx:379
+#: src/index.tsx:384
 msgid "Installation error"
 msgstr "Installationsfehler"
 
@@ -160,7 +236,7 @@ msgstr "Installationsfehler"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "Ungültige ID (32 Kleinbuchstaben erwartet)"
 
-#: src/index.tsx:864
+#: src/index.tsx:869
 msgid "Jump to Next Agent Alert"
 msgstr "Zur nächsten Agenten-Meldung springen"
 
@@ -168,80 +244,80 @@ msgstr "Zur nächsten Agenten-Meldung springen"
 msgid "Jumped to next agent alert"
 msgstr "Zur nächsten Agenten-Meldung gesprungen"
 
-#: src/index.tsx:131
-#: src/index.tsx:158
+#: src/index.tsx:132
+#: src/index.tsx:159
 msgid "just now"
 msgstr "gerade eben"
 
-#: src/index.tsx:637
+#: src/index.tsx:642
 msgid "Last activity"
 msgstr "Letzte Aktivität"
 
-#: src/index.tsx:969
+#: src/index.tsx:974
 msgid "Mute Repo Alerts ({muteMinutes}m)"
 msgstr "Repo-Benachrichtigungen stummschalten ({muteMinutes}m)"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:404
+#: src/index.tsx:409
 msgid "Muted {0} for {muteMinutes}m"
 msgstr "{0} für {muteMinutes}m stummgeschaltet"
 
-#: src/index.tsx:595
+#: src/index.tsx:600
 msgid "Muted {mutedRemainingMin}m"
 msgstr "Stumm {mutedRemainingMin} Min."
 
-#: src/index.tsx:829
+#: src/index.tsx:834
 msgid "Navigation"
 msgstr "Navigation"
 
-#: src/index.tsx:229
+#: src/index.tsx:230
 msgid "Needs Help"
 msgstr "Hilfe benötigt"
 
-#: src/index.tsx:489
+#: src/index.tsx:494
 msgid "Open editors"
 msgstr "Geöffnete Editoren"
 
-#: src/index.tsx:509
+#: src/index.tsx:514
 msgid "Open Extension Preferences"
 msgstr "Erweiterungseinstellungen öffnen"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:936
+#: src/index.tsx:941
 msgid "Open in {0}"
 msgstr "In {0} öffnen"
 
-#: src/index.tsx:987
+#: src/index.tsx:992
 msgid "Open in Terminal"
 msgstr "Im Terminal öffnen"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:885
+#: src/index.tsx:890
 msgid "Open Latest PR (#{0})"
 msgstr "Neuesten PR öffnen (#{0})"
 
-#: src/index.tsx:899
+#: src/index.tsx:904
 msgid "Open Repository on GitHub"
 msgstr "Repository auf GitHub öffnen"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:952
+#: src/index.tsx:957
 msgid "Opened in {0}"
 msgstr "In {0} geöffnet"
 
-#: src/index.tsx:535
+#: src/index.tsx:540
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Drücke die Eingabetaste, um den lokalen Hintergrunddienst automatisch zu installieren und zu starten."
 
-#: src/index.tsx:649
+#: src/index.tsx:654
 msgid "Private window"
 msgstr "Privates Fenster"
 
-#: src/index.tsx:253
+#: src/index.tsx:254
 msgid "Ready"
 msgstr "Bereit"
 
-#: src/index.tsx:709
+#: src/index.tsx:714
 msgid "Recently Merged PRs"
 msgstr "Kürzlich zusammengeführte PRs"
 
@@ -257,40 +333,40 @@ msgstr "Erweiterung wird registriert..."
 msgid "Save and Reconnect"
 msgstr "Speichern und neu verbinden"
 
-#: src/index.tsx:451
+#: src/index.tsx:456
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "Repository, Branch, KI-Agent oder Editor suchen..."
 
-#: src/index.tsx:801
+#: src/index.tsx:806
 msgid "Session"
 msgstr "Sitzung"
 
-#: src/index.tsx:1011
+#: src/index.tsx:1016
 msgid "Show Detail Pane"
 msgstr "Detailbereich anzeigen"
 
-#: src/index.tsx:364
+#: src/index.tsx:369
 msgid "Starting ContextBraid engine..."
 msgstr "ContextBraid-Engine wird gestartet..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:835
+#: src/index.tsx:840
 msgid "Switch to {0} ({1})"
 msgstr "Zu {0} ({1}) wechseln"
 
-#: src/index.tsx:965
+#: src/index.tsx:970
 msgid "Unmute Repo Alerts"
 msgstr "Repo-Benachrichtigungen aktivieren"
 
-#: src/index.tsx:245
+#: src/index.tsx:246
 msgid "Working"
 msgstr "Arbeitet"
 
-#: src/index.tsx:930
+#: src/index.tsx:935
 msgid "Workspace"
 msgstr "Arbeitsbereich"
 
-#: src/index.tsx:237
+#: src/index.tsx:238
 msgid "ZIP Ready"
 msgstr "ZIP bereit"

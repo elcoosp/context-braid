@@ -99,7 +99,6 @@ pub fn resolve_editor_spec(favorite: &str) -> EditorSpec {
     }
 }
 
-#[cfg_attr(test, allow(dead_code))]
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGWindowListCopyWindowInfo(option: u32, relative_to_window: u32) -> *const c_void;
@@ -484,14 +483,17 @@ fn trigger_async_pr_fetch(repo_path: PathBuf, head_sha: String) {
 
 fn remote_to_github_url(raw: &str) -> String {
     let trimmed = raw.trim().trim_end_matches(".git");
+    let gh_https = concat!("https", ":", "//", "github.com");
     if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
-        return format!("https://github.com{rest}");
+        let clean = rest.trim_start_matches('/');
+        return format!("{gh_https}/{clean}");
     }
-    if let Some(rest) = trimmed.strip_prefix("ssh://git@://github.com") {
-        return format!("https://github.com{rest}");
+    if let Some(rest) = trimmed.strip_prefix(concat!("ssh", ":", "//", "git@", "github.com")) {
+        let clean = rest.trim_start_matches('/');
+        return format!("{gh_https}/{clean}");
     }
-    if trimmed.starts_with("https://github.com") || trimmed.starts_with("http://github.com") {
-        return trimmed.replace("http://", "https://");
+    if trimmed.starts_with(gh_https) || trimmed.starts_with(concat!("http", ":", "//", "github.com")) {
+        return trimmed.replacen("http:", "https:", 1);
     }
     String::new()
 }
@@ -545,7 +547,30 @@ fn compute_repo_sparkline(
     sparkline
 }
 
+type GitStatsCacheEntry = (std::time::Instant, GitRepoMeta);
+fn git_stats_cache() -> &'static Mutex<HashMap<String, GitStatsCacheEntry>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, GitStatsCacheEntry>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
+    let cache_lookup_key = repo_path.to_string_lossy().into_owned();
+    if let Some((_, cached)) = git_stats_cache()
+        .lock()
+        .ok()
+        .and_then(|g| g.get(&cache_lookup_key).cloned())
+        .filter(|(ts, _)| ts.elapsed() < std::time::Duration::from_secs(4))
+    {
+        return cached;
+    }
+    let meta = compute_git_repo_stats_uncached(repo_path);
+    if let Ok(mut g) = git_stats_cache().lock() {
+        g.insert(cache_lookup_key, (std::time::Instant::now(), meta.clone()));
+    }
+    meta
+}
+
+fn compute_git_repo_stats_uncached(repo_path: &Path) -> GitRepoMeta {
     let Ok(repo) = gix::open(repo_path) else {
         return GitRepoMeta {
             branch: String::new(),
@@ -675,15 +700,18 @@ pub struct NotificationPayload {
 }
 
 pub fn init_system_locale() {
-    let raw = sys_locale::get_locale().unwrap_or_else(|| "en".to_string());
-    let lower = raw.replace('_', "-").to_lowercase();
-    let chosen = if lower.starts_with("zh") { "zh-CN" }
-    else if lower.starts_with("fr") { "fr" }
-    else if lower.starts_with("de") { "de" }
-    else if lower.starts_with("es") { "es" }
-    else if lower.starts_with("ja") { "ja" }
-    else if lower.starts_with("ko") { "ko" }
-    else { "en" };
+    static LOCALE: OnceLock<&'static str> = OnceLock::new();
+    let chosen = *LOCALE.get_or_init(|| {
+        let raw = sys_locale::get_locale().unwrap_or_else(|| "en".to_string());
+        let lower = raw.replace('_', "-").to_lowercase();
+        if lower.starts_with("zh") { "zh-CN" }
+        else if lower.starts_with("fr") { "fr" }
+        else if lower.starts_with("de") { "de" }
+        else if lower.starts_with("es") { "es" }
+        else if lower.starts_with("ja") { "ja" }
+        else if lower.starts_with("ko") { "ko" }
+        else { "en" }
+    });
     rust_i18n::set_locale(chosen);
 }
 
@@ -691,7 +719,7 @@ fn detect_platform_label(url: &str) -> Option<&'static str> {
     let u = url.to_lowercase();
     if u.contains("z.ai") { Some("Z.ai") }
     else if u.contains("qwen.ai") { Some("Qwen") }
-    else if u.contains("://google.com") { Some("Gemini") }
+    else if u.contains(concat!("gemini", ".google.com")) { Some("Gemini") }
     else if u.contains("deepseek.com") { Some("DeepSeek") }
     else if u.contains("://google.com") || u.contains("google.fr/search") || u.contains("udm=50") { Some("Google AI") }
     else { None }
@@ -758,11 +786,11 @@ pub fn take_test_notifications() -> Vec<NotificationPayload> {
 
 const NOTIFY_APP_SOCK: &str = "/tmp/braid-notify-app.sock";
 
-pub fn notify_agent_alert(payload: NotificationPayload) {
+pub fn notify_agent_alert(payload: &NotificationPayload) {
     #[cfg(test)]
     {
         let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-        if let Ok(mut guard) = lock.lock() { guard.push(payload); }
+        if let Ok(mut guard) = lock.lock() { guard.push(payload.clone()); }
     }
     #[cfg(not(test))]
     {
@@ -771,7 +799,7 @@ pub fn notify_agent_alert(payload: NotificationPayload) {
             AlertKind::NeedsAttention | AlertKind::TurnComplete => "/System/Library/Sounds/Funk.aiff",
         };
         if Path::new(sound_file).exists() { let _ = std::process::Command::new("afplay").arg(sound_file).spawn(); }
-        let Ok(json_line) = serde_json::to_string(&payload) else { return; };
+        let Ok(json_line) = serde_json::to_string(payload) else { return; };
         if send_to_notify_helper(&json_line) { return; }
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
         let app_bundle = home.join("Library/Application Support/ContextBraid/ContextBraid.app");
@@ -781,7 +809,7 @@ pub fn notify_agent_alert(payload: NotificationPayload) {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(not(test))]
 fn send_to_notify_helper(json_line: &str) -> bool {
     use std::io::Write;
     use std::os::unix::net::UnixStream;
@@ -1068,10 +1096,12 @@ fn ax_all_window_titles(pid: i32) -> Vec<String> {
 fn send_ipc_to_daemon(msg: &braid_core::ipc::IpcMessage) {
     use std::io::Write;
     use std::os::unix::net::UnixStream;
-    let sock_path = braid_core::BraidConfig::load_or_default()
-        .map(|c| c.daemon.socket_path)
-        .unwrap_or_else(|_| "/tmp/braid.sock".to_string());
-    if let Ok(mut stream) = UnixStream::connect(&sock_path)
+    static SOCK_PATH: OnceLock<String> = OnceLock::new();
+    let sock_path = SOCK_PATH.get_or_init(|| {
+        braid_core::BraidConfig::load_or_default()
+            .map_or_else(|_| "/tmp/braid.sock".to_string(), |c| c.daemon.socket_path)
+    });
+    if let Ok(mut stream) = UnixStream::connect(sock_path)
         && let Ok(line) = serde_json::to_string(msg)
     {
         let _ = stream.write_all(line.as_bytes());
@@ -1130,6 +1160,7 @@ fn request_notification_auth(
     granted_flag.get()
 }
 
+#[expect(clippy::too_many_lines, reason = "AppKit main event loop setup")]
 pub fn run_notification_agent_app(initial_payload_json: Option<&str>) {
     use block2::Block;
     use objc2::runtime::ProtocolObject;
@@ -1259,7 +1290,7 @@ pub fn run_notification_agent_app(initial_payload_json: Option<&str>) {
     if let Some(init_json) = initial_payload_json { post_payload(init_json); }
 
     let lock_file = std::fs::OpenOptions::new().create(true).write(true).truncate(false).open("/tmp/braid-notify-app.lock");
-    let got_lock = lock_file.as_ref().map(|f| unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0).unwrap_or(false);
+    let got_lock = lock_file.as_ref().is_ok_and(|f| unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0);
 
     let pump_appkit = |secs: f64| {
 
@@ -1298,11 +1329,11 @@ pub struct ScreenWindowRect {
 unsafe extern "C" {
     fn CGRectMakeWithDictionaryRepresentation(dict: *const c_void, rect: *mut CGRectRaw) -> bool;
 }
-#[cfg_attr(test, allow(dead_code))]
+#[cfg_attr(test, expect(dead_code, reason = "Used in non-test builds"))]
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 struct CGRectRaw { x: f64, y: f64, width: f64, height: f64 }
-#[cfg_attr(test, allow(dead_code))]
+#[cfg_attr(test, expect(dead_code, reason = "Used in non-test builds"))]
 pub fn capture_onscreen_window_stack() -> Vec<ScreenWindowRect> {
     use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFNumberType, CFRetained, CFString};
     let mut out = Vec::new();
@@ -1389,6 +1420,31 @@ mod notif_i18n_tests {
         assert!(subtitle.contains("Z.ai") && subtitle.contains("Brave"), "unexpected subtitle: {subtitle}");
         assert_eq!(body, "Glyim");
     }
+    #[test]
+    fn test_platform_detection_and_ssh_remote_urls() {
+        let gemini_url = ["https", ":", "//", "gemini", ".google.com", "/app/abc"].join("");
+        let p_gem = NotificationPayload {
+            repo_name: "demo".to_string(),
+            browser: "brave".to_string(),
+            window_id: 1,
+            tab_id: 2,
+            url: gemini_url,
+            kind: AlertKind::TurnComplete,
+            raw_title: "Chat".to_string(),
+        };
+        let (_, sub_gem, _) = render_notification_copy(&p_gem);
+        assert!(sub_gem.contains("Gemini"), "Expected Gemini in subtitle, got: {sub_gem}");
+
+        let gai_url = ["https", ":", "//", "www", ".google.com", "/search?q=rust&udm=50"].join("");
+        let p_gai = NotificationPayload { url: gai_url, ..p_gem };
+        let (_, sub_gai, _) = render_notification_copy(&p_gai);
+        assert!(sub_gai.contains("Google AI"), "Expected Google AI in subtitle, got: {sub_gai}");
+
+        let ssh_in = ["ssh", ":", "//", "git@", "github.com", "/elcoosp/context-braid.git"].join("");
+        let gh_out = ["https", ":", "//", "github.com", "/elcoosp/context-braid"].join("");
+        assert_eq!(remote_to_github_url(&ssh_in), gh_out);
+    }
+
     #[test]
     fn test_2d_zorder_occlusion_split_vs_covered() {
         let stack = vec![

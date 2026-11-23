@@ -479,23 +479,7 @@ export default defineBackground(() => {
 
   const probeAllOpenAiTabs = async () => {
     try {
-      const [tabs, wins] = await Promise.all([
-    browser.tabs.query({}),
-    browser.windows.getAll({ populate: false }).catch(() => []),
-  ]);
-  const winBoundsById = new Map<number, { left: number; top: number; width: number; height: number }>();
-  for (const w of wins) {
-    if (
-      typeof w.id === "number" &&
-      w.state !== "minimized" &&
-      typeof w.left === "number" &&
-      typeof w.top === "number" &&
-      typeof w.width === "number" &&
-      typeof w.height === "number"
-    ) {
-      winBoundsById.set(w.id, { left: w.left, top: w.top, width: w.width, height: w.height });
-    }
-  }
+      const tabs = await browser.tabs.query({});
       const openIds = new Set<number>();
       for (const tab of tabs) {
         if (tab.id != null && isSupportedAiUrl(tab.url)) {

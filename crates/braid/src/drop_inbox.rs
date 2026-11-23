@@ -196,7 +196,7 @@ pub fn sync_drop_inbox_blocking() -> Result<usize> {
                     asset.name,
                     saved_path.display()
                 );
-                macos::notify_agent_alert(macos::NotificationPayload {
+                macos::notify_agent_alert(&macos::NotificationPayload {
                     repo_name: repo_label,
                     browser: "github".to_string(),
                     window_id: 0,

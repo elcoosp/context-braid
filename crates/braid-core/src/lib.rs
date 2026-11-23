@@ -217,32 +217,48 @@ fn count_leaf_path_hits(text: &str, repo_lower: &str) -> usize {
         .count()
 }
 
-fn score_repo_candidate(tab: &TabContextPayload, repo_name: &str) -> usize {
+struct TabHaystack {
+    title_lower: String,
+    full_lower: String,
+}
+
+impl TabHaystack {
+    fn from_tab(tab: &TabContextPayload) -> Self {
+        let title_lower = tab.title.to_lowercase();
+        let snippet_lower = tab.context_snippet.to_lowercase();
+        let url_lower = tab.url.to_lowercase();
+        let mut full_lower = String::with_capacity(
+            title_lower.len() + snippet_lower.len() + url_lower.len() + 2,
+        );
+        full_lower.push_str(&title_lower);
+        full_lower.push(' ');
+        full_lower.push_str(&snippet_lower);
+        full_lower.push(' ');
+        full_lower.push_str(&url_lower);
+        Self {
+            title_lower,
+            full_lower,
+        }
+    }
+}
+
+fn score_repo_candidate(hay: &TabHaystack, repo_name: &str) -> usize {
     let n = repo_name.to_lowercase();
     if n.is_empty() {
         return 0;
     }
 
-    let title_lower = tab.title.to_lowercase();
-    let snippet_lower = tab.context_snippet.to_lowercase();
-    let full_hay = format!(
-        "{} {} {}",
-        title_lower,
-        snippet_lower,
-        tab.url.to_lowercase()
-    );
-
-    let title_hits = count_whole_word_matches(&title_lower, &n);
-    let total_hits = count_whole_word_matches(&full_hay, &n);
+    let total_hits = count_whole_word_matches(&hay.full_lower, &n);
     if total_hits == 0 {
         return 0;
     }
 
     let mut score = 0;
-    let leaf_hits = count_leaf_path_hits(&full_hay, &n);
+    let leaf_hits = count_leaf_path_hits(&hay.full_lower, &n);
     if leaf_hits > 0 {
         score += 120 * leaf_hits;
     }
+    let title_hits = count_whole_word_matches(&hay.title_lower, &n);
     if title_hits > 0 {
         score += 90 * title_hits;
     }
@@ -264,9 +280,10 @@ pub fn match_tab_to_repo<S: std::hash::BuildHasher>(
     repos: &[(String, PathBuf)],
     inherited: &HashMap<(String, i64), String, S>,
 ) -> Option<String> {
+    let hay = TabHaystack::from_tab(tab);
     let mut best_repo: Option<(String, usize)> = None;
     for (name, _) in repos {
-        let s = score_repo_candidate(tab, name);
+        let s = score_repo_candidate(&hay, name);
         if s > 0 {
             let is_better = match &best_repo {
                 None => true,

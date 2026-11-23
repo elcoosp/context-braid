@@ -7,28 +7,104 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: ko\n"
 
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:184
+msgid "Clean"
+msgstr "깨끗함"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:205
+msgid "Action"
+msgstr "작업"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:207
+msgid "Open in Editor"
+msgstr "에디터에서 열기"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:214
+msgid "Open in Terminal"
+msgstr "터미널에서 열기"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:221
+msgid "Open in Finder"
+msgstr "Finder에서 열기"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:227
+msgid "Open Repository on GitHub"
+msgstr "GitHub에서 저장소 열기"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:234
+msgid "Mute Repo Alerts (30m)"
+msgstr "저장소 알림 음소거 (30분)"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:258
+msgid "ContextBraid Engine Offline"
+msgstr "ContextBraid 엔진 오프라인"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:260
+#: src/menu-bar.tsx:307
+msgid "Open Project Cockpit"
+msgstr "프로젝트 콕핏 열기"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:275
+msgid "Jump to Next Agent Alert"
+msgstr "다음 에이전트 알림으로 이동"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:283
+msgid "Active"
+msgstr "활성"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:289
+msgid "Repositories"
+msgstr "저장소"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:294
+msgid "Preferences"
+msgstr "환경설정"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:298
+msgid "Notifications: Always On"
+msgstr "알림: 항상 켜짐"
+
+#. js-lingui-explicit-id
+#: src/menu-bar.tsx:299
+msgid "Notifications: Focus-Aware"
+msgstr "알림: 포커스 인식"
+
 #. placeholder {0}: proj.dirty_files
-#: src/index.tsx:568
-#: src/index.tsx:674
+#: src/index.tsx:573
+#: src/index.tsx:679
 msgid "{0, plural, one {# modified} other {# modified}}"
 msgstr "{0, plural, one {#개 수정됨} other {#개 수정됨}}"
 
 #. placeholder {0}: proj.tabs.length
-#: src/index.tsx:579
+#: src/index.tsx:584
 msgid "{0, plural, one {# window} other {# windows}}"
 msgstr "{0, plural, one {#개 창} other {#개 창}}"
 
-#: src/index.tsx:181
+#: src/index.tsx:182
 msgid "{days}d ago"
 msgstr "{days}일 전"
 
-#: src/index.tsx:145
-#: src/index.tsx:173
+#: src/index.tsx:146
+#: src/index.tsx:174
 msgid "{hrs}h ago"
 msgstr "{hrs}시간 전"
 
-#: src/index.tsx:137
-#: src/index.tsx:164
+#: src/index.tsx:138
+#: src/index.tsx:165
 msgid "{mins}m ago"
 msgstr "{mins}분 전"
 
@@ -42,73 +118,73 @@ msgstr "3. ContextBraid 아래에 표시된 ID 복사"
 msgid "32-character Extension ID"
 msgstr "32자 확장 프로그램 ID"
 
-#: src/index.tsx:219
+#: src/index.tsx:220
 msgid "Active"
 msgstr "활성"
 
-#: src/index.tsx:473
+#: src/index.tsx:478
 msgid "Alerts & Ready ZIPs"
 msgstr "알림 및 준비된 ZIP"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:397
+#: src/index.tsx:402
 msgid "Alerts unmuted for {0}"
 msgstr "{0} 알림 음소거 해제됨"
 
-#: src/index.tsx:465
+#: src/index.tsx:470
 msgid "All contexts"
 msgstr "모든 컨텍스트"
 
-#: src/index.tsx:575
+#: src/index.tsx:580
 msgid "clean"
 msgstr "깨끗함"
 
-#: src/index.tsx:682
+#: src/index.tsx:687
 msgid "Clean"
 msgstr "깨끗함"
 
-#: src/index.tsx:551
+#: src/index.tsx:556
 msgid "Configure Extension ID"
 msgstr "확장 프로그램 ID 구성"
 
-#: src/index.tsx:518
-#: src/index.tsx:1051
+#: src/index.tsx:523
+#: src/index.tsx:1056
 msgid "Connect Browser Extension ID"
 msgstr "브라우저 확장 프로그램 ID 연결"
 
-#: src/index.tsx:372
+#: src/index.tsx:377
 msgid "ContextBraid engine active"
 msgstr "ContextBraid 엔진 활성"
 
-#: src/index.tsx:531
+#: src/index.tsx:536
 msgid "ContextBraid local engine is not running"
 msgstr "ContextBraid 로컬 엔진이 실행되고 있지 않습니다"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:1033
+#: src/index.tsx:1038
 msgid "dropZipPromptCopied"
-msgstr ""
+msgstr "ZIP 드롭 프롬프트 복사됨 ({0})"
 
 #. js-lingui-explicit-id
-#: src/index.tsx:1021
+#: src/index.tsx:1026
 msgid "dropZipPromptCmd"
-msgstr ""
+msgstr "에이전트 ZIP 드롭 프롬프트 복사"
 
 #. placeholder {0}: proj.last_commit_sha
-#: src/index.tsx:913
+#: src/index.tsx:918
 msgid "Copy HEAD Commit SHA ({0})"
 msgstr "HEAD 커밋 SHA 복사 ({0})"
 
-#: src/index.tsx:1042
+#: src/index.tsx:1047
 msgid "Copy Repository Path"
 msgstr "저장소 경로 복사"
 
-#: src/index.tsx:761
+#: src/index.tsx:766
 msgid "Current Step"
 msgstr "현재 단계"
 
-#: src/index.tsx:849
+#: src/index.tsx:854
 msgid "Cycle Project Windows"
 msgstr "프로젝트 창 전환"
 
@@ -120,23 +196,23 @@ msgstr "오류"
 msgid "Extension registered! Click Reload (↻) in your browser."
 msgstr "확장 프로그램이 등록되었습니다! 브라우저에서 새로고침(↻)을 클릭하세요."
 
-#: src/index.tsx:457
+#: src/index.tsx:462
 msgid "Filter by status"
 msgstr "상태별 필터링"
 
-#: src/index.tsx:481
+#: src/index.tsx:486
 msgid "Generating"
 msgstr "생성 중"
 
-#: src/index.tsx:773
+#: src/index.tsx:778
 msgid "Git"
 msgstr "Git"
 
-#: src/index.tsx:878
+#: src/index.tsx:883
 msgid "Git & GitHub"
 msgstr "Git 및 GitHub"
 
-#: src/index.tsx:1007
+#: src/index.tsx:1012
 msgid "Hide Detail Pane"
 msgstr "상세 패널 숨기기"
 
@@ -144,15 +220,15 @@ msgstr "상세 패널 숨기기"
 msgid "How to find it"
 msgstr "찾는 방법"
 
-#: src/index.tsx:501
+#: src/index.tsx:506
 msgid "Install / Start Engine"
 msgstr "엔진 설치 / 시작"
 
-#: src/index.tsx:543
+#: src/index.tsx:548
 msgid "Install and Start Now"
 msgstr "지금 설치 및 시작"
 
-#: src/index.tsx:379
+#: src/index.tsx:384
 msgid "Installation error"
 msgstr "설치 오류"
 
@@ -160,7 +236,7 @@ msgstr "설치 오류"
 msgid "Invalid ID (32 lowercase letters expected)"
 msgstr "잘못된 ID입니다(소문자 32자 필요)"
 
-#: src/index.tsx:864
+#: src/index.tsx:869
 msgid "Jump to Next Agent Alert"
 msgstr "다음 에이전트 알림으로 이동"
 
@@ -168,80 +244,80 @@ msgstr "다음 에이전트 알림으로 이동"
 msgid "Jumped to next agent alert"
 msgstr "다음 에이전트 알림으로 이동했습니다"
 
-#: src/index.tsx:131
-#: src/index.tsx:158
+#: src/index.tsx:132
+#: src/index.tsx:159
 msgid "just now"
 msgstr "방금 전"
 
-#: src/index.tsx:637
+#: src/index.tsx:642
 msgid "Last activity"
 msgstr "최근 활동"
 
-#: src/index.tsx:969
+#: src/index.tsx:974
 msgid "Mute Repo Alerts ({muteMinutes}m)"
 msgstr "저장소 알림 음소거 ({muteMinutes}분)"
 
 #. placeholder {0}: proj.repo_name
-#: src/index.tsx:404
+#: src/index.tsx:409
 msgid "Muted {0} for {muteMinutes}m"
 msgstr "{0} 알림을 {muteMinutes}분 동안 음소거했습니다"
 
-#: src/index.tsx:595
+#: src/index.tsx:600
 msgid "Muted {mutedRemainingMin}m"
 msgstr "음소거 {mutedRemainingMin}분 남음"
 
-#: src/index.tsx:829
+#: src/index.tsx:834
 msgid "Navigation"
 msgstr "탐색"
 
-#: src/index.tsx:229
+#: src/index.tsx:230
 msgid "Needs Help"
 msgstr "도움 필요"
 
-#: src/index.tsx:489
+#: src/index.tsx:494
 msgid "Open editors"
 msgstr "열린 편집기"
 
-#: src/index.tsx:509
+#: src/index.tsx:514
 msgid "Open Extension Preferences"
 msgstr "확장 프로그램 환경설정 열기"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:936
+#: src/index.tsx:941
 msgid "Open in {0}"
 msgstr "{0}에서 열기"
 
-#: src/index.tsx:987
+#: src/index.tsx:992
 msgid "Open in Terminal"
 msgstr "터미널에서 열기"
 
 #. placeholder {0}: latestPr.number
-#: src/index.tsx:885
+#: src/index.tsx:890
 msgid "Open Latest PR (#{0})"
 msgstr "최신 PR 열기 (#{0})"
 
-#: src/index.tsx:899
+#: src/index.tsx:904
 msgid "Open Repository on GitHub"
 msgstr "GitHub에서 저장소 열기"
 
 #. placeholder {0}: favEditor.label
-#: src/index.tsx:952
+#: src/index.tsx:957
 msgid "Opened in {0}"
 msgstr "{0}에서 열림"
 
-#: src/index.tsx:535
+#: src/index.tsx:540
 msgid "Press Enter to automatically install and start the local background service."
 msgstr "Enter 키를 눌러 로컬 백그라운드 서비스를 자동으로 설치하고 시작합니다."
 
-#: src/index.tsx:649
+#: src/index.tsx:654
 msgid "Private window"
 msgstr "시크릿 창"
 
-#: src/index.tsx:253
+#: src/index.tsx:254
 msgid "Ready"
 msgstr "준비 완료"
 
-#: src/index.tsx:709
+#: src/index.tsx:714
 msgid "Recently Merged PRs"
 msgstr "최근 병합된 PR"
 
@@ -257,40 +333,40 @@ msgstr "확장 프로그램 등록 중..."
 msgid "Save and Reconnect"
 msgstr "저장 및 다시 연결"
 
-#: src/index.tsx:451
+#: src/index.tsx:456
 msgid "Search a repo, branch, AI agent, or editor..."
 msgstr "저장소, 브랜치, AI 에이전트 또는 편집기 검색..."
 
-#: src/index.tsx:801
+#: src/index.tsx:806
 msgid "Session"
 msgstr "세션"
 
-#: src/index.tsx:1011
+#: src/index.tsx:1016
 msgid "Show Detail Pane"
 msgstr "상세 패널 표시"
 
-#: src/index.tsx:364
+#: src/index.tsx:369
 msgid "Starting ContextBraid engine..."
 msgstr "ContextBraid 엔진 시작 중..."
 
 #. placeholder {0}: proj.repo_name
 #. placeholder {1}: role.name
-#: src/index.tsx:835
+#: src/index.tsx:840
 msgid "Switch to {0} ({1})"
 msgstr "{0}({1})로 전환"
 
-#: src/index.tsx:965
+#: src/index.tsx:970
 msgid "Unmute Repo Alerts"
 msgstr "저장소 알림 음소거 해제"
 
-#: src/index.tsx:245
+#: src/index.tsx:246
 msgid "Working"
 msgstr "작업 중"
 
-#: src/index.tsx:930
+#: src/index.tsx:935
 msgid "Workspace"
 msgstr "작업 공간"
 
-#: src/index.tsx:237
+#: src/index.tsx:238
 msgid "ZIP Ready"
 msgstr "ZIP 준비 완료"

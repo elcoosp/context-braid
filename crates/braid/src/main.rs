@@ -200,10 +200,9 @@ impl DaemonState {
 
 fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
     let now = now_ms();
-    let root = st.config.resolved_repos_root();
-    let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
+    let mut cached_repos: Option<Vec<(String, std::path::PathBuf)>> = None;
     #[cfg(not(test))]
-    let screen_stack = macos::capture_onscreen_window_stack();
+    let mut cached_screen_stack: Option<Vec<macos::ScreenWindowRect>> = None;
     for t in tabs {
         let key = (t.browser.clone(), t.window_id, t.tab_id);
         let is_first_seen = st.seen_tabs.insert(key.clone());
@@ -236,16 +235,23 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
             let dedup_kind = if kind == 3 { 2 } else { kind };
             let alert_key = (t.browser.clone(), t.window_id, t.tab_id, dedup_kind, sig);
             if st.notified_alerts.insert(alert_key) && !is_first_seen {
-                let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
+                let repos = cached_repos.get_or_insert_with(|| {
+                    let root = st.config.resolved_repos_root();
+                    scan_repos(&root, &st.config.repos.ignore).unwrap_or_default()
+                });
+                let repo_label = match_tab_to_repo(&t, repos, &st.tab_repo_history)
                     .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                     .unwrap_or_else(|| "Workspace".into());
                 let is_muted = st.muted_until_ms.get(&repo_label).copied().is_some_and(|u| u > now);
                 let suppress = !st.config.notifications.notify_when_focused && t.is_focused && {
                     #[cfg(test)] { true }
-                    #[cfg(not(test))] { macos::is_window_unobstructed_on_screen(&screen_stack, &t.browser, t.window_bounds) }
+                    #[cfg(not(test))] {
+                        let stack = cached_screen_stack.get_or_insert_with(macos::capture_onscreen_window_stack);
+                        macos::is_window_unobstructed_on_screen(stack, &t.browser, t.window_bounds)
+                    }
                 };
                 if !is_muted && !suppress {
-                    macos::notify_agent_alert(macos::NotificationPayload {
+                    macos::notify_agent_alert(&macos::NotificationPayload {
                         repo_name: repo_label, browser: t.browser.clone(), window_id: t.window_id,
                         tab_id: t.tab_id, url: t.url.clone(), kind: alert_enum, raw_title: t.title.clone(),
                     });
@@ -593,12 +599,6 @@ async fn run_daemon() -> Result<()> {
     if let Some(parent) = sock_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    if let Some(parent) = sock_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    if let Some(parent) = sock_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     if sock_path.exists() {
         let _ = fs::remove_file(sock_path);
     }
@@ -636,7 +636,7 @@ fn main() -> Result<()> {
             let repo = args.get(2).map_or("ContextBraid", String::as_str);
             let _subtitle = args.get(3).map_or("Agent Alert", String::as_str);
             let message = args.get(4).map_or("", String::as_str);
-            macos::notify_agent_alert(macos::NotificationPayload { repo_name: repo.to_string(), browser: String::new(), window_id: 0, tab_id: 0, url: String::new(), kind: macos::AlertKind::DropInboxZip, raw_title: message.to_string() });
+            macos::notify_agent_alert(&macos::NotificationPayload { repo_name: repo.to_string(), browser: String::new(), window_id: 0, tab_id: 0, url: String::new(), kind: macos::AlertKind::DropInboxZip, raw_title: message.to_string() });
             Ok(())
         }
         Some("install") => {
@@ -667,12 +667,12 @@ mod tests {
             context_snippet: "Running".into(), status, is_focused, window_bounds: None, updated_at_ms: now_ms(),
         };
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Idle, false)]);
-        assert!(crate::macos::take_test_notifications().is_empty());
+        assert_eq!(crate::macos::take_test_notifications(), [] as [macos::NotificationPayload; 0]);
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, true)]);
         if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) { *ts = ts.saturating_sub(1_500); }
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, true)]);
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Idle, true)]);
-        assert!(crate::macos::take_test_notifications().is_empty());
+        assert_eq!(crate::macos::take_test_notifications(), [] as [macos::NotificationPayload; 0]);
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, false)]);
         if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) { *ts = ts.saturating_sub(1_500); }
         process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, false)]);

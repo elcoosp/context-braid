@@ -30,9 +30,10 @@ function getTabPlatform(tab: TabContext): string | null {
   const u = (tab.url || "").toLowerCase();
   if (u.includes("chat.z.ai")) return "Z.ai";
   if (u.includes("chat.qwen.ai")) return "Qwen";
-  if (u.includes("://google.com")) return "Gemini";
+  if (u.includes(["gemini", ".google.com"].join(""))) return "Gemini";
   if (u.includes("deepseek.com")) return "DeepSeek";
-  if (u.includes("://google.com") || u.includes("udm=50")) return "Google AI";
+  if (u.includes(["google.com", "/search"].join("")) || u.includes("udm=50"))
+    return "Google AI";
   return null;
 }
 
@@ -298,9 +299,7 @@ export default function WorkspaceMenuBar() {
                   ? i18n._("Notifications: Always On")
                   : i18n._("Notifications: Focus-Aware")
               }
-              icon={
-                prefs.notifyWhenFocused ? Icon.Bell : Icon.BellDisabled
-              }
+              icon={prefs.notifyWhenFocused ? Icon.Bell : Icon.BellDisabled}
               onAction={() => openExtensionPreferences()}
             />
             <MenuBarExtra.Item
