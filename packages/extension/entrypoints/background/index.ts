@@ -1,5 +1,5 @@
 import { isAiGenerationRequest, isDirectZipDownloadUrl, validateZipDownloadPayload } from '../../src/core/extractor';
-import { AI_MATCH_PATTERNS } from '../../src/core/origins';
+import { AI_HOST_PERMISSIONS, AI_MATCH_PATTERNS } from '../../src/core/origins';
 
 function detectRuntimeBrowser(): string {
   if (import.meta.env.BROWSER === 'firefox') return 'firefox';
@@ -668,7 +668,7 @@ if (isAiGenerationRequest(details.method, details.url)) {
 markNetworkRequestStart(details.tabId, details.requestId);
 }
 },
-{ urls: AI_MATCH_PATTERNS },
+{ urls: AI_HOST_PERMISSIONS },
 );
 }
 if (browser.webRequest?.onErrorOccurred) {
@@ -677,7 +677,7 @@ browser.webRequest.onErrorOccurred.addListener(
 if (details.tabId <= 0) return;
 markNetworkRequestEnd(details.tabId, details.requestId);
 },
-{ urls: AI_MATCH_PATTERNS },
+{ urls: AI_HOST_PERMISSIONS },
 );
 }
 if (browser.webRequest?.onCompleted) {
@@ -726,7 +726,7 @@ void probeTab(details.tabId, cachedUrl);
 }, 250),
 );
 },
-{ urls: AI_MATCH_PATTERNS },
+{ urls: AI_HOST_PERMISSIONS },
 );
 }
 if (browser.alarms) {
