@@ -27,6 +27,7 @@ struct DaemonState {
     last_focused_tab: Option<(String, i64, i64)>,
     cycle_cursor: usize,
     notified_alerts: HashSet<(String, i64, i64, u8, u64)>,
+    working_since: HashMap<(String, i64, i64), u64>,
     confirmed_working: HashSet<(String, i64, i64)>,
     muted_until_ms: HashMap<String, u64>,
     seen_tabs: HashSet<(String, i64, i64)>,
@@ -53,6 +54,7 @@ impl DaemonState {
             last_focused_tab: None,
             cycle_cursor: 0,
             notified_alerts: HashSet::new(),
+            working_since: HashMap::new(),
             confirmed_working: HashSet::new(),
             muted_until_ms: HashMap::new(),
             seen_tabs: HashSet::new(),
@@ -108,6 +110,7 @@ impl DaemonState {
                             title: format!("{} — {}", editor_spec.label, repo_name),
                             context_snippet: repo_name.clone(),
                             status: AgentStatus::Idle,
+                            is_focused: false,
                             updated_at_ms: 0,
                         },
                     );
@@ -200,8 +203,13 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
         let key = (t.browser.clone(), t.window_id, t.tab_id);
         let is_first_seen = st.seen_tabs.insert(key.clone());
 
-        if t.status == AgentStatus::Working && !is_first_seen {
-            st.confirmed_working.insert(key.clone());
+        if t.status == AgentStatus::Working {
+            let started_at = *st.working_since.entry(key.clone()).or_insert(now);
+            if !is_first_seen && now.saturating_sub(started_at) >= 1_200 {
+                st.confirmed_working.insert(key.clone());
+            }
+        } else {
+            st.working_since.remove(&key);
         }
 
         let was_confirmed_working = st.confirmed_working.contains(&key);
@@ -243,7 +251,7 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
                     .get(&repo_label)
                     .copied()
                     .is_some_and(|until| until > now);
-                if !is_muted {
+                if !is_muted && !t.is_focused {
                     macos::notify_agent_alert(
                         &repo_label,
                         &t.browser,
@@ -678,6 +686,7 @@ mod tests {
             title: "Task: context-braid".into(),
             context_snippet: "Running task".into(),
             status,
+            is_focused: false,
             updated_at_ms: now_ms(),
         };
 
@@ -762,5 +771,54 @@ mod tests {
         assert!(installer_src.contains("LimitLoadToSessionType"));
         assert!(installer_src.contains("<string>Aqua</string>"));
         assert!(installer_src.contains("<key>LSUIElement</key>"));
+    }
+
+    #[tokio::test]
+    async fn test_anti_glitch_and_focused_suppression() {
+        let _ = crate::macos::take_test_notifications();
+        let (push_tx, _) = broadcast::channel(8);
+        let mut st = DaemonState::new(BraidConfig::default(), push_tx);
+
+        let make_tab = |status: AgentStatus, is_focused: bool| TabContextPayload {
+            browser: "Brave".into(),
+            window_id: 301,
+            tab_id: 402,
+            opener_tab_id: None,
+            incognito: false,
+            url: "https://google.com".into(),
+            title: "audit oxide".into(),
+            context_snippet: "Running".into(),
+            status,
+            is_focused,
+            updated_at_ms: now_ms(),
+        };
+
+        // 1. Découverte initiale Idle
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
+        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
+
+        // 2. Micro-glitch < 1200ms en Working -> pas de notification au retour Idle
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
+        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
+
+        // 3. Travail réel >= 1200ms mais onglet FOCUS -> pas de bannière macOS
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, true)]);
+        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) {
+            *ts = ts.saturating_sub(1_500);
+        }
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, true)]);
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, true)]);
+        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
+
+        // 4. Travail réel >= 1200ms en arrière-plan (is_focused = false) -> déclenche la bannière
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
+        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) {
+            *ts = ts.saturating_sub(1_500);
+        }
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
+        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
+        let notes = crate::macos::take_test_notifications();
+        assert_eq!(notes.len(), 1);
     }
 }

@@ -21,6 +21,8 @@ pub struct TabContextPayload {
     pub title: String,
     pub context_snippet: String,
     pub status: AgentStatus,
+    #[serde(default)]
+    pub is_focused: bool,
     pub updated_at_ms: u64,
 }
 

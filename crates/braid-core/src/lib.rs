@@ -289,6 +289,7 @@ mod tests {
             title: "Build guiwright CLI".into(),
             context_snippet: "Path: /Users/dev/repos/guiwright".into(),
             status: AgentStatus::Completed,
+            is_focused: false,
             updated_at_ms: 100,
         };
         assert_eq!(
