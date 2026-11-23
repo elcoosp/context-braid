@@ -59,9 +59,7 @@ for png in pngs {
        let swiftRange = Range(match.range, in: fullText) {
         let version = fullText[swiftRange].lowercased()
         let dest = outDirURL.appendingPathComponent("banner-\(version).png")
-        if fm.fileExists(atPath: dest.path) {
-            try? fm.removeItem(at: dest)
-        }
+        try? fm.removeItem(at: dest)
         try fm.moveItem(at: png, to: dest)
         print("✅ OCR detected \(version) in \(png.lastPathComponent) -> docs/releases/banner-\(version).png")
         imported += 1
