@@ -8,6 +8,8 @@
 /* eslint-disable @typescript-eslint/ban-types */
 
 type ExtensionPreferences = {
+  /** Notify When Tab Is Focused - When disabled (default), notifications only fire for background tabs, side-by-side windows, or when another app is active. */
+  "notifyWhenFocused": boolean,
   /** Auto-Download ZIP Artifacts - Synced live with the local ContextBraid daemon and browser extension. */
   "autoDownloadZip": boolean,
   /** Favorite Code Editor - Default editor used when opening repositories from the cockpit. */
