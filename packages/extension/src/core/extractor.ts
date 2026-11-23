@@ -342,3 +342,21 @@ export function findZipDownloadTargets(doc: Document): ZipDownloadTarget[] {
 
   return results;
 }
+
+
+export function isAiGenerationRequest(method: string, rawUrl: string): boolean {
+  const u = (rawUrl || '').toLowerCase();
+  // Google AI Mode async response stream (GET /async/folif or /async/folic)
+  if (u.includes('/async/folif') || u.includes('/async/folic')) {
+    return true;
+  }
+  if ((method || '').toUpperCase() !== 'POST') return false;
+  // Qwen (/api/v2/chat/completions), Z.ai (/api/chat/completions), Gemini (StreamGenerate), DeepSeek
+  return (
+    u.includes('/api/v2/chat/completions') ||
+    u.includes('/api/chat/completions') ||
+    u.includes('/api/chat/continue') ||
+    u.includes('streamgenerate') ||
+    u.includes('/chat/completion')
+  );
+}

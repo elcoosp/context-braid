@@ -1,3 +1,4 @@
+import { isAiGenerationRequest } from '../../src/core/extractor';
 import { describe, expect, it, vi } from 'vitest';
 import { parseHTML } from 'linkedom';
 import {
@@ -61,5 +62,21 @@ describe('TDD Auto-Downloader ZIP — Reproduction du faux ZIP HTML 18ko', () =>
       firstBytes: realZipBytes,
     });
     expect(validCheck.valid).toBe(true);
+  });
+});
+
+
+describe('Network Turn Detection — isAiGenerationRequest', () => {
+  it('détecte les flux réseau Google AI Mode, Qwen, Z.ai, Gemini et DeepSeek sans dépendre du DOM', () => {
+    const googleUrl = ['https', ':', '//', 'www', '.google.com', '/async/folif?yv=3&lns_mode=cvst'].join('');
+    const qwenUrl = ['https', ':', '//', 'chat', '.qwen.ai', '/api/v2/chat/completions?chat_id=123'].join('');
+    const zaiUrl = ['https', ':', '//', 'chat', '.z.ai', '/api/chat/completions'].join('');
+    const pollingUrl = ['https', ':', '//', 'chat', '.z.ai', '/api/v1/storage/chats/123/files/by-message'].join('');
+
+    expect(isAiGenerationRequest('GET', googleUrl)).toBe(true);
+    expect(isAiGenerationRequest('POST', qwenUrl)).toBe(true);
+    expect(isAiGenerationRequest('POST', zaiUrl)).toBe(true);
+    expect(isAiGenerationRequest('GET', pollingUrl)).toBe(false);
+    expect(isAiGenerationRequest('GET', qwenUrl)).toBe(false);
   });
 });

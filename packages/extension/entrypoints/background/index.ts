@@ -1,4 +1,4 @@
-import { isDirectZipDownloadUrl, validateZipDownloadPayload } from '../../src/core/extractor';
+import { isAiGenerationRequest, isDirectZipDownloadUrl, validateZipDownloadPayload } from '../../src/core/extractor';
 import { AI_MATCH_PATTERNS } from '../../src/core/origins';
 
 function detectRuntimeBrowser(): string {
@@ -36,6 +36,43 @@ export default defineBackground(() => {
   let port: ReturnType<typeof browser.runtime.connectNative> | null = null;
   const tabCache = new Map<number, Record<string, unknown>>();
   const pollDebounce = new Map<number, ReturnType<typeof setTimeout>>();
+  const activeNetworkRequests = new Map<number, Set<string>>();
+
+  const markNetworkRequestStart = (tabId: number, requestId: string) => {
+    let set = activeNetworkRequests.get(tabId);
+    if (!set) {
+      set = new Set();
+      activeNetworkRequests.set(tabId, set);
+    }
+    set.add(requestId);
+    const existing = tabCache.get(tabId);
+    if (existing && existing.status !== 'working') {
+      tabCache.set(tabId, {
+        ...existing,
+        status: 'working',
+        updated_at_ms: Date.now(),
+      });
+      flushTabs();
+    }
+  };
+
+  const markNetworkRequestEnd = (tabId: number, requestId: string) => {
+    const set = activeNetworkRequests.get(tabId);
+    if (!set) return;
+    set.delete(requestId);
+    if (set.size === 0) {
+      activeNetworkRequests.delete(tabId);
+      const existing = tabCache.get(tabId);
+      if (existing && existing.status === 'working') {
+        tabCache.set(tabId, {
+          ...existing,
+          status: 'idle',
+          updated_at_ms: Date.now(),
+        });
+        flushTabs();
+      }
+    }
+  };
   const downloadedZips = new Set<string>();
   const lastTabZipDownloadAt = new Map<number, number>();
   const knownChatZips = new Map<string, Set<string>>();
@@ -425,6 +462,7 @@ export default defineBackground(() => {
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
+    activeNetworkRequests.delete(tabId);
     tabCache.delete(tabId);
     flushTabs();
   });
@@ -603,6 +641,9 @@ browser.runtime.onMessage.addListener((msg, sender) => {
         const dlKey = `${sender.tab.id}|${zipUrl || chatId || msg.title || msg.contextSnippet}`;
         triggerZipDownload(sender.tab.id, zipUrl, dlKey);
       }
+      const hasActiveNetTurn = (activeNetworkRequests.get(sender.tab.id)?.size ?? 0) > 0;
+      const resolvedStatus =
+        hasActiveNetTurn && msg.status !== 'needs_attention' ? 'working' : msg.status;
       tabCache.set(sender.tab.id, {
         browser: (msg.browserName as string) || browserName,
         window_id: sender.tab.windowId ?? -1,
@@ -612,26 +653,52 @@ browser.runtime.onMessage.addListener((msg, sender) => {
         url: msg.url,
         title: msg.title,
         context_snippet: msg.contextSnippet,
-        status: msg.status,
+        status: resolvedStatus,
         updated_at_ms: Date.now(),
       });
       flushTabs();
     }
   });
 
+if (browser.webRequest?.onBeforeRequest) {
+browser.webRequest.onBeforeRequest.addListener(
+(details) => {
+if (details.tabId <= 0) return;
+if (isAiGenerationRequest(details.method, details.url)) {
+markNetworkRequestStart(details.tabId, details.requestId);
+}
+},
+{ urls: AI_MATCH_PATTERNS },
+);
+}
+if (browser.webRequest?.onErrorOccurred) {
+browser.webRequest.onErrorOccurred.addListener(
+(details) => {
+if (details.tabId <= 0) return;
+markNetworkRequestEnd(details.tabId, details.requestId);
+},
+{ urls: AI_MATCH_PATTERNS },
+);
+}
 if (browser.webRequest?.onCompleted) {
 browser.webRequest.onCompleted.addListener(
 (details) => {
 if (details.tabId <= 0) return;
+markNetworkRequestEnd(details.tabId, details.requestId);
 const isZaiCompletionOrStorage =
 details.url.includes('/files/by-message') ||
 details.url.includes('/messages/batch') ||
 details.url.includes('/api/chat/continue') ||
-details.url.includes('/api/chat/completions');
+details.url.includes('/api/chat/completions') ||
+details.url.includes('/api/v1/chats/?page=');
 const isQwenApi =
+details.url.includes('/api/v2/chat/completions') ||
 details.url.includes('chat.qwen.ai/api/v2/chats/') ||
 details.url.includes('chat.qwen.ai/api/v2/library/list');
-if (!isZaiCompletionOrStorage && !isQwenApi && details.type !== 'xmlhttprequest') {
+const isGoogleAi =
+details.url.includes('/async/folif') ||
+details.url.includes('/async/folic');
+if (!isZaiCompletionOrStorage && !isQwenApi && !isGoogleAi && details.type !== 'xmlhttprequest') {
 return;
 }
 if (
