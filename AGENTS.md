@@ -124,14 +124,22 @@ launchctl bootstrap "gui/(id -u)" "PLIST"
 
 ## 7. Release & Custom Banner Workflow
 
-Every tagged release (`vX.Y.Z`) follows a two-part workflow combining automated GitHub Actions artifact builds with custom Google Stitch release header banners:
+Every tagged release (`vX.Y.Z`) follows a four-step workflow grounded in full Git history since the previous tag (`vPrev`):
 
-1. **Generate, Auto-Rename via Apple OCR & Commit the Release Banner (`docs/releases/banner-vX.Y.Z.png`):**
-   - Generate a custom header banner via Google Stitch containing the release version label (`vX.Y.Z`) and download the PNG to `~/Downloads`.
+1. **Audit Full History & Diff Since Previous Tag (`git log` + `git diff`):**
+   - Always inspect the complete commit log and diff stat from the latest tag (`vPrev`) to `HEAD` before writing release notes or generating the Stitch banner prompt so no change is overlooked:
+     ```bash
+     PREV_TAG=\$(git describe --tags --abbrev=0)
+     git --no-pager log --oneline "\${PREV_TAG}..HEAD"
+     git --no-pager diff --stat "\${PREV_TAG}..HEAD"
+     ```
+   - Draft complete, structured English Markdown release notes covering every user-facing feature, icon/UI refinement, dependency upgrade, and documentation update since `vPrev`.
+2. **Generate, Auto-Rename via Apple OCR & Commit the Release Banner (`docs/releases/banner-vX.Y.Z.png`):**
+   - Generate a custom header banner via Google Stitch containing the release version label (`vX.Y.Z`) and key release highlights, then download the PNG to `~/Downloads`.
    - Run `./scripts/import-release-banner.sh` — it uses macOS Apple Vision OCR (`VNRecognizeTextRequest` via Swift) to detect the `vX.Y.Z` text rendered inside recent `~/Downloads/*.png` files and automatically moves/renames the banner to `docs/releases/banner-vX.Y.Z.png`.
    - Update the version badge in `README.md` (`vX.Y.Z`) and commit both on `main` before tagging.
-2. **Tag & Trigger CI Release Artifacts (`.github/workflows/release.yml`):**
+3. **Tag & Trigger CI Release Artifacts (`.github/workflows/release.yml`):**
    - Create and push a tag matching `v*` (`git tag vX.Y.Z && git push origin vX.Y.Z`).
    - GitHub Actions (`macos-latest`) automatically runs `cargo test --workspace`, builds `braid-macos-universal` (`arm64` + `x86_64` via `lipo`) plus `.sha256`, packages the WXT Chrome MV3 and Firefox MV2 ZIPs, and attaches all `dist/*` assets to the GitHub Release via `softprops/action-gh-release`.
-3. **Format the GitHub Release Notes:**
-   - Edit the published GitHub Release body (via `gh release edit vX.Y.Z` or the GitHub UI) to embed the banner image at the top (`![ContextBraid vX.Y.Z Release Banner](https://jsdelivr.net)`), followed by a concise summary, `### What's New in vX.Y.Z` categorized bullets, and `**Compare:** vPrev...vX.Y.Z`.
+4. **Publish Formatted GitHub Release Notes:**
+   - Update the GitHub Release title (`ContextBraid vX.Y.Z — <Headline>`) and body (via `gh release edit vX.Y.Z` or the GitHub UI) to embed the banner image at the top (`![ContextBraid vX.Y.Z Release Banner](https://jsdelivr.net)`), followed by a concise overview, `### What's New in vX.Y.Z` categorized bullets, and `**Compare:** vPrev...vX.Y.Z`.
