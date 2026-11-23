@@ -134,22 +134,47 @@ export default defineBackground(() => {
     return port;
   };
 
+  let focusedTabKey: string | null = null;
+
+  const refreshFocusedTab = async () => {
+    try {
+      const win = await browser.windows.getLastFocused();
+      if (!win?.focused || typeof win.id !== 'number') {
+        focusedTabKey = null;
+        return;
+      }
+      const activeTabs = await browser.tabs.query({ active: true, windowId: win.id });
+      const active = activeTabs;
+      focusedTabKey =
+        active && typeof active.id === 'number' ? `${win.id}:${active.id}` : null;
+    } catch {
+      focusedTabKey = null;
+    }
+  };
+
   const flushTabs = () => {
     if (tabCache.size === 0) return;
-    const now = Date.now();
-    const freshTabs = Array.from(tabCache.values()).map((t) => ({
-      ...t,
-      updated_at_ms: now,
-    }));
-    try {
-      ensurePort().postMessage({
-        type: 'sync_tabs',
-        browser: browserName,
-        tabs: freshTabs,
+    void refreshFocusedTab().then(() => {
+      if (tabCache.size === 0) return;
+      const now = Date.now();
+      const freshTabs = Array.from(tabCache.values()).map((t) => {
+        const key = `${t.window_id}:${t.tab_id}`;
+        return {
+          ...t,
+          is_focused: focusedTabKey !== null && key === focusedTabKey,
+          updated_at_ms: now,
+        };
       });
-    } catch {
-      port = null;
-    }
+      try {
+        ensurePort().postMessage({
+          type: 'sync_tabs',
+          browser: browserName,
+          tabs: freshTabs,
+        });
+      } catch {
+        port = null;
+      }
+    });
   };
 
   const notifyFocused = (windowId?: number, tabId?: number) => {
@@ -449,6 +474,7 @@ export default defineBackground(() => {
 
   browser.tabs.onActivated.addListener((activeInfo) => {
     notifyFocused(activeInfo.windowId, activeInfo.tabId);
+    flushTabs();
   });
 
   browser.windows.onFocusChanged.addListener(async (windowId) => {
@@ -458,6 +484,7 @@ export default defineBackground(() => {
       if (activeTab?.id != null) {
         notifyFocused(windowId, activeTab.id);
       }
+      flushTabs();
     } catch {}
   });
 

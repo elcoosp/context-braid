@@ -69,6 +69,15 @@
   },
   "preferences": [
     {
+      "name": "notifyWhenFocused",
+      "type": "checkbox",
+      "title": "Notify When Tab Is Focused",
+      "label": "Send macOS notification banners even when the AI tab is active in the frontmost window",
+      "description": "When disabled (default), notifications only fire for background tabs, side-by-side windows, or when another app is active.",
+      "default": false,
+      "required": false
+    },
+    {
       "name": "autoDownloadZip",
       "type": "checkbox",
       "title": "Auto-Download ZIP Artifacts",

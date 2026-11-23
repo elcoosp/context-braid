@@ -113,6 +113,8 @@ pub enum IpcMessage {
     UpdateConfig {
         auto_download_zip: Option<bool>,
         favorite_editor: Option<String>,
+        #[serde(default)]
+        notify_when_focused: Option<bool>,
     },
     BrowserCommand {
         commands: Vec<BrowserCommand>,

@@ -205,7 +205,7 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
 
         if t.status == AgentStatus::Working {
             let started_at = *st.working_since.entry(key.clone()).or_insert(now);
-            if !is_first_seen && now.saturating_sub(started_at) >= 1_200 {
+            if !is_first_seen && now.saturating_sub(started_at) >= st.config.notifications.min_working_ms {
                 st.confirmed_working.insert(key.clone());
             }
         } else {
@@ -251,7 +251,22 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
                     .get(&repo_label)
                     .copied()
                     .is_some_and(|until| until > now);
-                if !is_muted && !t.is_focused {
+                let suppress_because_focused = !st.config.notifications.notify_when_focused
+                    && t.is_focused
+                    && {
+                        #[cfg(test)]
+                        {
+                            true
+                        }
+                        #[cfg(not(test))]
+                        {
+                            let (front_owner, _) = macos::frontmost_app_and_window();
+                            let front_low = front_owner.to_lowercase();
+                            let browser_low = t.browser.to_lowercase();
+                            front_low.is_empty() || front_low.contains(&browser_low)
+                        }
+                    };
+                if !is_muted && !suppress_because_focused {
                     macos::notify_agent_alert(
                         &repo_label,
                         &t.browser,
@@ -473,11 +488,13 @@ async fn dispatch_ipc_message(
         IpcMessage::UpdateConfig {
             auto_download_zip,
             favorite_editor,
+            notify_when_focused,
         } => {
             handle_update_config(
                 &mut *state.write().await,
                 auto_download_zip,
                 favorite_editor,
+                notify_when_focused,
             )?;
             Ok(IpcMessage::Ack)
         }
@@ -550,7 +567,11 @@ fn handle_update_config(
     st: &mut DaemonState,
     auto_download_zip: Option<bool>,
     favorite_editor: Option<String>,
+    notify_when_focused: Option<bool>,
 ) -> Result<()> {
+    if let Some(nf) = notify_when_focused {
+        st.config.notifications.notify_when_focused = nf;
+    }
     let mut changed = false;
     if let Some(auto_dl) = auto_download_zip
         && st.config.auto_download_zip != auto_dl

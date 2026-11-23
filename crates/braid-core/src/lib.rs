@@ -53,6 +53,27 @@ impl Default for EditorConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationsConfig {
+    #[serde(default)]
+    pub notify_when_focused: bool,
+    #[serde(default = "default_min_working_ms")]
+    pub min_working_ms: u64,
+}
+
+fn default_min_working_ms() -> u64 {
+    1_200
+}
+
+impl Default for NotificationsConfig {
+    fn default() -> Self {
+        Self {
+            notify_when_focused: false,
+            min_working_ms: default_min_working_ms(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BraidConfig {
     pub repos: ReposConfig,
     pub daemon: DaemonConfig,
@@ -60,6 +81,8 @@ pub struct BraidConfig {
     pub editor: EditorConfig,
     #[serde(default)]
     pub auto_download_zip: bool,
+    #[serde(default)]
+    pub notifications: NotificationsConfig,
 }
 
 impl Default for BraidConfig {
@@ -74,6 +97,7 @@ impl Default for BraidConfig {
             },
             editor: EditorConfig::default(),
             auto_download_zip: false,
+            notifications: NotificationsConfig::default(),
         }
     }
 }

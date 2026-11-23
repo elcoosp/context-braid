@@ -27,6 +27,7 @@ import { ProjectWorkspace, queryDaemon, TabContext } from "./socketClient";
 type StatusFilter = "all" | "attention" | "working" | "editor";
 
 interface BraidPreferences {
+  notifyWhenFocused?: boolean;
   autoDownloadZip?: boolean;
   favoriteEditor?: string;
   muteDurationMinutes?: string;
@@ -345,13 +346,17 @@ export default function Command() {
           ? prefs.autoDownloadZip
           : true,
       favorite_editor: prefs.favoriteEditor || "zed",
+      notify_when_focused:
+        typeof prefs.notifyWhenFocused === "boolean"
+          ? prefs.notifyWhenFocused
+          : false,
     };
     const key = JSON.stringify(payload);
     if (key !== syncedPrefsRef.current) {
       syncedPrefsRef.current = key;
       queryDaemon(payload).catch(() => {});
     }
-  }, [prefs.autoDownloadZip, prefs.favoriteEditor]);
+  }, [prefs.autoDownloadZip, prefs.favoriteEditor, prefs.notifyWhenFocused]);
 
   useEffect(() => {
     const id = setInterval(() => revalidate(), 1500);
