@@ -18,7 +18,7 @@
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev",
     "oxlint": "^1.94.0",
-    "oxfmt": "^0.79.0"
+    "oxfmt": "^0.80.0"
   },
   "packageManager": "pnpm@12.18.0"
 }
