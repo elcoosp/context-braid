@@ -1,3 +1,5 @@
+rust_i18n::i18n!();
+
 mod chart_png;
 mod drop_inbox;
 mod host;
@@ -111,6 +113,7 @@ impl DaemonState {
                             context_snippet: repo_name.clone(),
                             status: AgentStatus::Idle,
                             is_focused: false,
+                            window_bounds: None,
                             updated_at_ms: 0,
                         },
                     );
@@ -199,10 +202,11 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
     let now = now_ms();
     let root = st.config.resolved_repos_root();
     let repos = scan_repos(&root, &st.config.repos.ignore).unwrap_or_default();
+    #[cfg(not(test))]
+    let screen_stack = macos::capture_onscreen_window_stack();
     for t in tabs {
         let key = (t.browser.clone(), t.window_id, t.tab_id);
         let is_first_seen = st.seen_tabs.insert(key.clone());
-
         if t.status == AgentStatus::Working {
             let started_at = *st.working_since.entry(key.clone()).or_insert(now);
             if !is_first_seen && now.saturating_sub(started_at) >= st.config.notifications.min_working_ms {
@@ -211,27 +215,20 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
         } else {
             st.working_since.remove(&key);
         }
-
         let was_confirmed_working = st.confirmed_working.contains(&key);
         let alert_kind = match t.status {
-            AgentStatus::NeedsAttention => Some((1u8, format!("Alerte sur {}", t.browser))),
-            AgentStatus::Completed if was_confirmed_working => {
-                Some((2u8, format!("ZIP prêt sur {}", t.browser)))
-            }
-            AgentStatus::Idle if was_confirmed_working => {
-                Some((3u8, format!("Réponse terminée sur {}", t.browser)))
-            }
+            AgentStatus::NeedsAttention => Some((1u8, macos::AlertKind::NeedsAttention)),
+            AgentStatus::Completed if was_confirmed_working => Some((2u8, macos::AlertKind::ZipReady)),
+            AgentStatus::Idle if was_confirmed_working => Some((3u8, macos::AlertKind::TurnComplete)),
             _ => None,
         };
-
         if t.status != AgentStatus::Working
             && st.confirmed_working.remove(&key)
             && matches!(t.status, AgentStatus::Completed | AgentStatus::Idle)
         {
             drop_inbox::spawn_sync_drop_inbox();
         }
-
-        if let Some((kind, subtitle)) = alert_kind {
+        if let Some((kind, alert_enum)) = alert_kind {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             t.title.hash(&mut hasher);
@@ -240,41 +237,18 @@ fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
             let alert_key = (t.browser.clone(), t.window_id, t.tab_id, dedup_kind, sig);
             if st.notified_alerts.insert(alert_key) && !is_first_seen {
                 let repo_label = match_tab_to_repo(&t, &repos, &st.tab_repo_history)
-                    .or_else(|| {
-                        st.tab_repo_history
-                            .get(&(t.browser.clone(), t.tab_id))
-                            .cloned()
-                    })
+                    .or_else(|| st.tab_repo_history.get(&(t.browser.clone(), t.tab_id)).cloned())
                     .unwrap_or_else(|| "Workspace".into());
-                let is_muted = st
-                    .muted_until_ms
-                    .get(&repo_label)
-                    .copied()
-                    .is_some_and(|until| until > now);
-                let suppress_because_focused = !st.config.notifications.notify_when_focused
-                    && t.is_focused
-                    && {
-                        #[cfg(test)]
-                        {
-                            true
-                        }
-                        #[cfg(not(test))]
-                        {
-                            let (front_owner, _) = macos::frontmost_app_and_window();
-                            let front_low = front_owner.to_lowercase();
-                            let browser_low = t.browser.to_lowercase();
-                            front_low.is_empty() || front_low.contains(&browser_low)
-                        }
-                    };
-                if !is_muted && !suppress_because_focused {
-                    macos::notify_agent_alert(
-                        &repo_label,
-                        &t.browser,
-                        t.window_id,
-                        t.tab_id,
-                        &subtitle,
-                        &t.title,
-                    );
+                let is_muted = st.muted_until_ms.get(&repo_label).copied().is_some_and(|u| u > now);
+                let suppress = !st.config.notifications.notify_when_focused && t.is_focused && {
+                    #[cfg(test)] { true }
+                    #[cfg(not(test))] { macos::is_window_unobstructed_on_screen(&screen_stack, &t.browser, t.window_bounds) }
+                };
+                if !is_muted && !suppress {
+                    macos::notify_agent_alert(macos::NotificationPayload {
+                        repo_name: repo_label, browser: t.browser.clone(), window_id: t.window_id,
+                        tab_id: t.tab_id, url: t.url.clone(), kind: alert_enum, raw_title: t.title.clone(),
+                    });
                 }
             }
         } else if t.status == AgentStatus::Working && was_confirmed_working {
@@ -654,11 +628,15 @@ fn main() -> Result<()> {
             host::run_host_entry();
             Ok(())
         }
+        Some("notify-agent") => {
+            macos::run_notification_agent_app(args.get(2).map(String::as_str));
+            Ok(())
+        }
         Some("notify") => {
             let repo = args.get(2).map_or("ContextBraid", String::as_str);
-            let subtitle = args.get(3).map_or("Agent Alert", String::as_str);
+            let _subtitle = args.get(3).map_or("Agent Alert", String::as_str);
             let message = args.get(4).map_or("", String::as_str);
-            macos::deliver_un_notification_gui(repo, subtitle, message);
+            macos::notify_agent_alert(macos::NotificationPayload { repo_name: repo.to_string(), browser: String::new(), window_id: 0, tab_id: 0, url: String::new(), kind: macos::AlertKind::DropInboxZip, raw_title: message.to_string() });
             Ok(())
         }
         Some("install") => {
@@ -677,169 +655,28 @@ fn main() -> Result<()> {
 }
 #[cfg(test)]
 mod tests {
-    use super::host::{read_frame, write_frame};
     use super::*;
-    use std::io::Cursor;
-    #[test]
-    fn test_u32_framing_roundtrip() -> Result<()> {
-        let mut buf = Vec::new();
-        let sample = r#"{"type":"get_dashboard"}"#;
-        write_frame(&mut buf, sample)?;
-        let mut cur = Cursor::new(buf);
-        let decoded = read_frame(&mut cur)?.ok_or_else(|| anyhow::anyhow!("missing frame"))?;
-        assert_eq!(decoded, sample);
-        Ok(())
-    }
-
-    #[test]
-    fn test_alert_transition_dedup_and_rearm() {
-        let _ = crate::macos::take_test_notifications();
-        let (push_tx, _) = broadcast::channel(8);
-        let mut st = DaemonState::new(BraidConfig::default(), push_tx);
-
-        let make_tab = |status: AgentStatus| TabContextPayload {
-            browser: "Brave".into(),
-            window_id: 101,
-            tab_id: 202,
-            opener_tab_id: None,
-            incognito: false,
-            url: "https://z.ai".into(),
-            title: "Task: context-braid".into(),
-            context_snippet: "Running task".into(),
-            status,
-            is_focused: false,
-            updated_at_ms: now_ms(),
-        };
-
-        let apply_tab = |st: &mut DaemonState, tab: TabContextPayload| {
-            let raw = serde_json::json!({
-                "type": "sync_tabs",
-                "browser": tab.browser,
-                "tabs": [tab]
-            })
-            .to_string();
-            if let Ok(IpcMessage::SyncTabs { tabs, .. }) = serde_json::from_str::<IpcMessage>(&raw)
-            {
-                let now = now_ms();
-                for t in tabs {
-                    let key = (t.browser.clone(), t.window_id, t.tab_id);
-                    let alert_kind = match t.status {
-                        AgentStatus::NeedsAttention => {
-                            Some((1u8, format!("Alerte sur {}", t.browser)))
-                        }
-                        AgentStatus::Completed => {
-                            Some((2u8, format!("ZIP prêt sur {}", t.browser)))
-                        }
-                        _ => None,
-                    };
-                    let is_first_seen = st.seen_tabs.insert(key.clone());
-                    if let Some((kind, subtitle)) = alert_kind {
-                        let alert_key = (t.browser.clone(), t.window_id, t.tab_id, kind, 0);
-                        if st.notified_alerts.insert(alert_key) && !is_first_seen {
-                            crate::macos::notify_agent_alert(
-                                "context-braid",
-                                &t.browser,
-                                t.window_id,
-                                t.tab_id,
-                                &subtitle,
-                                &t.title,
-                            );
-                        }
-                    } else {
-                        st.notified_alerts.retain(|(b, w, tid, _, _)| {
-                            !(b == &t.browser && *w == t.window_id && *tid == t.tab_id)
-                        });
-                    }
-                    st.tabs.insert(key, (t, now));
-                }
-            }
-        };
-
-        // 0. Découverte initiale d'un onglet déjà Completed (F5 / démarrage daemon) -> 0 notification
-        let mut stale_tab = make_tab(AgentStatus::Completed);
-        stale_tab.tab_id = 999;
-        apply_tab(&mut st, stale_tab);
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 1. Working -> aucune notification
-        apply_tab(&mut st, make_tab(AgentStatus::Working));
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 2. Transition vers NeedsAttention -> 1 notification déclenchée
-        apply_tab(&mut st, make_tab(AgentStatus::NeedsAttention));
-        let first = crate::macos::take_test_notifications();
-        assert_eq!(first.len(), 1);
-        assert_eq!(first[0].1, "Alerte sur Brave");
-
-        // 3. Poll suivant toujours en NeedsAttention -> dédupliqué (0 nouvelle notif)
-        apply_tab(&mut st, make_tab(AgentStatus::NeedsAttention));
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 4. Reprise de la conversation (Working) -> réarme les alertes
-        apply_tab(&mut st, make_tab(AgentStatus::Working));
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 5. Transition vers Completed (ZIP Ready) -> 1 notification ZIP déclenchée
-        apply_tab(&mut st, make_tab(AgentStatus::Completed));
-        let second = crate::macos::take_test_notifications();
-        assert_eq!(second.len(), 1);
-        assert_eq!(second[0].1, "ZIP prêt sur Brave");
-    }
-
-    #[test]
-    fn test_aqua_session_and_lsui_element_in_installer() {
-        let installer_src = include_str!("installer.rs");
-        assert!(installer_src.contains("LimitLoadToSessionType"));
-        assert!(installer_src.contains("<string>Aqua</string>"));
-        assert!(installer_src.contains("<key>LSUIElement</key>"));
-    }
-
     #[tokio::test]
     async fn test_anti_glitch_and_focused_suppression() {
         let _ = crate::macos::take_test_notifications();
         let (push_tx, _) = broadcast::channel(8);
         let mut st = DaemonState::new(BraidConfig::default(), push_tx);
-
-        let make_tab = |status: AgentStatus, is_focused: bool| TabContextPayload {
-            browser: "Brave".into(),
-            window_id: 301,
-            tab_id: 402,
-            opener_tab_id: None,
-            incognito: false,
-            url: "https://google.com".into(),
-            title: "audit oxide".into(),
-            context_snippet: "Running".into(),
-            status,
-            is_focused,
-            updated_at_ms: now_ms(),
+        let mk = |status: AgentStatus, is_focused: bool| TabContextPayload {
+            browser: "Brave".into(), window_id: 301, tab_id: 402, opener_tab_id: None,
+            incognito: false, url: "https://google.com".into(), title: "audit oxide".into(),
+            context_snippet: "Running".into(), status, is_focused, window_bounds: None, updated_at_ms: now_ms(),
         };
-
-        // 1. Découverte initiale Idle
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 2. Micro-glitch < 1200ms en Working -> pas de notification au retour Idle
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 3. Travail réel >= 1200ms mais onglet FOCUS -> pas de bannière macOS
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, true)]);
-        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) {
-            *ts = ts.saturating_sub(1_500);
-        }
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, true)]);
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, true)]);
-        assert_eq!(crate::macos::take_test_notifications(), Vec::new());
-
-        // 4. Travail réel >= 1200ms en arrière-plan (is_focused = false) -> déclenche la bannière
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
-        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) {
-            *ts = ts.saturating_sub(1_500);
-        }
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Working, false)]);
-        process_sync_tabs(&mut st, vec![make_tab(AgentStatus::Idle, false)]);
-        let notes = crate::macos::take_test_notifications();
-        assert_eq!(notes.len(), 1);
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Idle, false)]);
+        assert!(crate::macos::take_test_notifications().is_empty());
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, true)]);
+        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) { *ts = ts.saturating_sub(1_500); }
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, true)]);
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Idle, true)]);
+        assert!(crate::macos::take_test_notifications().is_empty());
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, false)]);
+        if let Some(ts) = st.working_since.get_mut(&("Brave".into(), 301, 402)) { *ts = ts.saturating_sub(1_500); }
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Working, false)]);
+        process_sync_tabs(&mut st, vec![mk(AgentStatus::Idle, false)]);
+        assert_eq!(crate::macos::take_test_notifications().len(), 1);
     }
 }

@@ -9,6 +9,14 @@ pub enum AgentStatus {
     Completed,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct WindowBounds {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabContextPayload {
     pub browser: String,
@@ -23,6 +31,8 @@ pub struct TabContextPayload {
     pub status: AgentStatus,
     #[serde(default)]
     pub is_focused: bool,
+    #[serde(default)]
+    pub window_bounds: Option<WindowBounds>,
     pub updated_at_ms: u64,
 }
 

@@ -99,6 +99,7 @@ pub fn resolve_editor_spec(favorite: &str) -> EditorSpec {
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGWindowListCopyWindowInfo(option: u32, relative_to_window: u32) -> *const c_void;
@@ -653,214 +654,144 @@ pub fn git_repo_stats(repo_path: &Path) -> GitRepoMeta {
     }
 }
 
-#[cfg(test)]
-static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<(String, String, String)>>> =
-    std::sync::OnceLock::new();
-
-#[cfg(test)]
-pub fn take_test_notifications() -> Vec<(String, String, String)> {
-    let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-    lock.lock()
-        .map(|mut guard| std::mem::take(&mut *guard))
-        .unwrap_or_default()
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AlertKind {
+    NeedsAttention,
+    ZipReady,
+    TurnComplete,
+    DropInboxZip,
 }
 
-pub fn notify_agent_alert(
-    repo_name: &str,
-    _browser: &str,
-    _window_id: i64,
-    _tab_id: i64,
-    subtitle: &str,
-    title: &str,
-) {
-    let msg = if title.trim().is_empty() {
-        "Agent needs attention"
-    } else {
-        title.trim()
-    };
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct NotificationPayload {
+    pub repo_name: String,
+    pub browser: String,
+    pub window_id: i64,
+    pub tab_id: i64,
+    pub url: String,
+    pub kind: AlertKind,
+    pub raw_title: String,
+}
 
+pub fn init_system_locale() {
+    let raw = sys_locale::get_locale().unwrap_or_else(|| "en".to_string());
+    let lower = raw.replace('_', "-").to_lowercase();
+    let chosen = if lower.starts_with("zh") { "zh-CN" }
+    else if lower.starts_with("fr") { "fr" }
+    else if lower.starts_with("de") { "de" }
+    else if lower.starts_with("es") { "es" }
+    else if lower.starts_with("ja") { "ja" }
+    else if lower.starts_with("ko") { "ko" }
+    else { "en" };
+    rust_i18n::set_locale(chosen);
+}
+
+fn detect_platform_label(url: &str) -> Option<&'static str> {
+    let u = url.to_lowercase();
+    if u.contains("z.ai") { Some("Z.ai") }
+    else if u.contains("qwen.ai") { Some("Qwen") }
+    else if u.contains("://google.com") { Some("Gemini") }
+    else if u.contains("deepseek.com") { Some("DeepSeek") }
+    else if u.contains("://google.com") || u.contains("google.fr/search") || u.contains("udm=50") { Some("Google AI") }
+    else { None }
+}
+
+fn format_browser_label(browser: &str) -> String {
+    let b = browser.trim();
+    if b.is_empty() { return "Browser".to_string(); }
+    let mut chars = b.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => "Browser".to_string(),
+    }
+}
+
+fn clean_notification_body(raw_title: &str, kind: AlertKind) -> String {
+    let mut s = raw_title.trim().to_string();
+    for suffix in [" - Google Search", " - Recherche Google", " - Z.ai", " - Qwen", " - Gemini", " - DeepSeek", " | Z.ai", " | Qwen"] {
+        if let Some(stripped) = s.strip_suffix(suffix) { s = stripped.trim().to_string(); }
+    }
+    if s.is_empty() || matches!(s.to_lowercase().as_str(), "z.ai" | "qwen" | "gemini" | "deepseek" | "google" | "new chat") {
+        return match kind {
+            AlertKind::NeedsAttention => rust_i18n::t!("notif.body.fallback_attention").to_string(),
+            AlertKind::ZipReady | AlertKind::DropInboxZip => rust_i18n::t!("notif.body.fallback_completed").to_string(),
+            AlertKind::TurnComplete => rust_i18n::t!("notif.body.fallback_idle").to_string(),
+        };
+    }
+    if s.chars().count() > 110 {
+        let cut: String = s.chars().take(109).collect();
+        format!("{}…", cut.trim_end())
+    } else { s }
+}
+
+pub fn render_notification_copy(payload: &NotificationPayload) -> (String, String, String) {
+    init_system_locale();
+    let title = if payload.repo_name.trim().is_empty() { "ContextBraid".to_string() } else { payload.repo_name.trim().to_string() };
+    let status_text = match payload.kind {
+        AlertKind::NeedsAttention => rust_i18n::t!("notif.status.needs_attention").to_string(),
+        AlertKind::ZipReady => rust_i18n::t!("notif.status.zip_ready").to_string(),
+        AlertKind::TurnComplete => rust_i18n::t!("notif.status.turn_complete").to_string(),
+        AlertKind::DropInboxZip => rust_i18n::t!("notif.status.drop_inbox_zip").to_string(),
+    };
+    let subtitle = if payload.kind == AlertKind::DropInboxZip {
+        rust_i18n::t!("notif.subtitle.drop_inbox", status = status_text).to_string()
+    } else {
+        let browser_label = format_browser_label(&payload.browser);
+        if let Some(platform) = detect_platform_label(&payload.url) {
+            rust_i18n::t!("notif.subtitle.agent_with_platform", platform = platform, browser = browser_label, status = status_text).to_string()
+        } else {
+            rust_i18n::t!("notif.subtitle.agent_browser_only", browser = browser_label, status = status_text).to_string()
+        }
+    };
+    (title, subtitle, clean_notification_body(&payload.raw_title, payload.kind))
+}
+
+#[cfg(test)]
+static TEST_NOTIFICATIONS: std::sync::OnceLock<std::sync::Mutex<Vec<NotificationPayload>>> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+pub fn take_test_notifications() -> Vec<NotificationPayload> {
+    let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
+    lock.lock().map(|mut guard| std::mem::take(&mut *guard)).unwrap_or_default()
+}
+
+const NOTIFY_APP_SOCK: &str = "/tmp/braid-notify-app.sock";
+
+pub fn notify_agent_alert(payload: NotificationPayload) {
     #[cfg(test)]
     {
         let lock = TEST_NOTIFICATIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()));
-        if let Ok(mut guard) = lock.lock() {
-            guard.push((repo_name.to_string(), subtitle.to_string(), msg.to_string()));
-        }
+        if let Ok(mut guard) = lock.lock() { guard.push(payload); }
     }
-
     #[cfg(not(test))]
     {
-        let sound_file = if subtitle.to_lowercase().contains("zip") {
-            "/System/Library/Sounds/Glass.aiff"
-        } else {
-            "/System/Library/Sounds/Funk.aiff"
+        let sound_file = match payload.kind {
+            AlertKind::ZipReady | AlertKind::DropInboxZip => "/System/Library/Sounds/Glass.aiff",
+            AlertKind::NeedsAttention | AlertKind::TurnComplete => "/System/Library/Sounds/Funk.aiff",
         };
-        if Path::new(sound_file).exists() {
-            let _ = std::process::Command::new("afplay").arg(sound_file).spawn();
-        }
-
+        if Path::new(sound_file).exists() { let _ = std::process::Command::new("afplay").arg(sound_file).spawn(); }
+        let Ok(json_line) = serde_json::to_string(&payload) else { return; };
+        if send_to_notify_helper(&json_line) { return; }
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
         let app_bundle = home.join("Library/Application Support/ContextBraid/ContextBraid.app");
         if app_bundle.exists() {
-            let _ = std::process::Command::new("open")
-                .args([
-                    "-n",
-                    "-g",
-                    "-a",
-                    &app_bundle.to_string_lossy(),
-                    "--args",
-                    "notify",
-                    repo_name,
-                    subtitle,
-                    msg,
-                ])
-                .spawn();
+            let _ = std::process::Command::new("open").args(["-g", "-a", &app_bundle.to_string_lossy(), "--args", "notify-agent", &json_line]).spawn();
         }
     }
 }
 
-fn request_notification_auth(
-    center: &objc2_user_notifications::UNUserNotificationCenter,
-    run_loop: &objc2_foundation::NSRunLoop,
-) -> bool {
-    use block2::RcBlock;
-    use objc2::runtime::Bool;
-    use objc2_foundation::{NSDate, NSError};
-    use objc2_user_notifications::UNAuthorizationOptions;
-    use std::cell::Cell;
+#[allow(dead_code)]
+fn send_to_notify_helper(json_line: &str) -> bool {
     use std::io::Write;
-    use std::rc::Rc;
-
-    let done = Rc::new(Cell::new(false));
-    let granted_flag = Rc::new(Cell::new(false));
-    let done_c = Rc::clone(&done);
-    let granted_c = Rc::clone(&granted_flag);
-
-    let auth_block = RcBlock::new(move |granted: Bool, err: *mut NSError| {
-        granted_c.set(granted.as_bool());
-        done_c.set(true);
-        if !err.is_null() {
-            let desc = unsafe { (&*err).localizedDescription().to_string() };
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("/tmp/braid-notif.log")
-            {
-                let _ = writeln!(f, "AUTH_ERR: {desc}");
-            }
-        }
-    });
-
-    let opts = UNAuthorizationOptions::Alert
-        | UNAuthorizationOptions::Sound
-        | UNAuthorizationOptions::Badge;
-    center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
-
-    for _ in 0..30 {
-        if done.get() {
-            break;
-        }
-        let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
-        run_loop.runUntilDate(&next);
-    }
-
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/braid-notif.log")
-    {
-        let _ = writeln!(
-            f,
-            "AUTH_RESULT: done={} granted={}",
-            done.get(),
-            granted_flag.get()
-        );
-    }
-    granted_flag.get()
-}
-
-pub fn deliver_un_notification_gui(repo_name: &str, subtitle: &str, message: &str) {
-    use block2::RcBlock;
-    use objc2::MainThreadMarker;
-    use objc2::rc::Retained;
-    use objc2_app_kit::NSApplication;
-    use objc2_foundation::{NSDate, NSError, NSRunLoop, NSString};
-    use objc2_user_notifications::{
-        UNMutableNotificationContent, UNNotificationRequest, UNUserNotificationCenter,
-    };
-    use std::cell::Cell;
-    use std::io::Write;
-    use std::rc::Rc;
-
-    let full_title = format!("ContextBraid • {repo_name}");
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let _app = NSApplication::sharedApplication(mtm);
-        let center = UNUserNotificationCenter::currentNotificationCenter();
-
-        let run_loop = NSRunLoop::currentRunLoop();
-        if request_notification_auth(&center, &run_loop) {
-            let content: Retained<UNMutableNotificationContent> =
-                UNMutableNotificationContent::new();
-            content.setTitle(&NSString::from_str(&full_title));
-            content.setSubtitle(&NSString::from_str(subtitle));
-            content.setBody(&NSString::from_str(message));
-
-            let req_id = format!(
-                "cb-{}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis()
-            );
-            let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
-                &NSString::from_str(&req_id),
-                &content,
-                None,
-            );
-
-            let sent = Rc::new(Cell::new(false));
-            let ok_flag = Rc::new(Cell::new(false));
-            let sent_c = Rc::clone(&sent);
-            let ok_c = Rc::clone(&ok_flag);
-            let add_block = RcBlock::new(move |err: *mut NSError| {
-                ok_c.set(err.is_null());
-                sent_c.set(true);
-                if !err.is_null() {
-                    let desc = unsafe { (&*err).localizedDescription().to_string() };
-                    if let Ok(mut f) = std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("/tmp/braid-notif.log")
-                    {
-                        let _ = writeln!(f, "ADD_ERR: {desc}");
-                    }
-                }
-            });
-            center.addNotificationRequest_withCompletionHandler(&request, Some(&add_block));
-
-            for _ in 0..20 {
-                if sent.get() {
-                    break;
-                }
-                let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
-                run_loop.runUntilDate(&next);
-            }
-
-            if ok_flag.get() {
-                // Laisse 250ms à usernoted pour récupérer l'icône du bundle avant la sortie du processus
-                let next = NSDate::dateWithTimeIntervalSinceNow(0.25);
-                run_loop.runUntilDate(&next);
-                return;
-            }
-        }
-    }
-
-    // Fallback garanti si l'utilisateur n'a pas encore cliqué Autoriser
-    let script =
-        format!("display notification {message:?} with title {full_title:?} subtitle {subtitle:?}");
-    let _ = std::process::Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
-        .spawn();
+    use std::os::unix::net::UnixStream;
+    if let Ok(mut stream) = UnixStream::connect(NOTIFY_APP_SOCK)
+        && stream.write_all(json_line.as_bytes()).is_ok()
+        && stream.write_all(b"
+").is_ok()
+        && stream.flush().is_ok()
+    { return true; }
+    false
 }
 
 pub fn frontmost_app_and_window() -> (String, String) {
@@ -1130,4 +1061,343 @@ fn ax_all_window_titles(pid: i32) -> Vec<String> {
         }
     }
     out
+}
+
+
+
+fn send_ipc_to_daemon(msg: &braid_core::ipc::IpcMessage) {
+    use std::io::Write;
+    use std::os::unix::net::UnixStream;
+    let sock_path = braid_core::BraidConfig::load_or_default()
+        .map(|c| c.daemon.socket_path)
+        .unwrap_or_else(|_| "/tmp/braid.sock".to_string());
+    if let Ok(mut stream) = UnixStream::connect(&sock_path)
+        && let Ok(line) = serde_json::to_string(msg)
+    {
+        let _ = stream.write_all(line.as_bytes());
+        let _ = stream.write_all(b"\n");
+        let _ = stream.flush();
+    }
+}
+
+fn handle_notification_click(action_id: &str, browser: &str, window_id: i64, tab_id: i64, repo_name: &str) {
+    if action_id == "cb-mute" && !repo_name.is_empty() {
+        send_ipc_to_daemon(&braid_core::ipc::IpcMessage::ToggleRepoMute {
+            repo_name: repo_name.to_string(),
+            duration_ms: 30 * 60 * 1000,
+        });
+        return;
+    }
+    if tab_id > 0 && !browser.is_empty() {
+        activate_browser_app(browser);
+        send_ipc_to_daemon(&braid_core::ipc::IpcMessage::FocusTarget {
+            browser: browser.to_string(), window_id, tab_id,
+        });
+    } else if let Some(home) = dirs::home_dir() {
+        let _ = std::process::Command::new("/usr/bin/open").arg(home.join("Downloads")).spawn();
+    }
+}
+
+fn request_notification_auth(
+    center: &objc2_user_notifications::UNUserNotificationCenter,
+    run_loop: &objc2_foundation::NSRunLoop,
+) -> bool {
+    use block2::RcBlock;
+    use objc2::runtime::Bool;
+    use objc2_foundation::{NSDate, NSError};
+    use objc2_user_notifications::UNAuthorizationOptions;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let done = Rc::new(Cell::new(false));
+    let granted_flag = Rc::new(Cell::new(false));
+    let done_c = Rc::clone(&done);
+    let granted_c = Rc::clone(&granted_flag);
+
+    let auth_block = RcBlock::new(move |granted: Bool, _err: *mut NSError| {
+        granted_c.set(granted.as_bool());
+        done_c.set(true);
+    });
+
+    let opts = UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound | UNAuthorizationOptions::Badge;
+    center.requestAuthorizationWithOptions_completionHandler(opts, &auth_block);
+
+    for _ in 0..30 {
+        if done.get() { break; }
+        let next = NSDate::dateWithTimeIntervalSinceNow(0.05);
+        run_loop.runUntilDate(&next);
+    }
+    granted_flag.get()
+}
+
+pub fn run_notification_agent_app(initial_payload_json: Option<&str>) {
+    use block2::Block;
+    use objc2::runtime::ProtocolObject;
+    use objc2::{AnyThread, MainThreadMarker, define_class, msg_send};
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSEventMask};
+    use objc2_foundation::{
+        NSDate, NSDefaultRunLoopMode, NSDictionary, NSObject, NSObjectProtocol, NSRunLoop, NSSet, NSString,
+    };
+    use objc2_user_notifications::{
+        UNMutableNotificationContent, UNNotificationAction, UNNotificationActionOptions,
+        UNNotificationCategory, UNNotificationCategoryOptions, UNNotificationDefaultActionIdentifier,
+        UNNotificationRequest, UNNotificationResponse, UNNotificationSound,
+        UNUserNotificationCenter, UNUserNotificationCenterDelegate,
+    };
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::io::AsRawFd;
+    use std::os::unix::net::UnixListener;
+
+    init_system_locale();
+    define_class!(
+        #[unsafe(super(NSObject))]
+        #[name = "BraidNotificationDelegate"]
+        struct BraidNotificationDelegate;
+        unsafe impl NSObjectProtocol for BraidNotificationDelegate {}
+        unsafe impl UNUserNotificationCenterDelegate for BraidNotificationDelegate {
+            #[unsafe(method(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:))]
+            fn did_receive_response(
+                &self,
+                _center: &UNUserNotificationCenter,
+                response: &UNNotificationResponse,
+                completion_handler: &Block<dyn Fn()>,
+            ) {
+                let action_id = response.actionIdentifier().to_string();
+                let content = response.notification().request().content();
+                let user_info = content.userInfo();
+                let get_str = |k: &str| -> String {
+                    let key = NSString::from_str(k);
+                    match user_info.objectForKey(&key) {
+                        Some(obj) => match obj.downcast::<NSString>() {
+                            Ok(ns_s) => ns_s.to_string(),
+                            Err(_) => String::new(),
+                        },
+                        None => String::new(),
+                    }
+                };
+                let browser = get_str("browser");
+                let window_id: i64 = str::parse(&get_str("window_id")).unwrap_or(0);
+                let tab_id: i64 = str::parse(&get_str("tab_id")).unwrap_or(0);
+                let repo_name = get_str("repo_name");
+                let default_act = unsafe { UNNotificationDefaultActionIdentifier.to_string() };
+                if action_id == default_act || action_id == "cb-focus" || action_id == "cb-mute" {
+                    handle_notification_click(&action_id, &browser, window_id, tab_id, &repo_name);
+                }
+                completion_handler.call(());
+            }
+        }
+    );
+
+    let Some(mtm) = MainThreadMarker::new() else { return; };
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    app.finishLaunching();
+
+    let center = UNUserNotificationCenter::currentNotificationCenter();
+    let delegate: objc2::rc::Retained<BraidNotificationDelegate> =
+        unsafe { msg_send![BraidNotificationDelegate::alloc(), init] };
+    let delegate_proto = ProtocolObject::from_ref(&*delegate);
+    center.setDelegate(Some(delegate_proto));
+
+    let focus_title = NSString::from_str(&rust_i18n::t!("notif.action.focus_tab"));
+    let mute_title = NSString::from_str(&rust_i18n::t!("notif.action.mute_repo"));
+    let focus_action = UNNotificationAction::actionWithIdentifier_title_options(
+        &NSString::from_str("cb-focus"), &focus_title, UNNotificationActionOptions::Foreground,
+    );
+    let mute_action = UNNotificationAction::actionWithIdentifier_title_options(
+        &NSString::from_str("cb-mute"), &mute_title, UNNotificationActionOptions::empty(),
+    );
+    let actions = objc2_foundation::NSArray::from_slice(&[&*focus_action, &*mute_action]);
+    let category = UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
+        &NSString::from_str("cb-agent-alert"), &actions, &objc2_foundation::NSArray::new(),
+        UNNotificationCategoryOptions::empty(),
+    );
+    center.setNotificationCategories(&NSSet::from_slice(&[&*category]));
+
+    let authorized = request_notification_auth(&center, &NSRunLoop::currentRunLoop());
+
+    let post_payload = |raw_json: &str| {
+        let Ok(payload) = serde_json::from_str::<NotificationPayload>(raw_json) else { return; };
+        let (title, subtitle, body) = render_notification_copy(&payload);
+        if authorized {
+            let content = UNMutableNotificationContent::new();
+            content.setTitle(&NSString::from_str(&title));
+            content.setSound(Some(&UNNotificationSound::defaultSound()));
+            content.setSubtitle(&NSString::from_str(&subtitle));
+            content.setBody(&NSString::from_str(&body));
+            content.setCategoryIdentifier(&NSString::from_str("cb-agent-alert"));
+            content.setThreadIdentifier(&NSString::from_str(&format!("cb-repo-{}", payload.repo_name)));
+            let k_browser = NSString::from_str("browser");
+            let k_win = NSString::from_str("window_id");
+            let k_tab = NSString::from_str("tab_id");
+            let k_repo = NSString::from_str("repo_name");
+            let v_browser = NSString::from_str(&payload.browser);
+            let v_win = NSString::from_str(&payload.window_id.to_string());
+            let v_tab = NSString::from_str(&payload.tab_id.to_string());
+            let v_repo = NSString::from_str(&payload.repo_name);
+            let user_info = NSDictionary::from_slices(
+                &[&*k_browser, &*k_win, &*k_tab, &*k_repo],
+                &[&*v_browser, &*v_win, &*v_tab, &*v_repo],
+            );
+            let raw_dict: &NSDictionary = unsafe { &*(objc2::rc::Retained::as_ptr(&user_info).cast()) };
+            unsafe { content.setUserInfo(raw_dict) };
+            let req_id = format!(
+                "cb-{}-{}-{}", payload.browser, payload.tab_id,
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis()
+            );
+            let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+                &NSString::from_str(&req_id), &content, None,
+            );
+            center.addNotificationRequest_withCompletionHandler(&request, None);
+        } else {
+            let full = format!("ContextBraid • {title}");
+            let script = format!("display notification {body:?} with title {full:?} subtitle {subtitle:?}");
+            let _ = std::process::Command::new("/usr/bin/osascript").args(["-e", &script]).spawn();
+        }
+    };
+
+    if let Some(init_json) = initial_payload_json { post_payload(init_json); }
+
+    let lock_file = std::fs::OpenOptions::new().create(true).write(true).truncate(false).open("/tmp/braid-notify-app.lock");
+    let got_lock = lock_file.as_ref().map(|f| unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0).unwrap_or(false);
+
+    let pump_appkit = |secs: f64| {
+
+let deadline = NSDate::dateWithTimeIntervalSinceNow(secs);
+loop {
+    let ev = unsafe {
+        app.nextEventMatchingMask_untilDate_inMode_dequeue(NSEventMask::Any, Some(&deadline), NSDefaultRunLoopMode, true)
+    };
+    match ev { Some(event) => app.sendEvent(&event), None => break }
+}
+app.updateWindows();
+};
+if !got_lock { pump_appkit(0.8); return; }
+let _ = std::fs::remove_file(NOTIFY_APP_SOCK);
+let Ok(listener) = UnixListener::bind(NOTIFY_APP_SOCK) else { return; };
+let _ = listener.set_nonblocking(true);
+loop {
+    while let Ok((stream, _)) = listener.accept() {
+        for line in BufReader::new(stream).lines().map_while(Result::ok) {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() { post_payload(trimmed); }
+        }
+    }
+    pump_appkit(0.15);
+}
+}
+#[derive(Debug, Clone)]
+pub struct ScreenWindowRect {
+    pub owner_low: String,
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+}
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGRectMakeWithDictionaryRepresentation(dict: *const c_void, rect: *mut CGRectRaw) -> bool;
+}
+#[cfg_attr(test, allow(dead_code))]
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+struct CGRectRaw { x: f64, y: f64, width: f64, height: f64 }
+#[cfg_attr(test, allow(dead_code))]
+pub fn capture_onscreen_window_stack() -> Vec<ScreenWindowRect> {
+    use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFNumberType, CFRetained, CFString};
+    let mut out = Vec::new();
+    let raw_list = unsafe { CGWindowListCopyWindowInfo(17, 0) };
+    if raw_list.is_null() { return out; }
+    let list: CFRetained<CFArray> = unsafe {
+        CFRetained::from_raw(std::ptr::NonNull::new_unchecked(raw_list.cast_mut().cast::<CFArray>()))
+    };
+    let k_layer = CFString::from_static_str("kCGWindowLayer");
+    let k_owner = CFString::from_static_str("kCGWindowOwnerName");
+    let k_bounds = CFString::from_static_str("kCGWindowBounds");
+    for i in 0..list.len() {
+        let ptr = unsafe { list.value_at_index(i.cast_signed()) };
+        if ptr.is_null() { continue; }
+        let dict: &CFDictionary = unsafe { &*ptr.cast::<CFDictionary>() };
+        let layer_ptr = unsafe { dict.value(std::ptr::from_ref::<CFString>(k_layer.as_ref()).cast::<c_void>()) };
+        let mut layer: i64 = -1;
+        if !layer_ptr.is_null() {
+            let num: &CFNumber = unsafe { &*layer_ptr.cast::<CFNumber>() };
+            unsafe { num.value(CFNumberType::SInt64Type, (&raw mut layer).cast::<c_void>()) };
+        }
+        if layer != 0 { continue; }
+        let owner_ptr = unsafe { dict.value(std::ptr::from_ref::<CFString>(k_owner.as_ref()).cast::<c_void>()) };
+        let owner_low = if owner_ptr.is_null() { String::new() } else {
+            let cf_s: &CFString = unsafe { &*owner_ptr.cast::<CFString>() };
+            cf_s.to_string().to_lowercase()
+        };
+        if owner_low.is_empty() || matches!(owner_low.as_str(), "window server" | "dock" | "control center" | "notification center") {
+            continue;
+        }
+        let bounds_ptr = unsafe { dict.value(std::ptr::from_ref::<CFString>(k_bounds.as_ref()).cast::<c_void>()) };
+        if bounds_ptr.is_null() { continue; }
+        let mut rect = CGRectRaw::default();
+        if unsafe { CGRectMakeWithDictionaryRepresentation(bounds_ptr, &raw mut rect) } && rect.width > 40.0 && rect.height > 40.0 {
+            out.push(ScreenWindowRect { owner_low, left: rect.x, top: rect.y, width: rect.width, height: rect.height });
+        }
+    }
+    out
+}
+pub fn is_window_unobstructed_on_screen(
+  stack: &[ScreenWindowRect],
+  browser: &str,
+  bounds: Option<braid_core::WindowBounds>,
+) -> bool {
+    if stack.is_empty() { return true; }
+    let browser_low = browser.to_lowercase();
+    let Some(b) = bounds else {
+        return stack.first().is_some_and(|top| top.owner_low.contains(&browser_low));
+    };
+    if b.width <= 40.0 || b.height <= 40.0 { return false; }
+    let Some(win_idx) = stack.iter().position(|w| {
+          w.owner_low.contains(&browser_low)
+          && (w.left - b.left).abs() <= 24.0 && (w.top - b.top).abs() <= 24.0
+          && (w.width - b.width).abs() <= 32.0 && (w.height - b.height).abs() <= 32.0
+    }) else { return false; };
+    let occluders = &stack[..win_idx];
+    if occluders.is_empty() { return true; }
+    let mut visible_samples = 0u8;
+    for gx in 0..4 {
+        let px = b.left + b.width * (f64::from(gx) + 0.5) / 4.0;
+        for gy in 0..4 {
+            let py = b.top + b.height * (f64::from(gy) + 0.5) / 4.0;
+            let occluded = occluders.iter().any(|occ| {
+                  px >= occ.left && px <= occ.left + occ.width && py >= occ.top && py <= occ.top + occ.height
+            });
+            if !occluded { visible_samples += 1; }
+        }
+    }
+    visible_samples >= 4
+}
+#[cfg(test)]
+mod notif_i18n_tests {
+    use super::*;
+    #[test]
+    fn test_notification_i18n_renders_real_copy() {
+        let p = NotificationPayload {
+            repo_name: "glyim".to_string(), browser: "brave".to_string(),
+            window_id: 1, tab_id: 2, url: "https://z.ai".to_string(),
+            kind: AlertKind::TurnComplete, raw_title: "Glyim".to_string(),
+        };
+        let (title, subtitle, body) = render_notification_copy(&p);
+        assert_eq!(title, "glyim");
+        assert!(!subtitle.contains("notif."), "raw key leaked: {subtitle}");
+        assert!(subtitle.contains("Z.ai") && subtitle.contains("Brave"), "unexpected subtitle: {subtitle}");
+        assert_eq!(body, "Glyim");
+    }
+    #[test]
+    fn test_2d_zorder_occlusion_split_vs_covered() {
+        let stack = vec![
+          ScreenWindowRect { owner_low: "brave browser".into(), left: 0.0, top: 25.0, width: 720.0, height: 875.0 },
+          ScreenWindowRect { owner_low: "brave browser".into(), left: 720.0, top: 25.0, width: 720.0, height: 875.0 },
+        ];
+        assert!(is_window_unobstructed_on_screen(&stack, "brave", Some(braid_core::WindowBounds { left: 720.0, top: 25.0, width: 720.0, height: 875.0 })));
+        let mut covered_stack = vec![ScreenWindowRect { owner_low: "zed".into(), left: 700.0, top: 0.0, width: 800.0, height: 900.0 }];
+        covered_stack.extend(stack);
+        assert!(!is_window_unobstructed_on_screen(&covered_stack, "brave", Some(braid_core::WindowBounds { left: 720.0, top: 25.0, width: 720.0, height: 875.0 })));
+    }
 }

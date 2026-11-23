@@ -134,34 +134,58 @@ export default defineBackground(() => {
     return port;
   };
 
-  let focusedTabKey: string | null = null;
+  interface WindowViewMeta {
+    activeTabId: number;
+    visible: boolean;
+    bounds: { left: number; top: number; width: number; height: number } | null;
+  }
+  const windowViews = new Map<number, WindowViewMeta>();
 
-  const refreshFocusedTab = async () => {
+  const refreshWindowViews = async () => {
     try {
-      const win = await browser.windows.getLastFocused();
-      if (!win?.focused || typeof win.id !== 'number') {
-        focusedTabKey = null;
-        return;
+      const [wins, activeTabs] = await Promise.all([
+        browser.windows.getAll({ populate: false }),
+        browser.tabs.query({ active: true }),
+      ]);
+      const activeByWin = new Map<number, number>();
+      for (const at of activeTabs) {
+        if (typeof at.windowId === 'number' && typeof at.id === 'number') {
+          activeByWin.set(at.windowId, at.id);
+        }
       }
-      const activeTabs = await browser.tabs.query({ active: true, windowId: win.id });
-      const active = activeTabs;
-      focusedTabKey =
-        active && typeof active.id === 'number' ? `${win.id}:${active.id}` : null;
+      windowViews.clear();
+      for (const w of wins) {
+        if (typeof w.id !== 'number') continue;
+        const activeTabId = activeByWin.get(w.id) ?? -1;
+        const visible = w.state !== 'minimized' && activeTabId > 0;
+        const bounds =
+          typeof w.left === 'number' &&
+          typeof w.top === 'number' &&
+          typeof w.width === 'number' &&
+          typeof w.height === 'number'
+            ? { left: w.left, top: w.top, width: w.width, height: w.height }
+            : null;
+        windowViews.set(w.id, { activeTabId, visible, bounds });
+      }
     } catch {
-      focusedTabKey = null;
+      // Keep last known window views on transient query errors
     }
   };
 
   const flushTabs = () => {
     if (tabCache.size === 0) return;
-    void refreshFocusedTab().then(() => {
+    void refreshWindowViews().then(() => {
       if (tabCache.size === 0) return;
       const now = Date.now();
       const freshTabs = Array.from(tabCache.values()).map((t) => {
-        const key = `${t.window_id}:${t.tab_id}`;
+        const winId = typeof t.window_id === 'number' ? t.window_id : -1;
+        const tabId = typeof t.tab_id === 'number' ? t.tab_id : -1;
+        const view = windowViews.get(winId);
+        const isVisibleActiveTab = Boolean(view && view.visible && view.activeTabId === tabId);
         return {
           ...t,
-          is_focused: focusedTabKey !== null && key === focusedTabKey,
+          is_focused: isVisibleActiveTab,
+          window_bounds: view?.bounds ?? null,
           updated_at_ms: now,
         };
       });
@@ -455,7 +479,23 @@ export default defineBackground(() => {
 
   const probeAllOpenAiTabs = async () => {
     try {
-      const tabs = await browser.tabs.query({});
+      const [tabs, wins] = await Promise.all([
+    browser.tabs.query({}),
+    browser.windows.getAll({ populate: false }).catch(() => []),
+  ]);
+  const winBoundsById = new Map<number, { left: number; top: number; width: number; height: number }>();
+  for (const w of wins) {
+    if (
+      typeof w.id === "number" &&
+      w.state !== "minimized" &&
+      typeof w.left === "number" &&
+      typeof w.top === "number" &&
+      typeof w.width === "number" &&
+      typeof w.height === "number"
+    ) {
+      winBoundsById.set(w.id, { left: w.left, top: w.top, width: w.width, height: w.height });
+    }
+  }
       const openIds = new Set<number>();
       for (const tab of tabs) {
         if (tab.id != null && isSupportedAiUrl(tab.url)) {

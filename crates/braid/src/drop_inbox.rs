@@ -196,14 +196,15 @@ pub fn sync_drop_inbox_blocking() -> Result<usize> {
                     asset.name,
                     saved_path.display()
                 );
-                macos::notify_agent_alert(
-                    &repo_label,
-                    "github",
-                    0,
-                    0,
-                    "Archive ZIP reçue dans Téléchargements",
-                    file_label,
-                );
+                macos::notify_agent_alert(macos::NotificationPayload {
+                    repo_name: repo_label,
+                    browser: "github".to_string(),
+                    window_id: 0,
+                    tab_id: 0,
+                    url: String::new(),
+                    kind: macos::AlertKind::DropInboxZip,
+                    raw_title: file_label.to_string(),
+                });
             }
             Err(err) => warn!("drop_inbox: skipped {}: {err}", asset.name),
         }

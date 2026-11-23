@@ -162,7 +162,7 @@ export default function WorkspaceMenuBar() {
           : undefined;
 
   const menuIcon = isOffline
-    ? { source: Icon.Warning, tintColor: Color.SecondaryText }
+    ? { source: Icon.Warning, tintColor: Color.Orange }
     : alertCount > 0
       ? { source: Icon.ExclamationMark, tintColor: Color.Red }
       : workingCount > 0

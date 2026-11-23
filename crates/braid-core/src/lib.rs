@@ -1,6 +1,6 @@
 pub mod ipc;
 
-pub use ipc::{AgentStatus, BrowserCommand, IpcMessage, ProjectWorkspace, TabContextPayload};
+pub use ipc::{AgentStatus, BrowserCommand, IpcMessage, ProjectWorkspace, TabContextPayload, WindowBounds};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -314,6 +314,7 @@ mod tests {
             context_snippet: "Path: /Users/dev/repos/guiwright".into(),
             status: AgentStatus::Completed,
             is_focused: false,
+            window_bounds: None,
             updated_at_ms: 100,
         };
         assert_eq!(
