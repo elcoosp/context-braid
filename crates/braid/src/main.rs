@@ -34,6 +34,7 @@ struct DaemonState {
     muted_until_ms: HashMap<String, u64>,
     seen_tabs: HashSet<(String, i64, i64)>,
     push_tx: broadcast::Sender<String>,
+    last_menubar_sig: (usize, usize, usize, usize),
 }
 
 fn now_ms() -> u64 {
@@ -61,6 +62,7 @@ impl DaemonState {
             muted_until_ms: HashMap::new(),
             seen_tabs: HashSet::new(),
             push_tx,
+            last_menubar_sig: (0, 0, 0, 0),
         }
     }
 
@@ -197,6 +199,53 @@ impl DaemonState {
         self.last_focused_tab = Some((tab.browser.clone(), tab.window_id, tab.tab_id));
     }
 }
+
+
+#[cfg(not(test))]
+fn maybe_refresh_raycast_menubar(st: &mut DaemonState) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static PENDING: AtomicBool = AtomicBool::new(false);
+
+    let now = now_ms();
+    let mut attention = 0usize;
+    let mut working = 0usize;
+    let mut completed = 0usize;
+    for (tab, _) in st.tabs.values() {
+        match tab.status {
+            AgentStatus::NeedsAttention => attention += 1,
+            AgentStatus::Working => working += 1,
+            AgentStatus::Completed => completed += 1,
+            AgentStatus::Idle => {}
+        }
+    }
+    let mutes = st.muted_until_ms.values().filter(|&&u| u > now).count();
+    let sig = (attention, working, completed, mutes);
+    if sig == st.last_menubar_sig {
+        return;
+    }
+    st.last_menubar_sig = sig;
+
+    if PENDING
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_ok()
+    {
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+            PENDING.store(false, Ordering::Release);
+            let _ = tokio::process::Command::new("open")
+                .args([
+                    "-g",
+                    "raycast://extensions/elcoosp/context-braid-raycast/menu-bar?launchType=background",
+                ])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+        });
+    }
+}
+
+#[cfg(test)]
+fn maybe_refresh_raycast_menubar(st: &mut DaemonState) { let _ = st.last_menubar_sig; }
 
 fn process_sync_tabs(st: &mut DaemonState, tabs: Vec<TabContextPayload>) {
     let now = now_ms();
@@ -415,7 +464,9 @@ async fn dispatch_ipc_message(
             Ok(IpcMessage::Ack)
         }
         IpcMessage::SyncTabs { tabs, .. } => {
-            process_sync_tabs(&mut *state.write().await, tabs);
+            let mut st = state.write().await;
+            process_sync_tabs(&mut st, tabs);
+            maybe_refresh_raycast_menubar(&mut st);
             Ok(IpcMessage::Ack)
         }
         IpcMessage::GetDashboard => Ok(IpcMessage::DashboardResponse {
@@ -426,7 +477,9 @@ async fn dispatch_ipc_message(
             window_id,
             tab_id,
         } => {
-            handle_focus_target(&mut *state.write().await, &browser, window_id, tab_id)?;
+            let mut st = state.write().await;
+            handle_focus_target(&mut st, &browser, window_id, tab_id)?;
+            maybe_refresh_raycast_menubar(&mut st);
             Ok(IpcMessage::Ack)
         }
         IpcMessage::OpenEditor { repo_path } => {
@@ -455,10 +508,13 @@ async fn dispatch_ipc_message(
                 st.muted_until_ms
                     .insert(repo_name, now.saturating_add(duration_ms));
             }
+            maybe_refresh_raycast_menubar(&mut st);
             Ok(IpcMessage::Ack)
         }
         IpcMessage::JumpNextAlert => {
-            handle_jump_next_alert(&mut *state.write().await)?;
+            let mut st = state.write().await;
+            handle_jump_next_alert(&mut st)?;
+            maybe_refresh_raycast_menubar(&mut st);
             Ok(IpcMessage::Ack)
         }
         IpcMessage::CycleProject { repo_name } => {

@@ -1,6 +1,7 @@
 import {
   Color,
   Icon,
+  Keyboard,
   LaunchType,
   MenuBarExtra,
   getPreferenceValues,
@@ -8,9 +9,8 @@ import {
   open,
   openExtensionPreferences,
   showHUD,
-  Keyboard,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useCachedPromise } from "@raycast/utils";
 import { i18n, initI18n } from "./i18n";
 import { ProjectWorkspace, TabContext, queryDaemon } from "./socketClient";
 
@@ -114,34 +114,35 @@ function isProjectActive(proj: ProjectWorkspace): boolean {
   );
 }
 
+async function fetchDashboardState(): Promise<{
+  projects: ProjectWorkspace[];
+  isOffline: boolean;
+}> {
+  try {
+    const res = await queryDaemon<{ projects?: ProjectWorkspace[] }>({
+      type: "get_dashboard",
+    });
+    if (Array.isArray(res?.projects)) {
+      return { projects: res.projects, isOffline: false };
+    }
+    return { projects: [], isOffline: true };
+  } catch {
+    return { projects: [], isOffline: true };
+  }
+}
+
 export default function WorkspaceMenuBar() {
   const prefs = getPreferenceValues<MenuBarPrefs>();
-  const [projects, setProjects] = useState<ProjectWorkspace[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(false);
+  const { data, isLoading, revalidate } = useCachedPromise(
+    fetchDashboardState,
+    [],
+    {
+      keepPreviousData: true,
+    },
+  );
 
-  useEffect(() => {
-    let mounted = true;
-    queryDaemon<{ projects?: ProjectWorkspace[] }>({ type: "get_dashboard" })
-      .then((res) => {
-        if (!mounted) return;
-        if (Array.isArray(res?.projects)) {
-          setProjects(res.projects);
-          setIsOffline(false);
-        } else {
-          setIsOffline(true);
-        }
-      })
-      .catch(() => {
-        if (mounted) setIsOffline(true);
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const projects = data?.projects ?? [];
+  const isOffline = data?.isOffline ?? false;
 
   const activeProjects = projects.filter(isProjectActive);
   const idleProjects = projects.filter((p) => !isProjectActive(p));
@@ -190,19 +191,20 @@ export default function WorkspaceMenuBar() {
             key={`${tab.browser}-${tab.tab_id}`}
             title={formatTabTitle(tab)}
             tooltip={tab.title || tab.url}
+
             icon={getTabStatusIcon(tab)}
-            onAction={() =>
-              queryDaemon({
+            onAction={async () => {
+              await queryDaemon({
                 type: "focus_target",
                 browser: tab.browser,
                 window_id: tab.window_id,
                 tab_id: tab.tab_id,
-              })
-            }
+              });
+              void revalidate();
+            }}
           />
         ))}
       </MenuBarExtra.Section>
-
       <MenuBarExtra.Section title={i18n._("Action")}>
         <MenuBarExtra.Item
           title={i18n._("Open in Editor")}
@@ -240,6 +242,7 @@ export default function WorkspaceMenuBar() {
                 repo_name: proj.repo_name,
                 duration_ms: 30 * 60 * 1000,
               });
+              void revalidate();
               await showHUD(`Muted ${proj.repo_name} for 30m`);
             }}
           />
@@ -247,13 +250,12 @@ export default function WorkspaceMenuBar() {
       </MenuBarExtra.Section>
     </MenuBarExtra.Submenu>
   );
-
   return (
     <MenuBarExtra
       icon={menuIcon}
       title={menuTitle}
       tooltip="ContextBraid"
-      isLoading={isLoading}
+      isLoading={isLoading && !data}
     >
       {isOffline ? (
         <MenuBarExtra.Section title={i18n._("ContextBraid Engine Offline")}>
@@ -275,23 +277,23 @@ export default function WorkspaceMenuBar() {
               <MenuBarExtra.Item
                 title={i18n._("Jump to Next Agent Alert")}
                 icon={{ source: Icon.ExclamationMark, tintColor: Color.Red }}
-                onAction={() => queryDaemon({ type: "jump_next_alert" })}
+                onAction={async () => {
+                  await queryDaemon({ type: "jump_next_alert" });
+                  void revalidate();
+                }}
               />
             </MenuBarExtra.Section>
           )}
-
           {activeProjects.length > 0 && (
             <MenuBarExtra.Section title={i18n._("Active")}>
               {activeProjects.map(renderProjectSubmenu)}
             </MenuBarExtra.Section>
           )}
-
           {idleProjects.length > 0 && (
             <MenuBarExtra.Section title={i18n._("Repositories")}>
               {idleProjects.map(renderProjectSubmenu)}
             </MenuBarExtra.Section>
           )}
-
           <MenuBarExtra.Section title={i18n._("Preferences")}>
             <MenuBarExtra.Item
               title={
