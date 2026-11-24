@@ -1,7 +1,7 @@
 assets:
-  packageZip: packages/extension/.output/context-braidextension-0.1.0-chrome.zip
-  firefoxZip: packages/extension/.output/context-braidextension-0.1.0-firefox.zip
-  sourcesZip: packages/extension/.output/context-braidextension-0.1.0-sources.zip
+  packageZip: packages/extension/.output/context-braidextension-0.2.0-chrome.zip
+  firefoxZip: packages/extension/.output/context-braidextension-0.2.0-firefox.zip
+  sourcesZip: packages/extension/.output/context-braidextension-0.2.0-sources.zip
   icon128: packages/extension/.output/chrome-mv3/icon/128.png
   edgeIcon300: packages/extension/store-assets/edge-icon-300x300.png
   promoSmall: packages/extension/store-assets/promo-small-440x280.png
@@ -88,8 +88,8 @@ storeListing:
         ContextBraid는 브라우저의 AI 코딩 세션을 로컬 macOS Git 저장소, 코드 편집기 및 Raycast 워크스페이스에 직접 연결합니다.
 
 releaseNotes:
-  en: Initial public release with multi-agent tab tracking, background ZIP auto-download, and local macOS Native Messaging IPC.
-  fr: Version initiale avec suivi multi-agents, téléchargement automatique des archives ZIP en arrière-plan et IPC local macOS.
+  en: Native macOS notifications with 2D window occlusion detection, network-based background AI turn detection, and hot-path performance caching.
+  fr: Notifications natives macOS avec détection d'occlusion 2D des fenêtres, détection réseau des tours IA en arrière-plan et optimisation des performances.
 
 platforms:
   chrome:

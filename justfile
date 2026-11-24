@@ -14,7 +14,10 @@ test-unit:
 test-e2e: build
     pnpm --filter @context-braid/extension test:e2e
 
-build:
+sync-check:
+    pnpm run check:sync
+
+build: sync-check
     cargo build --workspace
     pnpm --filter @context-braid/extension build
     pnpm --filter @context-braid/extension build:firefox

@@ -193,7 +193,7 @@ export default function WorkspaceMenuBar() {
             icon={getTabStatusIcon(tab)}
             onAction={() =>
               queryDaemon({
-                type: "focus_tab",
+                type: "focus_target",
                 browser: tab.browser,
                 window_id: tab.window_id,
                 tab_id: tab.tab_id,

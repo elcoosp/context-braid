@@ -8,78 +8,78 @@ msgstr ""
 "Language: fr\n"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:184
+#: src/menu-bar.tsx:185
 msgid "Clean"
 msgstr "Propre"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:205
+#: src/menu-bar.tsx:206
 msgid "Action"
 msgstr "Action"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:207
+#: src/menu-bar.tsx:208
 msgid "Open in Editor"
 msgstr "Ouvrir dans l’éditeur"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:214
+#: src/menu-bar.tsx:215
 msgid "Open in Terminal"
 msgstr "Ouvrir dans le terminal"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:221
+#: src/menu-bar.tsx:222
 msgid "Open in Finder"
 msgstr "Ouvrir dans le Finder"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:227
+#: src/menu-bar.tsx:228
 msgid "Open Repository on GitHub"
 msgstr "Ouvrir le dépôt sur GitHub"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:234
+#: src/menu-bar.tsx:235
 msgid "Mute Repo Alerts (30m)"
 msgstr "Couper les alertes du dépôt (30 min)"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:258
+#: src/menu-bar.tsx:259
 msgid "ContextBraid Engine Offline"
 msgstr "Moteur ContextBraid hors ligne"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:260
-#: src/menu-bar.tsx:307
+#: src/menu-bar.tsx:261
+#: src/menu-bar.tsx:306
 msgid "Open Project Cockpit"
 msgstr "Ouvrir le cockpit de projets"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:275
+#: src/menu-bar.tsx:276
 msgid "Jump to Next Agent Alert"
 msgstr "Aller à l’alerte agent suivante"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:283
+#: src/menu-bar.tsx:284
 msgid "Active"
 msgstr "Actifs"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:289
+#: src/menu-bar.tsx:290
 msgid "Repositories"
 msgstr "Dépôts"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:294
+#: src/menu-bar.tsx:295
 msgid "Preferences"
 msgstr "Préférences"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:298
+#: src/menu-bar.tsx:299
 msgid "Notifications: Always On"
 msgstr "Notifications : Toujours actives"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:299
+#: src/menu-bar.tsx:300
 msgid "Notifications: Focus-Aware"
 msgstr "Notifications : Selon le focus"
 

@@ -8,78 +8,78 @@ msgstr ""
 "Language: en\n"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:184
+#: src/menu-bar.tsx:185
 msgid "Clean"
 msgstr "Clean"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:205
+#: src/menu-bar.tsx:206
 msgid "Action"
 msgstr "Action"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:207
+#: src/menu-bar.tsx:208
 msgid "Open in Editor"
 msgstr "Open in Editor"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:214
+#: src/menu-bar.tsx:215
 msgid "Open in Terminal"
 msgstr "Open in Terminal"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:221
+#: src/menu-bar.tsx:222
 msgid "Open in Finder"
 msgstr "Open in Finder"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:227
+#: src/menu-bar.tsx:228
 msgid "Open Repository on GitHub"
 msgstr "Open Repository on GitHub"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:234
+#: src/menu-bar.tsx:235
 msgid "Mute Repo Alerts (30m)"
 msgstr "Mute Repo Alerts (30m)"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:258
+#: src/menu-bar.tsx:259
 msgid "ContextBraid Engine Offline"
 msgstr "ContextBraid Engine Offline"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:260
-#: src/menu-bar.tsx:307
+#: src/menu-bar.tsx:261
+#: src/menu-bar.tsx:306
 msgid "Open Project Cockpit"
 msgstr "Open Project Cockpit"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:275
+#: src/menu-bar.tsx:276
 msgid "Jump to Next Agent Alert"
 msgstr "Jump to Next Agent Alert"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:283
+#: src/menu-bar.tsx:284
 msgid "Active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:289
+#: src/menu-bar.tsx:290
 msgid "Repositories"
 msgstr "Repositories"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:294
+#: src/menu-bar.tsx:295
 msgid "Preferences"
 msgstr "Preferences"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:298
+#: src/menu-bar.tsx:299
 msgid "Notifications: Always On"
 msgstr "Notifications: Always On"
 
 #. js-lingui-explicit-id
-#: src/menu-bar.tsx:299
+#: src/menu-bar.tsx:300
 msgid "Notifications: Focus-Aware"
 msgstr "Notifications: Focus-Aware"
 

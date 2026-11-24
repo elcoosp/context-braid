@@ -1,7 +1,7 @@
 {
   "name": "context-braid",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "pnpm -r build",
     "test:browser": "pnpm --filter @context-braid/extension test:browser",
@@ -13,7 +13,10 @@
     "store:sync:chrome": "pnpm --filter @context-braid/extension zip && extship --target chrome",
     "store:sync:edge": "pnpm --filter @context-braid/extension zip && extship --target edge",
     "store:sync:firefox": "pnpm --filter @context-braid/extension zip:firefox && extship --target firefox",
-    "icons:sync": "./scripts/sync-icons.sh"
+    "icons:sync": "./scripts/sync-icons.sh",
+    "sync:locales": "node scripts/sync-locales.mjs && pnpm --filter context-braid-raycast i18n:check",
+    "sync:version": "node scripts/sync-version.mjs",
+    "check:sync": "node scripts/sync-locales.mjs && node scripts/sync-version.mjs --check && pnpm --filter context-braid-raycast i18n:check"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev",
